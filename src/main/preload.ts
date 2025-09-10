@@ -23,5 +23,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   selectDocxFile: () => ipcRenderer.invoke('select-docx-file'),
   // 可选：如果需要主进程读取文件内容
-  readDocxFile: (filePath: string) => ipcRenderer.invoke('read-docx-file', filePath)
+  readDocxFile: (filePath: string) => ipcRenderer.invoke('read-docx-file', filePath),
+
+  APISettings: (url: string, key: string, modelName: string) => ipcRenderer.invoke('set-api', url, key, modelName),
+  getAPISettings: () => ipcRenderer.invoke('get-api-settings', {}),
+  deleteOneAPISetting: (id: number) => ipcRenderer.invoke('delete-one-api-setting', id)
 })

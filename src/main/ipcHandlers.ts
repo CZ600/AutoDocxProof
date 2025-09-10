@@ -1,6 +1,19 @@
 import { ipcMain } from 'electron'
 import { dialog } from 'electron'
-// 进程间通信文档：https://www.electronjs.org/zh/docs/latest/tutorial/ipc
+import { DB } from './database'
+
+interface apiSettings {
+  apiURL: string
+  apiKey: string
+  modelName: string
+}
+
+let api_info: apiSettings = {
+  apiURL: '',
+  apiKey: '',
+  modelName: ''
+}
+
 export const registerIpcHandlers = () => {
   // 单向通信：接收渲染进程的消息
   // 监听消息，通道是message
@@ -54,5 +67,27 @@ export const registerIpcHandlers = () => {
       console.error('文件读取错误:', error)
       throw error
     }
+  })
+
+  ipcMain.handle('set-api', async (event, URL, Key, modelName) => {
+    try {
+      console.log(URL, Key, modelName)
+      api_info.apiKey = Key
+      api_info.apiURL = URL
+      api_info.modelName = modelName
+      return 'success'
+    } catch (error) {
+      return 'error'
+    }
+  })
+  ipcMain.handle('get-api-settings', async event => {
+    return {
+      URL: api_info.apiURL,
+      Key: api_info.apiKey,
+      modelName: api_info.modelName
+    }
+  })
+  ipcMain.handle('delete-one-api', async event => {
+    return 'success'
   })
 }

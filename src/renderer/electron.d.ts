@@ -9,9 +9,17 @@ export default interface ElectronApi {
   test: string
   selectDocxFile: () => string
   readDocxFile: (filePath: string) => {
-    // 修复点
     path: string
     content: string
+  }
+  APISettings: (URL: string, Key: string, modelName: string) => {}
+  getAPISettings: () => {
+    URL: string
+    Key: string
+    modelName: string
+  }
+  deleteOneAPI: (id: string) => {
+    isSuccess: boolean
   }
 }
 

@@ -18,12 +18,17 @@
                 </el-col>
                 <el-col :span="6" style="margin-left: 10px;">
                     <el-form-item label="">
-                        <el-select v-model="form.model" placeholder="选择纠错模式">
+                        <el-select v-model="form.model" placeholder="选择纠错模式" size="medium">
                             <el-option label="错别字" value="wordError" />
                             <el-option label="综合" value="ComprehensiveError" />
                             <el-option label="全文润色" value="polish" />
                         </el-select>
                     </el-form-item>
+                </el-col>
+                <el-col :span="4">
+                    <el-button type="primary" size="large" style="margin-left: 10px;">
+                        开始校正
+                    </el-button>
                 </el-col>
             </el-row>
         </el-header>
@@ -36,6 +41,7 @@
         </el-main>
     </el-container>
 </template>
+
 
 <script setup>
 import { ref, onMounted, watch } from 'vue'
@@ -95,6 +101,7 @@ const selectFileWithMainProcessRead = async () => {
 
         // 调用 Electron API 选择文件
         const filePath = await electronAPI.selectDocxFile()
+        form.filePath.value = filePath
 
         if (!filePath) {
             isLoading.value = false

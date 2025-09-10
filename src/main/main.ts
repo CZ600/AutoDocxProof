@@ -1,6 +1,10 @@
 import { app, BrowserWindow, session } from 'electron' // app是必须引入的，
 import path from 'path'
 import { registerIpcHandlers } from './ipcHandlers'
+// main.js 或主进程中的其他文件
+// main.js 或打包入口
+
+// 动态加载 electron-store
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
