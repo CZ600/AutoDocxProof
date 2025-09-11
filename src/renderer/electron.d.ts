@@ -18,8 +18,22 @@ export default interface ElectronApi {
     Key: string
     modelName: string
   }
-  deleteOneAPI: (id: string) => {
+  deleteOneAPI: (id: number) => {
     isSuccess: boolean
+  }
+  getALLAPISettings: () => {
+    id: number
+    URL: string
+    Key: string
+    modelName: string
+    created_at: string
+  }[]
+  testAPI: (url: string, key: string, modelName: string) => boolean
+  selectAPISetting: (url: string, key: string, modelName: string) => boolean
+  getAPISettings: () => {
+    URL: string
+    Key: string
+    modelName: string
   }
 }
 

@@ -4,6 +4,7 @@ import sqlite3 from 'sqlite3'
 import path from 'path' // 新增导入
 import fs from 'fs'
 import { promises } from 'dns'
+import { b } from 'vite/dist/node/types.d-aGj9QkWt'
 // 定义数据类型（TypeScript 类型安全）
 export interface User {
   id?: number
@@ -54,21 +55,31 @@ export class DB {
     return DB.instance
   }
 
+  // 查询记录的条目数量
+  static async getAPISettingsCount(): Promise<number> {
+    const db = await DB.getInstance()
+    const result = await db.get(`SELECT COUNT(*) as count FROM api_settings`)
+    return result.count
+  }
   /**
    * 插入一条 API 设置记录
    * @param setting apiSettings 对象（不含 id）
    * @returns 新记录的 id
    */
-  static async insetAPISetting(settings: Omit<apiSettings, 'id' | 'created_at'>): // omit 删除 id 和 created_at 字段
-  Promise<number> {
+  static async insertAPISetting(apiURL: string, apiKey: string, modelName: string): Promise<number> {
     const db = await DB.getInstance()
-    const result = await db.run(
-      `INSERT INTO api_settings (apiURL,apiKey,modelName) VALUES (?,?,?))`,
-      settings.apiURL,
-      settings.apiKey,
-      settings.modelName
-    )
-    return result.lastID
+    try {
+      const result = await db.run(
+        `INSERT INTO api_settings (apiURL, apiKey, modelName) VALUES (?, ?, ?)`,
+        apiURL,
+        apiKey,
+        modelName
+      )
+      return result.lastID
+    } catch (error) {
+      console.error('插入 API 设置失败:', error)
+      throw error // 或根据需求返回 -1 / null
+    }
   }
 
   // 根据id查询api记录
@@ -79,15 +90,23 @@ export class DB {
     return result || null
   }
   // 删除指定的数据集
-  static async deleteAPISettingById(id: number): Promise<void> {
+  static async deleteAPISettingById(id: number): Promise<boolean> {
     const db = await DB.getInstance()
-    await db.run(`DELETE FROM api_settings WHERE id = ?`, id)
+    const result = await db.run(`DELETE FROM api_settings WHERE id = ?`, id)
+    return result.changes > 0 // 如果有行被删除，返回 true，否则返回 false
   }
 
   // 删除所有数据集
-  static async deleteALLSettings(): Promise<void> {
+  static async deleteALLSettings(): Promise<boolean> {
     const db = await DB.getInstance()
     await db.run(`DELETE FROM api_settings`)
+    const result = await db.run(`SELECT * FROM api_settings`)
+    const count = await DB.getAPISettingsCount()
+    if (result.changes === count) {
+      return true
+    } else {
+      return false
+    }
   }
 
   /**
@@ -100,6 +119,7 @@ export class DB {
     const rows = await db.all<apiSettings[]>(
       `SELECT id, apiURL, apiKey, modelName, created_at FROM api_settings ORDER BY created_at DESC`
     )
+    console.log('the result of the search of all ', rows)
     return rows
   }
 }

@@ -133,3 +133,25 @@ export async function OpenaiGen(
     }
   }
 }
+
+// 帮我写一个简单的函数来测试api的可用性，传入参数包括apiURL和apiKey，发送一句你好，如果正常回答则返回true，否则返回false
+export async function testAPI(apiURL: string, apiKey: string, modelName: string): Promise<boolean> {
+  try {
+    const openai = new OpenAI({
+      apiKey: apiKey,
+      baseURL: apiURL
+    })
+
+    const chatCompletion = await openai.chat.completions.create({
+      model: modelName,
+      messages: [{ role: 'user', content: '你好' }]
+    })
+
+    console.log('the result of connet test:', chatCompletion.choices[0].message.content)
+
+    return true
+  } catch (error) {
+    console.error('An error occurred while calling the Gemini API:', error)
+    return false
+  }
+}

@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { dialog } from 'electron'
 import { DB } from './database'
+import { testAPI } from './chat'
 
 interface apiSettings {
   apiURL: string
@@ -71,23 +72,62 @@ export const registerIpcHandlers = () => {
 
   ipcMain.handle('set-api', async (event, URL, Key, modelName) => {
     try {
-      console.log(URL, Key, modelName)
+      console.log('add a new api setting:', URL, Key, modelName)
       api_info.apiKey = Key
       api_info.apiURL = URL
       api_info.modelName = modelName
-      return 'success'
+      const result = await DB.insertAPISetting(URL, Key, modelName)
+      console.log('the result of the new api setting adding:', result)
+      if (result) {
+        return 'success'
+      } else {
+        return 'error'
+      }
     } catch (error) {
       return 'error'
     }
   })
+  // 获取所有api设置
+  ipcMain.handle('get-all-api-settings', async event => {
+    return await DB.getAllAPISettings()
+  })
+
+  ipcMain.handle('delete-one-api-setting', async (event, id) => {
+    const result = await DB.deleteAPISettingById(id)
+    if (result) {
+      return {
+        isSuccess: true
+      }
+    } else {
+      return {
+        isSuccess: false
+      }
+    }
+  })
+
+  ipcMain.handle('test-api', async (event, URL, Key, modelName) => {
+    if (!URL || !Key || !modelName) {
+      console.log('Please input all the parameters!')
+      return false
+    } else {
+      console.log('Testing API:', URL, Key, modelName)
+    }
+    const result = await testAPI(URL, Key, modelName)
+    return result
+  })
+
+  ipcMain.handle('selectAPISetting', async (event, id, URL, Key, modelName) => {
+    api_info.apiKey = Key
+    api_info.apiURL = URL
+    api_info.modelName = modelName
+    return true
+  })
+
   ipcMain.handle('get-api-settings', async event => {
     return {
       URL: api_info.apiURL,
       Key: api_info.apiKey,
       modelName: api_info.modelName
     }
-  })
-  ipcMain.handle('delete-one-api', async event => {
-    return 'success'
   })
 }
