@@ -171,7 +171,7 @@ watch(
         }
         const res = electronAPI.selectAPISetting(selectform.value.URL, selectform.value.key, selectform.value.name)
         if (res) {
-            console.log('已经更新api设置的选择');
+            console.log('已经更新api设置的选择:', res, selectform.value.name, selectform.value.URL, selectform.value.key);
         } else {
             console.log('更新api设置的选择失败');
         }

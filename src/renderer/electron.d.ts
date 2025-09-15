@@ -3,6 +3,8 @@
  * 你需要告诉 TypeScript,windows 类型中心增加的属性和接口情况
  * 防止运行时错误
  */
+import { proofreadLargeDocument, ProofreadingCorrection } from './proof'
+
 export default interface ElectronApi {
   message: (file: string) => void
   receiveAndReturn: (characters: string) => string
@@ -35,6 +37,8 @@ export default interface ElectronApi {
     Key: string
     modelName: string
   }
+  processDocx: (model: string, filePath: string) => Promise<ProofreadingCorrection[]>
+  exportCorrectedDocx: (config: any) => boolean
 }
 
 declare global {

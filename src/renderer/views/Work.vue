@@ -1,7 +1,7 @@
 <template>
     <el-layout style="height: calc(100vh - 80px);">
         <el-row>
-            <el-col :span="6">
+            <el-col :span="3">
                 <!-- 左侧侧边栏 -->
                 <el-aside width="100%" class="sidebar-container">
                     <!-- 上传文件按钮 -->

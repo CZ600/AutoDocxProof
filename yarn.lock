@@ -2394,10 +2394,10 @@ docx@^9.5.1:
     xml "^1.0.1"
     xml-js "^1.6.8"
 
-docxtemplater@^3.66.2:
-  version "3.66.2"
-  resolved "https://registry.npmmirror.com/docxtemplater/-/docxtemplater-3.66.2.tgz"
-  integrity sha512-H7cnE+CYUcy6lXbB+6buTaPFhZin9aiSPy6O7YrjGCrt+7ZT8Zax5OZsENDGyd47GcFmCuB6Ecvgj+GtIiwAXQ==
+docxtemplater@^3.66.3:
+  version "3.66.3"
+  resolved "https://registry.npmmirror.com/docxtemplater/-/docxtemplater-3.66.3.tgz"
+  integrity sha512-fTBNyqa+dEAQ6enQmvXnR1wSyedbCn5zbQ6OuIGyGfYcMiwc0xVgRC3JoFjr39Na3/zvxcacqoN2VOTU6I29DQ==
   dependencies:
     "@xmldom/xmldom" "^0.9.8"
 
@@ -3056,6 +3056,11 @@ file-entry-cache@^6.0.1:
   integrity sha512-7Gps/XWymbLk2QLYK4NzpMOrYjMhdIxXuIvy2QBsLE6ljuodKvdkWs/cpyJJ3CVIVpH0Oi1Hvg1ovbMzLdFBBg==
   dependencies:
     flat-cache "^3.0.4"
+
+file-saver@^2.0.5:
+  version "2.0.5"
+  resolved "https://registry.npmmirror.com/file-saver/-/file-saver-2.0.5.tgz"
+  integrity sha512-P9bmyZ3h/PRG+Nzga+rbdI4OEpNDzAVyy74uVO9ATgzLK6VtAsYybF/+TOCvrc0MO793d6+42lLyZTw7/ArVzA==
 
 file-uri-to-path@1.0.0:
   version "1.0.0"
