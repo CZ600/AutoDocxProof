@@ -1,4 +1,4 @@
-# FontMini-App 智能文档校对应用
+# AutoDocxProof 智能文档校对应用
 
 <p align="center">
   <img src="src/renderer/assets/logo.png" alt="Logo" width="120" />
@@ -8,21 +8,9 @@
   一款基于 Electron、Vue 3 和 TypeScript 构建的智能文档校对桌面应用程序
 </p>
 
-<p align="center">
-  <a href="https://github.com/night-peiqi/fontmini-app/issues">
-    <img src="https://img.shields.io/github/issues/night-peiqi/fontmini-app" alt="GitHub Issues">
-  </a>
-  <a href="https://github.com/night-peiqi/fontmini-app/stargazers">
-    <img src="https://img.shields.io/github/stars/night-peiqi/fontmini-app" alt="GitHub Stars">
-  </a>
-  <a href="https://github.com/night-peiqi/fontmini-app/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/night-peiqi/fontmini-app" alt="GitHub License">
-  </a>
-</p>
-
 ## 📝 项目简介
 
-FontMini-App（智能校对）是一款专为中文文档校对而设计的桌面应用程序。它能够帮助用户快速检测 Word 文档中的错别字、标点符号错误、语法问题和文本一致性问题，并提供修改建议。应用采用现代化的技术栈构建，具有直观的用户界面和强大的校对功能。
+AutoDocxProof（智能校对）是一款专为中文文档校对而设计的桌面应用程序。它能够帮助用户快速检测 Word 文档中的错别字、标点符号错误、语法问题和文本一致性问题，并提供修改建议。应用采用现代化的技术栈构建，具有直观的用户界面和强大的校对功能。
 
 ### 核心功能
 
@@ -84,8 +72,6 @@ npm run start
 ```bash
 npm run package
 ```
-
-构建产物位于 `out/fontmini-app-[平台]-[架构]` 目录中。
 
 ### 制作安装包
 
