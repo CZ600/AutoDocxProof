@@ -1,59 +1,170 @@
-# Electron-vue3-typescript-template 
+# FontMini-App 智能文档校对应用
 
-这是一个开箱即用的 electron 基础模板，模版中集成了 vite、vue3和typescript，使用 electron 官方推荐的打包工具 electron-forge 进行应用的打包，同时集成了 prettier + eslint做代码风格检查
+<p align="center">
+  <img src="src/renderer/assets/logo.png" alt="Logo" width="120" />
+</p>
 
+<p align="center">
+  一款基于 Electron、Vue 3 和 TypeScript 构建的智能文档校对桌面应用程序
+</p>
 
+<p align="center">
+  <a href="https://github.com/night-peiqi/fontmini-app/issues">
+    <img src="https://img.shields.io/github/issues/night-peiqi/fontmini-app" alt="GitHub Issues">
+  </a>
+  <a href="https://github.com/night-peiqi/fontmini-app/stargazers">
+    <img src="https://img.shields.io/github/stars/night-peiqi/fontmini-app" alt="GitHub Stars">
+  </a>
+  <a href="https://github.com/night-peiqi/fontmini-app/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/night-peiqi/fontmini-app" alt="GitHub License">
+  </a>
+</p>
 
-## Develop
+## 📝 项目简介
+
+FontMini-App（智能校对）是一款专为中文文档校对而设计的桌面应用程序。它能够帮助用户快速检测 Word 文档中的错别字、标点符号错误、语法问题和文本一致性问题，并提供修改建议。应用采用现代化的技术栈构建，具有直观的用户界面和强大的校对功能。
+
+### 核心功能
+
+- **多种校对模式**：
+
+  - 逐句精校：适合需要高精度校对的短文本
+  - 逐段校正：适合长篇文献的校对
+  - 全文润色：对整篇文档进行语言润色和优化
+
+- **智能错误识别**：
+
+  - 错别字检测
+  - 标点符号错误识别
+  - 语法问题检测
+  - 文本一致性检查
+
+- **友好的用户界面**：
+
+  - 实时文档预览
+  - 清晰的错误展示和修改建议
+  - 一键应用修改建议
+
+- **API 配置管理**：
+  - 支持多种大语言模型 API
+  - 灵活的 API 配置管理
+  - API 可用性测试
+
+## 🛠 技术栈
+
+- **主框架**：[Electron](https://www.electronjs.org/) + [Vue 3](https://vuejs.org/) + [TypeScript](https://www.typescriptlang.org/)
+- **UI 组件库**：[Element Plus](https://element-plus.org/)
+- **构建工具**：[Vite](https://vitejs.dev/) + [Electron Forge](https://www.electronforge.io/)
+- **文档处理**：[Mammoth](https://github.com/mwilliamson/mammoth.js) + [Docxtemplater](https://github.com/open-xml-templating/docxtemplater)
+- **数据库**：[SQLite](https://www.sqlite.org/)
+- **代码规范**：[ESLint](https://eslint.org/) + [Prettier](https://prettier.io/)
+- **版本管理**：[Standard Version](https://github.com/conventional-changelog/standard-version)
+
+## 🚀 快速开始
+
+### 环境要求
+
+- Node.js >= 16.x
+- npm 或 yarn
+
+### 安装依赖
 
 ```bash
-# 拉取代码仓
-git clone git@github.com:night-peiqi/fontmini-app.git
-
-# 安装依赖
 npm install
+```
 
-# 本地运行
+### 开发模式运行
+
+```bash
 npm run start
+```
 
-# 应用打包，会打包项目且生成可执行文件.exe
+### 构建可执行文件（无需安装）
+
+```bash
 npm run package
+```
 
-# 制作安装包
+构建产物位于 `out/fontmini-app-[平台]-[架构]` 目录中。
+
+### 制作安装包
+
+```bash
 npm run make
 ```
 
-## git-cz
+根据不同操作系统生成相应的安装包，位于 `out/make` 目录中：
 
-```bash
-# 使用git-cz提交代码
-yarn commit
+- Windows: `.exe` 或 `.msi` 安装包
+- macOS: `.dmg` 或 `.pkg` 安装包
+- Linux: `.deb` 或 `.rpm` 安装包
 
-yarn push
+## 📦 项目结构
+
+```
+.
+├── src/
+│   ├── main/              # 主进程代码
+│   │   ├── chat.ts        # AI 对话相关功能
+│   │   ├── database.ts    # 数据库操作
+│   │   ├── ipcHandlers.ts # IPC 通信处理
+│   │   ├── main.ts        # 主进程入口
+│   │   ├── preload.ts     # 预加载脚本
+│   │   ├── proof.ts       # 文档校对核心逻辑
+│   │   └── wordProcess.ts # Word 文档处理
+│   └── renderer/          # 渲染进程代码
+│       ├── router/        # 路由配置
+│       ├── views/         # 页面组件
+│       ├── App.vue        # 根组件
+│       └── renderer.ts    # 渲染进程入口
+├── assets/                # 静态资源
+├── out/                   # 构建输出目录
+└── forge.config.ts        # Electron Forge 配置
 ```
 
-## Pack
+## 🎯 使用指南
 
-打包应用
+### 1. 配置 API
+
+首次使用需要配置支持的大语言模型 API：
+
+1. 点击导航栏中的"工作区"
+2. 选择"API 设置"选项卡
+3. 填写 API 地址、密钥和模型名称
+4. 点击"测试连接"验证配置
+5. 点击"保存配置"保存设置
+
+### 2. 文档校对
+
+1. 点击导航栏中的"工作区"
+2. 选择"文档校对"选项卡
+3. 点击"选择 DOCX 文件"按钮选择要校对的 Word 文档
+4. 选择合适的校对模式：
+   - **逐句精校**：适合需要高精度校对的短文本
+   - **逐段校正**：适合长篇文献的校对
+   - **全文润色**：对整篇文档进行语言润色和优化
+5. 点击"开始校正"按钮开始校对过程
+6. 在右侧栏查看校对结果和修改建议
+7. 点击"应用修改"按钮接受建议的修改
+8. 点击"导出结果"按钮保存修改后的文档
+
+## 📖 开发指南
+
+### 代码提交规范
+
+项目使用 [Commitizen](https://github.com/commitizen/cz-cli) 和 [Commitlint](https://commitlint.js.org/) 规范提交信息：
 
 ```bash
-# 首先，创建tag、更新版本号同时生成changelog，三选一，执行下面其中一条命令都会 自动更新版本号、创建tag以及生成changelog
-# major 大版本更新
-yarn release-major
-
-# minor 较小版本更新
-yarn release-minor
-
-# patch 更新补丁
-yarn release-patch
-
-# 把tag推到远程
-git push --follow-tags origin master
-
-# 打包
-# 1. 打包；有两种打包方式，二选一即可
-# 1.1. package 将应用打包为一个目录，包含一个可执行文件，无需安装可直接运行
-yarn package
-# 1.2. make 生成一个分发包，用来安装应用
-yarn make
+npm run commit
 ```
+
+### 代码格式化
+
+项目使用 ESLint 和 Prettier 保证代码风格统一：
+
+```bash
+# 检查并自动修复代码格式问题
+npm run lint:fix
+```
+
+<p align="center">Made with ❤️ by night-peiqi</p>
