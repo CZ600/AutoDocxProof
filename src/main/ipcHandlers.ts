@@ -5,6 +5,7 @@ import { testAPI } from './chat'
 import { proofreadDocument } from './proof'
 import { Mode } from '@google/genai'
 import * as mammoth from 'mammoth'
+import { replaceTextInDocx } from './wordProcess'
 interface apiSettings {
   apiURL: string
   apiKey: string
@@ -31,7 +32,7 @@ export const registerIpcHandlers = () => {
     // 想返回什么都可以
     const ret = {
       rawData: message,
-      newData: `neight-peiqi：${message}`
+      newData: `neight-peiqi${message}`
     }
     return ret
   })
@@ -67,7 +68,7 @@ export const registerIpcHandlers = () => {
         content: data.toString('base64')
       }
     } catch (error) {
-      console.error('文件读取错误:', error)
+      console.error('cannot read file:', error)
       throw error
     }
   })
@@ -144,6 +145,13 @@ export const registerIpcHandlers = () => {
         message: 'Please select a model and a file!'
       }
     }
+
+    if (!api_info.apiKey || !api_info.apiURL || !api_info.modelName) {
+      return {
+        isSuccess: false,
+        message: 'Please select an API setting!'
+      }
+    }
     if (Model === 'wordError') {
       console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
       const res = await proofreadDocument(filePath, 'sentence', api_info.apiKey, api_info.modelName, api_info.apiURL)
@@ -158,6 +166,14 @@ export const registerIpcHandlers = () => {
       return res
     }
   })
+  
+  // 新增的返回值形式
+  interface ResponseData<T = any> {
+    success: boolean
+    message: string
+    data?: T
+  }
+
   interface Correction {
     original: string
     suggested: string
@@ -166,39 +182,17 @@ export const registerIpcHandlers = () => {
   // 导出修正后的DOCX文件
   ipcMain.handle('exportCorrectedDocx', async (event, config) => {
     try {
-      // 1. 弹出保存对话框
-      const { filePath } = await dialog.showSaveDialog({
-        title: '导出修正后的文档',
-        defaultPath: config.fileName.replace(/\.docx?$/, '_corrected.docx'),
-        filters: [{ name: 'DOCX Files', extensions: ['docx'] }]
-      })
+      const filePath = config.originalFilePath
+      const newPath = filePath.replace(/(\.\w+)$/, '_new$1') // 正则捕获“最后一个点+扩展名”
+      const correctedText = config.appliedCorrections.map((correction: Correction) => ({
+        origin: correction.original,
+        suggested: correction.suggested
+      }))
 
-      if (!filePath) return false // 用户取消
-
-      // 2. 读取原始文档
-      const originalBuffer = fs.readFileSync(config.originalFilePath)
-
-      // 3. 使用mammoth提取原始文本
-      const { value: originalText } = await mammoth.extractRawText({ buffer: originalBuffer })
-
-      // 4. 应用校对修改
-      let correctedText = originalText
-      config.appliedCorrections.forEach((correction: Correction) => {
-        // 替换第一个匹配项（考虑空格敏感问题）
-        const regex = new RegExp(correction.original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
-        correctedText = correctedText.replace(regex, correction.suggested)
-      })
-
-      // 5. 生成新的DOCX文件（简化版，实际需要更复杂的DOCX操作）
-      // 这里需要使用docx库生成真正的DOCX文件
-      // 以下为简化示例，实际项目应使用docx库
-
-      // 6. 保存文件
-      fs.writeFileSync(filePath, correctedText) // 注意：这里需要生成真正的DOCX
-
+      await replaceTextInDocx(filePath, newPath, correctedText)
       return true
     } catch (error) {
-      console.error('导出错误:', error)
+      console.error('output error:', error)
       throw error
     }
   })

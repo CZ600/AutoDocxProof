@@ -49,7 +49,9 @@
             <!-- 校对结果侧栏 -->
             <el-aside class="proofreading-sidebar" width="30%"
                 style="border-left: 1px solid #ebeef5; background: #f8f9fa; overflow-y: auto;">
-
+                <el-button type="default" @click="applyALLCorrection()">
+                    应用全部修改
+                </el-button>
                 <div class="results-container" v-if="proofreadingResults.length > 0">
                     <el-collapse v-model="activeNames">
                         <el-collapse-item v-for="(item, index) in proofreadingResults" :key="index" :name="index"
@@ -62,6 +64,7 @@
                                     <span class="correction-count">{{ index + 1 }}/{{
                                         proofreadingResults.length }}</span>
                                 </div>
+
                             </template>
 
                             <div class="correction-content">
@@ -249,6 +252,13 @@ const highlightCorrections = () => {
     });
 };
 
+const createWhitespaceInsensitiveMatcher = (searchText) => {
+    const escapedText = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = escapedText.replace(/\s+/g, '\\s+');
+    return new RegExp(pattern, 'g');
+};
+
+
 // 应用单个校对建议
 const applyCorrection = (index) => {
     console.log("replace index:", "index")
@@ -287,6 +297,39 @@ const applyCorrection = (index) => {
     });
 };
 
+// 应用所有校对建议
+const applyALLCorrection = () => {
+    console.log("will apply all")
+
+    // 获取预览容器内容
+    const container = previewContainer.value;
+    if (!container) return;
+
+    let content = container.innerHTML;
+
+    // 遍历所有校对结果并应用修改
+    proofreadingResults.value.forEach((item, index) => {
+        const regex = createWhitespaceInsensitiveMatcher(item.original.trim());
+        console.log("regex:", regex)
+
+        // 替换第一个匹配项
+        content = content.replace(regex, item.suggested);
+
+        // 更新校对状态（标记为已应用）
+        proofreadingResults.value[index].applied = true;
+    });
+
+    // 更新预览内容
+    container.innerHTML = content;
+
+    // 显示成功提示
+    ElMessage({
+        message: '已应用全部修改',
+        type: 'success',
+        duration: 1500
+    });
+};
+
 // 提交校对请求
 const onSubmit = async () => {
     if (!form.value.filePath) {
@@ -305,6 +348,14 @@ const onSubmit = async () => {
         proofreadingResults.value = [];
 
         const results = await electronAPI.processDocx(form.value.model, form.value.filePath);
+        if (results.message === "Please select an API setting!") {
+            ElMessage({
+                message: '请先设置API密钥',
+                type: 'error',
+                duration: 1500
+            });
+
+        }
         proofreadingResults.value = results.map((item, index) => ({
             ...item,
             id: `correction-${index}`,
@@ -406,15 +457,22 @@ const exportToDocx = async () => {
         const container = previewContainer.value;
         if (!container) throw new Error('预览内容为空');
 
-        // 创建导出配置
+        // 创建导出配置，只传递可序列化的数据
         const exportConfig = {
             originalFilePath: form.value.filePath,
             fileName: fileName.value,
-            appliedCorrections: proofreadingResults.value.filter(item => item.applied)
+            appliedCorrections: proofreadingResults.value
+                .filter(item => item.applied)
+                .map(item => ({
+                    original: item.original,
+                    suggested: item.suggested,
+                    applied: item.applied
+                }))
         };
 
         // 调用 Electron API 导出
         const success = await electronAPI.exportCorrectedDocx(exportConfig);
+        console.log("success:", success)
 
         if (success) {
             ElMessage({

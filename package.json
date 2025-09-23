@@ -63,6 +63,7 @@
     "docxtemplater": "^3.66.3",
     "electron-squirrel-startup": "^1.0.0",
     "element-plus": "^2.11.1",
+    "fast-xml-parser": "^5.2.5",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
     "mammoth": "^1.10.0",

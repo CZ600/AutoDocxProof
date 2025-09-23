@@ -39,6 +39,8 @@ app.whenReady().then(() => {
   // 当应用准备好之后，回调函数
   console.log('app is ready')
   console.log('then will create a window')
+
+  console.log('中文测试')
   createWindow()
 
   // 设置 Content-Security-Policy（CSP），跨站脚本攻击 (XSS) 和其他代码注入攻击

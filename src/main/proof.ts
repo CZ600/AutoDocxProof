@@ -156,7 +156,7 @@ async function proofreadSection(
 请校对用户提供的当前章节的文本，找出其中的错别字、标点错误和语法问题，并按照以下JSON格式返回：
 [
   {
-    "original": "原文错误内容（截取的原文内容尽量简短，不超过15字）",
+    "original": "原文错误内容（只截取原文错误的词组，不要多写，不超过15字！）",
     "suggested": "建议修改内容（基于原文的修改后的内容）",
     "reason": "错误原因的简短说明",
     "type": "错误类型(Typo/Punctuation/Grammar/Consistency)"
@@ -200,7 +200,7 @@ async function proofreadSectionBySentence(
 请校对用户提供的文本，找出其中的错别字、标点错误和语法问题，并按照以下JSON格式返回：
 [
   {
-    "original": "原文错误内容（截取的原文内容尽量简短，不超过15字）",
+    "original": "原文错误内容（只截取原文错误的词组，不要多写，不超过15字！）",
     "suggested": "建议修改内容（基于原文的修改后的内容）",
     "reason": "错误原因的简短说明",
     "type": "错误类型(Typo/Punctuation/Grammar/Consistency)"
@@ -242,7 +242,7 @@ async function proofreadEntireDocument(
 请校对用户提供的文本，找出其中的错别字、标点错误和语法问题，并按照以下JSON格式返回：
 [
   {
-    "original": "原文错误内容（截取的原文内容尽量简短，不超过15字）",
+   "original": "原文错误内容（只截取原文错误的词组，不要多写，不超过15字！）",
     "suggested": "建议修改内容（基于原文的修改后的内容）",
     "reason": "错误原因的简短说明",
     "type": "错误类型(Typo/Punctuation/Grammar/Consistency)"

@@ -33,5 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('selectAPISetting', url, key, modelName),
   getAPISettings: () => ipcRenderer.invoke('get-api-settings', {}),
   processDocx: (model: string, filePath: string) => ipcRenderer.invoke('process-docx', model, filePath),
+
+  // 导出修正到文件中
   exportCorrectedDocx: (config: any) => ipcRenderer.invoke('exportCorrectedDocx', config)
 })
