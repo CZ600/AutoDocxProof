@@ -38,6 +38,11 @@ AutoDocxProof（智能校对）是一款专为中文文档校对而设计的桌�
   - 灵活的 API 配置管理
   - API 可用性测试
 
+### 使用展示
+
+在选择需要校对的文档后，再选择校对模式，然后开始校对，软件会将将对的结果显示在右边栏，并在文本中高亮展示，以方便查看。然后可以选择是否接受这些修改，可以导出接受修改后的文档
+![alt text](image.png)
+
 ## 🛠 技术栈
 
 - **主框架**：[Electron](https://www.electronjs.org/) + [Vue 3](https://vuejs.org/) + [TypeScript](https://www.typescriptlang.org/)
