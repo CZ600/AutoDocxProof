@@ -1,4 +1,7 @@
 <template>
+    <p>look the history of proof</p>
+
+
 
 </template>
 

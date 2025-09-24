@@ -20,6 +20,9 @@
                             <el-menu-item index="/work/set">
                                 <span>校正参数</span>
                             </el-menu-item>
+                            <el-menu-item index="/work/history">
+                                <span>校正历史</span>
+                            </el-menu-item>
                         </el-sub-menu>
 
                         <!-- API设置 -->
@@ -30,10 +33,7 @@
                             <el-menu-item index="/work/api">
                                 <span>API配置</span>
                             </el-menu-item>
-                            <el-menu-item index="/api/auth">
-                                <span>认证管理</span>
-                            </el-menu-item>
-                            <el-menu-item index="/api/logs">
+                            <el-menu-item index="/work/logs">
                                 <span>日志查看</span>
                             </el-menu-item>
                         </el-sub-menu>

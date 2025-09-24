@@ -214,4 +214,32 @@ export const registerIpcHandlers = () => {
       throw new Error('Please input a prompt!')
     }
   })
+  // 获取全部的历史记录
+  ipcMain.handle('getAllHistory', async event => {
+    const result = await DB.getALLHistory()
+    if (result) {
+      return result
+    } else {
+      throw new Error('No history found!')
+    }
+  })
+  // 删除全部的历史记录
+  ipcMain.handle('deleteAllHistory', async event => {
+    const result = await DB.deleteALLHistory()
+    if (result) {
+      return true
+    } else {
+      throw new Error('delete history failed!')
+    }
+  })
+  ipcMain.handle('getHistoryById', async (event, id) => {
+    if (id) {
+      const result = await DB.getHistoryById(id)
+      if (result) {
+        return result
+      } else {
+        throw new Error('No history found by id: ${id}')
+      }
+    }
+  })
 }

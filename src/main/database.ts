@@ -21,6 +21,15 @@ export interface apiSettings {
   created_at?: string
 }
 
+export interface proofHistory {
+  id?: number
+  filePath: string
+  apiURL: string
+  modelName: string
+  created_at?: string
+  result: string
+}
+// 该类实现了对api数据和历史记录的数据库的管理操作
 export class DB {
   private static instance: Database
   // 使用系统标准路径
@@ -42,6 +51,7 @@ export class DB {
       })
 
       // 初始化表结构
+      // 创建存储API设置的表
       await DB.instance.exec(`
         CREATE TABLE IF NOT EXISTS api_settings (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,6 +61,19 @@ export class DB {
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `)
+      // 创建存储校对历史的表
+      await DB.instance.exec(
+        `
+        CREATE TABLE IF NOT EXISTS proof_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          filePath TEXT NOT NULL,
+          apiURL TEXT NOT NULL,
+          modelName TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          result TEXT NOT NULL
+        )
+        `
+      )
     }
     return DB.instance
   }
@@ -59,6 +82,12 @@ export class DB {
   static async getAPISettingsCount(): Promise<number> {
     const db = await DB.getInstance()
     const result = await db.get(`SELECT COUNT(*) as count FROM api_settings`)
+    return result.count
+  }
+
+  static async getHistoryCount(): Promise<number> {
+    const db = await DB.getInstance()
+    const result = await db.get(`SELECT COUNT(*) as count FROM proof_history`)
     return result.count
   }
   /**
@@ -82,6 +111,21 @@ export class DB {
     }
   }
 
+  static async insertOneHistory(filePath: string, apiURL: string, modelName: string, result: string): Promise<number> {
+    const db = await DB.getInstance()
+    if (!filePath || !apiURL || !modelName || !result) {
+      console.error('Invalid parameters')
+      return -1
+    }
+    try {
+      const result = await db.run(`INSERT INTO proof_history (filePath, apiURL, modelName, result) VALUES (?, ?, ?, ?)`)
+      return result.lastID
+    } catch (error) {
+      console.error('插入校对记录失败:', error)
+      throw error
+    }
+  }
+
   // 根据id查询api记录
 
   static async getAPISettingById(id: number): Promise<apiSettings | null> {
@@ -89,10 +133,23 @@ export class DB {
     const result = await db.get(`SELECT * FROM api_settings WHERE id = ?`, id)
     return result || null
   }
+
+  static async getHistoryById(id: number): Promise<proofHistory | null> {
+    const db = await DB.getInstance()
+    const result = await db.get(`SELECT * FROM proof_history WHERE id = ?`, id)
+    return result || null
+  }
+
   // 删除指定的数据集
   static async deleteAPISettingById(id: number): Promise<boolean> {
     const db = await DB.getInstance()
     const result = await db.run(`DELETE FROM api_settings WHERE id = ?`, id)
+    return result.changes > 0 // 如果有行被删除，返回 true，否则返回 false
+  }
+
+  static async deleteHistoryById(id: number): Promise<boolean> {
+    const db = await DB.getInstance()
+    const result = await db.run(`DELETE FROM proof_history WHERE id = ?`, id)
     return result.changes > 0 // 如果有行被删除，返回 true，否则返回 false
   }
 
@@ -109,6 +166,18 @@ export class DB {
     }
   }
 
+  static async deleteALLHistory(): Promise<boolean> {
+    const db = await DB.getInstance()
+    await db.run(`DELETE FROM proof_history`)
+    const result = await db.run(`SELECT * FROM proof_history`)
+    const count = await DB.getHistoryCount()
+    if (result.changes === count) {
+      return true
+    } else {
+      return false
+    }
+  }
+
   /**
    * 查询所有 API 设置记录
    * @returns apiSettings 数组
@@ -118,6 +187,16 @@ export class DB {
     const db = await DB.getInstance()
     const rows = await db.all<apiSettings[]>(
       `SELECT id, apiURL, apiKey, modelName, created_at FROM api_settings ORDER BY created_at DESC`
+    )
+    console.log('the result of the search of all ', rows)
+    return rows
+  }
+
+  static async getALLHistory(): Promise<proofHistory[]> {
+    // 获取所有校对记录
+    const db = await DB.getInstance()
+    const rows = await db.all<proofHistory[]>(
+      `SELECT id, filePath, apiURL, modelName, created_at, result FROM proof_history ORDER BY created_at DESC`
     )
     console.log('the result of the search of all ', rows)
     return rows
