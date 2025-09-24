@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import { get } from 'http'
 import test from 'node:test'
+import { setNewPrompt } from './proof'
 
 console.log('this message from the preload')
 
@@ -35,5 +37,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   processDocx: (model: string, filePath: string) => ipcRenderer.invoke('process-docx', model, filePath),
 
   // 导出修正到文件中
-  exportCorrectedDocx: (config: any) => ipcRenderer.invoke('exportCorrectedDocx', config)
+  exportCorrectedDocx: (config: any) => ipcRenderer.invoke('exportCorrectedDocx', config),
+  // 获取默认的提示词
+  getDefaultPrompt: () => ipcRenderer.invoke('getDefaultPrompt'),
+  setNewPrompt: (prompt: string) => ipcRenderer.invoke('setPrompt', prompt)
 })

@@ -2,7 +2,7 @@ import { ipcMain } from 'electron'
 import { dialog } from 'electron'
 import { DB } from './database'
 import { testAPI } from './chat'
-import { proofreadDocument } from './proof'
+import { proofreadDocument, getDefaultPrompt, setNewPrompt } from './proof'
 import { Mode } from '@google/genai'
 import * as mammoth from 'mammoth'
 import { replaceTextInDocx } from './wordProcess'
@@ -166,7 +166,7 @@ export const registerIpcHandlers = () => {
       return res
     }
   })
-  
+
   // 新增的返回值形式
   interface ResponseData<T = any> {
     success: boolean
@@ -194,6 +194,24 @@ export const registerIpcHandlers = () => {
     } catch (error) {
       console.error('output error:', error)
       throw error
+    }
+  })
+
+  ipcMain.handle('getDefaultPrompt', async event => {
+    const prompt = await getDefaultPrompt()
+    return prompt
+  })
+
+  ipcMain.handle('setPrompt', async (event, newPrompt) => {
+    if (newPrompt) {
+      const result = await setNewPrompt(newPrompt)
+      if (result) {
+        return true
+      } else {
+        return false
+      }
+    } else {
+      throw new Error('Please input a prompt!')
     }
   })
 }

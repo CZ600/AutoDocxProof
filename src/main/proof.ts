@@ -2,6 +2,7 @@ import * as fs from 'fs'
 import * as mammoth from 'mammoth'
 import { OpenaiGen } from './chat'
 import { url } from 'inspector'
+import { deflate } from 'zlib'
 
 interface ProofreadingCorrection {
   original: string
@@ -19,6 +20,34 @@ interface DocumentSection {
 interface DocumentStructure {
   title: string
   sections: DocumentSection[]
+}
+
+let defaultPrompt = `
+你是一个专业的中文文本校对专家。请仔细检查文本中的错别字、标点错误和语法问题。
+要求：
+1. 只校对错别字、标点错误、语法错误
+2. 保持原文意思不变
+3. 不要进行风格改写或内容扩展
+4. 按照指定的JSON格式返回结果
+请校对用户提供的当前章节的文本，找出其中的错别字、标点错误和语法问题，并按照以下JSON格式返回：
+[
+  {
+    "original": "原文错误内容（只截取原文错误的词组，不要多写，不超过15字！）",
+    "suggested": "建议修改内容（基于原文的修改后的内容）",
+    "reason": "错误原因的简短说明",
+    "type": "错误类型(Typo/Punctuation/Grammar/Consistency)"
+  }
+]
+如果没有任何错误，请返回空数组[]。只返回JSON数组，不要添加其他说明文字。
+`
+
+export async function getDefaultPrompt(): Promise<string> {
+  return defaultPrompt
+}
+
+export async function setNewPrompt(newPrompt: string): Promise<boolean> {
+  defaultPrompt = newPrompt
+  return true
 }
 
 // 工具函数：切分句子
@@ -144,27 +173,12 @@ async function proofreadSection(
   modelName: string,
   apiURL: string
 ): Promise<ProofreadingCorrection[]> {
-  const systemPrompt = `你是一个专业的中文文本校对专家。请仔细检查文本中的错别字、标点错误和语法问题。
-要求：
-1. 只校对错别字、标点错误、语法错误
-2. 保持原文意思不变
-3. 不要进行风格改写或内容扩展
-4. 按照指定的JSON格式返回结果
-文档标题: ${documentTitle}
+  const systemPrompt =
+    defaultPrompt +
+    `
+  文档标题: ${documentTitle}
 文档主题: ${documentTheme}
-当前章节标题: ${section.title}
-请校对用户提供的当前章节的文本，找出其中的错别字、标点错误和语法问题，并按照以下JSON格式返回：
-[
-  {
-    "original": "原文错误内容（只截取原文错误的词组，不要多写，不超过15字！）",
-    "suggested": "建议修改内容（基于原文的修改后的内容）",
-    "reason": "错误原因的简短说明",
-    "type": "错误类型(Typo/Punctuation/Grammar/Consistency)"
-  }
-]
-
-如果没有任何错误，请返回空数组[]。只返回JSON数组，不要添加其他说明文字。
-`
+当前章节标题: ${section.title}`
 
   const userPrompt = `当前章节内容: ${section.content}`
 
@@ -189,24 +203,13 @@ async function proofreadSectionBySentence(
   const sentences = await splitSentences(section.content)
   const allCorrections: ProofreadingCorrection[] = []
 
-  const systemPrompt = `你是一个专业的中文文本校对专家。请仔细检查文本中的错别字、标点错误和语法问题。
-要求：
-1. 只校对错别字、标点错误、语法错误
-2. 保持原文，不改写风格和内容
-3. 按照指定的JSON格式返回结果
+  const systemPrompt =
+    defaultPrompt +
+    `
 文档标题: ${documentTitle}
 文档主题: ${documentTheme}
 当前章节标题: ${section.title}
-请校对用户提供的文本，找出其中的错别字、标点错误和语法问题，并按照以下JSON格式返回：
-[
-  {
-    "original": "原文错误内容（只截取原文错误的词组，不要多写，不超过15字！）",
-    "suggested": "建议修改内容（基于原文的修改后的内容）",
-    "reason": "错误原因的简短说明",
-    "type": "错误类型(Typo/Punctuation/Grammar/Consistency)"
-  }
-]
-如果没有任何错误，请返回空数组[]。只返回JSON数组，不要添加其他说明文字。
+
 `
 
   for (const sentence of sentences) {
@@ -233,23 +236,7 @@ async function proofreadEntireDocument(
   modelName: string,
   apiURL: string
 ): Promise<ProofreadingCorrection[]> {
-  const systemPrompt = `你是一个专业的中文文本校对专家。请仔细检查文本中的错别字、标点错误和语法问题。
-要求：
-1. 只校对错别字、标点错误、语法错误
-2. 保持原文意思不变
-3. 不要进行风格改写或内容扩展
-4. 按照指定的JSON格式返回结果
-请校对用户提供的文本，找出其中的错别字、标点错误和语法问题，并按照以下JSON格式返回：
-[
-  {
-   "original": "原文错误内容（只截取原文错误的词组，不要多写，不超过15字！）",
-    "suggested": "建议修改内容（基于原文的修改后的内容）",
-    "reason": "错误原因的简短说明",
-    "type": "错误类型(Typo/Punctuation/Grammar/Consistency)"
-  }
-]
-如果没有任何错误，请返回空数组[]。只返回JSON数组，不要添加其他说明文字。
-`
+  const systemPrompt = defaultPrompt
 
   const userPrompt = `需要校对的内容：${text}`
 

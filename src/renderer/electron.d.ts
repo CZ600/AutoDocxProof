@@ -39,6 +39,8 @@ export default interface ElectronApi {
   }
   processDocx: (model: string, filePath: string) => Promise<ProofreadingCorrection[]>
   exportCorrectedDocx: (config: any) => Promise<boolean>
+  getDefaultPrompt: () => string
+  setNewPrompt: (newPrompt: string) => Promise<boolean>
 }
 
 declare global {
