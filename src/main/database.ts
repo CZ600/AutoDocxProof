@@ -114,12 +114,29 @@ export class DB {
   static async insertOneHistory(filePath: string, apiURL: string, modelName: string, result: string): Promise<number> {
     const db = await DB.getInstance()
     if (!filePath || !apiURL || !modelName || !result) {
-      console.error('Invalid parameters')
-      return -1
+      const errorMsg = '插入历史记录参数不完整: ' + JSON.stringify({ filePath, apiURL, modelName, result: !!result })
+      console.error(errorMsg)
+      throw new Error(errorMsg)
     }
+    
+    // 验证JSON格式
     try {
-      const result = await db.run(`INSERT INTO proof_history (filePath, apiURL, modelName, result) VALUES (?, ?, ?, ?)`)
-      return result.lastID
+      JSON.parse(result)
+    } catch (parseError) {
+      const errorMsg = 'result参数不是有效的JSON: ' + parseError.message
+      console.error(errorMsg)
+      throw new Error(errorMsg)
+    }
+    
+    try {
+      const res = await db.run(
+        `INSERT INTO proof_history (filePath, apiURL, modelName, result) VALUES (?, ?, ?, ?)`,
+        filePath,
+        apiURL,
+        modelName,
+        result
+      )
+      return res.lastID
     } catch (error) {
       console.error('插入校对记录失败:', error)
       throw error
@@ -169,9 +186,8 @@ export class DB {
   static async deleteALLHistory(): Promise<boolean> {
     const db = await DB.getInstance()
     await db.run(`DELETE FROM proof_history`)
-    const result = await db.run(`SELECT * FROM proof_history`)
     const count = await DB.getHistoryCount()
-    if (result.changes === count) {
+    if (count === 0) {
       return true
     } else {
       return false

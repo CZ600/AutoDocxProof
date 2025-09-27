@@ -242,4 +242,44 @@ export const registerIpcHandlers = () => {
       }
     }
   })
+
+  ipcMain.handle('deleteHistoryById', async (event, id) => {
+    try {
+      const result = await DB.deleteHistoryById(id)
+      return result
+    } catch (error) {
+      console.error('删除历史记录失败:', error)
+      return false
+    }
+  })
+
+  ipcMain.handle(
+    'insertOneHistory',
+    async (event, filePath: string, apiURL: string, modelName: string, resultCorrect: string) => {
+      try {
+        // 参数验证
+        if (!filePath || !apiURL || !modelName || !resultCorrect) {
+          const errorMsg =
+            '参数不完整: ' + JSON.stringify({ filePath, apiURL, modelName, resultCorrect: !!resultCorrect })
+          console.error(errorMsg)
+          return { success: false, error: errorMsg }
+        }
+
+        // 尝试解析JSON以验证数据有效性
+        try {
+          JSON.parse(resultCorrect)
+        } catch (parseError) {
+          const errorMsg = 'resultCorrect不是有效的JSON字符串: ' + parseError.message
+          console.error(errorMsg)
+          return { success: false, error: errorMsg }
+        }
+
+        const result = await DB.insertOneHistory(filePath, apiURL, modelName, resultCorrect)
+        return { success: true, id: result }
+      } catch (error) {
+        console.error('插入历史记录失败:', error)
+        return { success: false, error: error.message }
+      }
+    }
+  )
 }

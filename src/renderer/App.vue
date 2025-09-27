@@ -11,18 +11,13 @@
       <!-- 导航菜单 -->
       <el-menu mode="horizontal" :default-active="currentPath" @select="handleSelect" class="nav-menu"
         background-color="#e6f7ee" text-color="#333" active-text-color="#2e7d32" :ellipsis="false">
-        <el-menu-item index="/">
+        <el-menu-item index="/work">
           <el-icon>
             <HomeFilled />
           </el-icon>
-          <span>首页</span>
-        </el-menu-item>
-        <el-menu-item index="/work">
-          <el-icon>
-            <Monitor />
-          </el-icon>
           <span>工作区</span>
         </el-menu-item>
+
         <el-menu-item index="/about">
           <el-icon>
             <InfoFilled />

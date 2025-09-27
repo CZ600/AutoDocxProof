@@ -127,7 +127,7 @@ const processing = ref(false)
 const exporting = ref(false) // 新增导出状态
 const proofreadingResults = ref([]) // 存储校对结果
 const activeNames = ref([]) // 折叠面板展开项
-const correctedContent = ref('') // 存储修正后的文本内容
+
 
 // 从 Electron 获取 API
 const electronAPI = window.electronAPI
@@ -149,6 +149,96 @@ const formatCorrectionType = (type) => {
     }
     return typeMap[type] || type
 }
+
+
+const pushToDB = async (resultCorrect) => {
+  try {
+    const filePath = form.value.filePath
+    const modelInfo = await electronAPI.getAPISettings()
+    const URL = modelInfo.URL
+    const modelName = modelInfo.modelName
+
+    // 检查必要参数
+    if (!filePath) {
+      console.warn('文件路径为空，无法保存历史记录')
+      return
+    }
+    
+    if (!URL || !modelName) {
+      console.error('API设置不完整，无法保存历史记录')
+      return
+    }
+
+    // 检查结果数据
+    if (!resultCorrect || (Array.isArray(resultCorrect) && resultCorrect.length === 0)) {
+      console.warn('校对结果为空，无需保存历史记录')
+      return
+    }
+
+    try {
+      // 调用主进程方法保存历史记录
+      const result = await electronAPI.insertOneHistory(
+        filePath, 
+        URL, 
+        modelName, 
+        JSON.stringify(resultCorrect)
+      )
+      
+      // 检查返回结果
+      if (result && result.success === false) {
+        console.error('保存历史记录失败:', result.error)
+        ElMessage({
+          message: '保存历史记录失败: ' + (result.error || '未知错误'),
+          type: 'error',
+          duration: 3000
+        })
+        return
+      }
+      
+      console.log('历史记录保存成功:', result)
+      ElMessage({
+        message: '历史记录保存成功',
+        type: 'success',
+        duration: 1500
+      })
+    } catch (ipcError) {
+      // IPC调用异常处理
+      console.error('IPC调用失败:', ipcError)
+      ElMessage({
+        message: '与主进程通信失败，无法保存历史记录',
+        type: 'error',
+        duration: 3000
+      })
+      return
+    }
+
+    getALLHistory().then(result => {
+      console.log('获取历史记录:', result)
+    }).catch(err => {
+      console.error('获取历史记录失败:', err)
+    })
+  } catch (error) {
+    // 外层异常处理
+    console.error('保存历史记录时发生未预期错误:', error)
+    ElMessage({
+      message: '保存历史记录时发生错误: ' + error.message,
+      type: 'error',
+      duration: 3000
+    })
+  }
+}
+
+const getALLHistory = async () => {
+    try {
+        const result = await electronAPI.getAllHistory()
+        return result
+    } catch (error) {
+        console.error('获取历史记录失败:', error)
+        return []
+    }
+}
+
+
 
 // 替换原有的 highlightCorrections 函数
 const highlightCorrections = () => {
@@ -332,48 +422,64 @@ const applyALLCorrection = () => {
 
 // 提交校对请求
 const onSubmit = async () => {
-    if (!form.value.filePath) {
-        error.value = '请先选择文档文件'
-        return
+  if (!form.value.filePath) {
+    error.value = '请先选择文档文件'
+    return
+  }
+
+  if (!form.value.model) {
+    error.value = '请选择校对模式'
+    return
+  }
+
+  try {
+    processing.value = true;
+    error.value = '';
+    proofreadingResults.value = [];
+
+    const results = await electronAPI.processDocx(form.value.model, form.value.filePath);
+    if (results.message === "Please select an API setting!") {
+      ElMessage({
+        message: '请先设置API密钥',
+        type: 'error',
+        duration: 1500
+      });
+      return;
+    }
+    
+    // 确保结果是数组格式
+    const finalResults = Array.isArray(results) ? results : [];
+    proofreadingResults.value = finalResults.map((item, index) => ({
+      ...item,
+      id: `correction-${index}`,
+      applied: false
+    }));
+    
+    // 将结果保存到数据库
+    if (finalResults.length > 0) {
+      await pushToDB(finalResults);
+    } else {
+      console.log('无校对结果，跳过保存历史记录')
     }
 
-    if (!form.value.model) {
-        error.value = '请选择校对模式'
-        return
+    // 关键：等待DOM更新后再高亮
+    await nextTick();
+    highlightCorrections();
+
+    if (finalResults.length > 0) {
+      activeNames.value = [0];
     }
-
-    try {
-        processing.value = true;
-        error.value = '';
-        proofreadingResults.value = [];
-
-        const results = await electronAPI.processDocx(form.value.model, form.value.filePath);
-        if (results.message === "Please select an API setting!") {
-            ElMessage({
-                message: '请先设置API密钥',
-                type: 'error',
-                duration: 1500
-            });
-
-        }
-        proofreadingResults.value = results.map((item, index) => ({
-            ...item,
-            id: `correction-${index}`,
-            applied: false
-        }));
-
-        // 关键：等待DOM更新后再高亮
-        await nextTick();
-        highlightCorrections();
-
-        if (results.length > 0) {
-            activeNames.value = [0];
-        }
-    } catch (err) {
-        error.value = `校对处理失败: ${err.message}`;
-    } finally {
-        processing.value = false;
-    }
+  } catch (err) {
+    error.value = `校对处理失败: ${err.message}`
+    console.error('校对处理异常:', err)
+    ElMessage({
+      message: '校对处理失败: ' + err.message,
+      type: 'error',
+      duration: 3000
+    });
+  } finally {
+    processing.value = false;
+  }
 }
 
 

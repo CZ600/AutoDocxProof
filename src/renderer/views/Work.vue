@@ -10,46 +10,19 @@
                     <el-menu class="side-menu" background-color="#e6f7ee" text-color="#000000"
                         active-text-color="#409EFF" :collapse="false" :default-active="$route.path" router>
                         <!-- 校正设置 -->
-                        <el-sub-menu index="1">
-                            <template #title>
-                                <span>校正功能</span>
-                            </template>
-                            <el-menu-item index="/work/proof">
-                                <span>校正页面</span>
-                            </el-menu-item>
-                            <el-menu-item index="/work/set">
-                                <span>校正参数</span>
-                            </el-menu-item>
-                            <el-menu-item index="/work/history">
-                                <span>校正历史</span>
-                            </el-menu-item>
-                        </el-sub-menu>
+                        <el-menu-item index="/work/proof">
+                            <span>校正页面</span>
+                        </el-menu-item>
+                        <el-menu-item index="/work/set">
+                            <span>校正参数</span>
+                        </el-menu-item>
+                        <el-menu-item index="/work/history">
+                            <span>校正历史</span>
+                        </el-menu-item>
+                        <el-menu-item index="/work/api">
+                            <span>API配置</span>
+                        </el-menu-item>
 
-                        <!-- API设置 -->
-                        <el-sub-menu index="2">
-                            <template #title>
-                                <span>API 设置</span>
-                            </template>
-                            <el-menu-item index="/work/api">
-                                <span>API配置</span>
-                            </el-menu-item>
-                            <el-menu-item index="/work/logs">
-                                <span>日志查看</span>
-                            </el-menu-item>
-                        </el-sub-menu>
-
-                        <!-- 其他 -->
-                        <el-sub-menu index="3">
-                            <template #title>
-                                <span>其他</span>
-                            </template>
-                            <el-menu-item index="/other/settings">
-                                <span>常规设置</span>
-                            </el-menu-item>
-                            <el-menu-item index="/other/about">
-                                <span>关于系统</span>
-                            </el-menu-item>
-                        </el-sub-menu>
                     </el-menu>
                 </el-aside>
             </el-col>

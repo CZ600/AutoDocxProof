@@ -5,6 +5,15 @@
  */
 import { proofreadLargeDocument, ProofreadingCorrection } from './proof'
 
+export interface proofHistory {
+  id?: number
+  filePath: string
+  apiURL: string
+  modelName: string
+  created_at?: string
+  result: string
+}
+
 export default interface ElectronApi {
   message: (file: string) => void
   receiveAndReturn: (characters: string) => string
@@ -41,6 +50,11 @@ export default interface ElectronApi {
   exportCorrectedDocx: (config: any) => Promise<boolean>
   getDefaultPrompt: () => string
   setNewPrompt: (newPrompt: string) => Promise<boolean>
+  getAllHistory: () => proofHistory[]
+  deleteAllHistory: () => Promise<boolean>
+  getHistoryById: (id: number) => Promise<proofHistory | null>
+  deleteHistoryById: (id: number) => Promise<boolean>
+  insertOneHistory: (filePath: string, apiURL: string, modelName: string, resultCorrect: string) => Promise<boolean>
 }
 
 declare global {

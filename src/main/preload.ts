@@ -40,5 +40,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportCorrectedDocx: (config: any) => ipcRenderer.invoke('exportCorrectedDocx', config),
   // 获取默认的提示词
   getDefaultPrompt: () => ipcRenderer.invoke('getDefaultPrompt'),
-  setNewPrompt: (prompt: string) => ipcRenderer.invoke('setPrompt', prompt)
+  // 设置新的提示词
+  setNewPrompt: (prompt: string) => ipcRenderer.invoke('setPrompt', prompt),
+  // 获取所有历史记录
+  deleteAllHistory: () => ipcRenderer.invoke('deleteAllHistory'),
+  // 获取所有历史记录
+  getAllHistory: () => ipcRenderer.invoke('getAllHistory'),
+  // 获取指定id的历史记录
+  getHistoryById: (id: number) => ipcRenderer.invoke('getHistoryById', id),
+  // 删除指定id的历史记录,
+  deleteHistoryById: (id: number) => ipcRenderer.invoke('deleteHistoryById', id),
+  // 插入一条历史记录
+  insertOneHistory: (filePath: string, apiURL: string, modelName: string, resultCorrect: string) =>
+    ipcRenderer.invoke('insertOneHistory', filePath, apiURL, modelName, resultCorrect)
 })
