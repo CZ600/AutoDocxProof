@@ -10,11 +10,22 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses'
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
-    icon: process.platform === 'darwin' ? 'assets/logo.icns' : 'assets/logo.ico',
-    name: 'Font Mini'
+    icon: 'assets/logo.ico',
+    name: 'AutoDocxProofread',
+    executableName: 'DocxProofread'
   },
   rebuildConfig: {},
-  makers: [new MakerSquirrel({}), new MakerZIP({}, ['darwin']), new MakerRpm({}), new MakerDeb({})],
+  makers: [
+    new MakerSquirrel({
+      name: 'AutoDocxProofread',
+      authors: 'zhuchenhe',
+      iconUrl: 'https://raw.githubusercontent.com/night-peiqi/font-mini/main/assets/logo.ico',
+      setupIcon: 'assets/logo.ico'
+    }),
+    new MakerZIP({}, ['darwin']),
+    new MakerRpm({}),
+    new MakerDeb({})
+  ],
   plugins: [
     new VitePlugin({
       // `build` can specify multiple entry builds, which can be Main process, Preload scripts, Worker process, etc.
