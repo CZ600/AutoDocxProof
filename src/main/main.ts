@@ -15,13 +15,26 @@ const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 1000,
-    height: 800,
+    height: 1200,
+    title: 'AutoDocxProofreading',
     // autoHideMenuBar: true, // 禁用菜单栏
+    icon: path.join(process.resourcesPath, 'assets', 'logo.ico'),
+
+    ...(process.platform === 'linux' ? { icon: path.join(process.resourcesPath, 'assets', 'logo.ico') } : {}),
 
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true
+    },
+    // remove the default titlebar
+    titleBarStyle: 'hidden',
+    // expose window controls in Windows/Linux
+    ...(process.platform !== 'darwin' ? { titleBarOverlay: true } : {}),
+    titleBarOverlay: {
+      color: '#fff',
+      symbolColor: '#74b1be',
+      height: 68
     }
   })
 

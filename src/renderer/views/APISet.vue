@@ -5,7 +5,12 @@
     <el-alert v-if="showAlertError" type="error" auto-close="4000" show-icon>
         {{ AlertTitle }}
     </el-alert>
-    <p> select or add your api infomation</p>
+    <div class="text">
+        <el-text class="mx-1" type="primary" size="large">选择或添加api配置信息</el-text>
+    </div>
+    <div class="text">
+        <el-text class="mx-1" type="default" size="small">本软件适配所有兼容openai规范的大模型api，推荐使用非推理模型</el-text>
+    </div>
     <el-form :model="selectform" label-width="auto" style="max-width: 600px">
         <el-form-item label="select your api">
             <el-select v-model="selectform.id" placeholder="please select your api">
@@ -20,7 +25,7 @@
             </el-select>
         </el-form-item>
         <el-button type="primary" @click="dialogVisible = true">
-            add new api
+            添加新的api信息
         </el-button>
         <el-button @click="testAPI()">测试连通性</el-button>
 
@@ -199,4 +204,9 @@ onMounted(() => {
 
 </script>
 
-<style></style>
+<style>
+.text {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+</style>

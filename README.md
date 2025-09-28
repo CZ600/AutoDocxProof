@@ -41,7 +41,11 @@ AutoDocxProof（智能校对）是一款专为中文文档校对而设计的桌�
 ### 使用展示
 
 在选择需要校对的文档后，再选择校对模式，然后开始校对，软件会将将对的结果显示在右边栏，并在文本中高亮展示，以方便查看。然后可以选择是否接受这些修改，可以导出接受修改后的文档
-![alt text](image.png)
+![alt text](Proofreading.jpg)
+本应用可以自行设置api，兼容满足openai规范的api接口，推荐使用非推理模型
+![alt text](apiset.jpg)
+本应用还可以浏览和管理校对记录
+![alt text](history.jpg)
 
 ## 🛠 技术栈
 

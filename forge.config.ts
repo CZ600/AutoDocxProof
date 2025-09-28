@@ -6,20 +6,21 @@ import { MakerRpm } from '@electron-forge/maker-rpm'
 import { VitePlugin } from '@electron-forge/plugin-vite'
 import { FusesPlugin } from '@electron-forge/plugin-fuses'
 import { FuseV1Options, FuseVersion } from '@electron/fuses'
+import path from 'path'
 
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
-    icon: 'assets/logo.ico',
-    name: 'AutoDocxProofread',
+    icon: path.resolve(__dirname, 'assets/logo.ico'),
+    name: 'AutoDocxProofreading',
     executableName: 'DocxProofread'
   },
   rebuildConfig: {},
   makers: [
     new MakerSquirrel({
-      name: 'AutoDocxProofread',
-      authors: 'zhuchenhe',
-      iconUrl: 'https://raw.githubusercontent.com/night-peiqi/font-mini/main/assets/logo.ico',
+      name: 'AutoDocxProofreading',
+      authors: 'ZhuChenhe',
+      iconUrl: 'https://raw.githubusercontent.com/CZ600/AutoDocxProofread/base_url/assets/logo.ico',
       setupIcon: 'assets/logo.ico'
     }),
     new MakerZIP({}, ['darwin']),

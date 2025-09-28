@@ -1,6 +1,6 @@
 {
-  "name": "fontmini-app",
-  "productName": "AutoDocxProofread",
+  "name": "AutoDocxProofreading",
+  "productName": "AutoDocxProofreading",
   "version": "1.0.1",
   "description": "An intelligent long-document proofreading software powered by large language models. 基于大模型的简单的docx格式文档的校对",
   "main": ".vite/build/main.js",
@@ -67,15 +67,18 @@
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
     "mammoth": "^1.10.0",
+    "marked": "^16.3.0",
     "openai": "^5.19.1",
     "ora": "^8.2.0",
     "p-limit": "^7.1.1",
     "pinia": "^3.0.3",
+    "pinia-plugin-persistedstate": "^4.5.0",
     "pizzip": "^3.2.0",
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7",
     "vue": "^3.4.27",
     "vue-demi": "^0.14.10",
+    "vue-markdown": "^2.2.4",
     "vue-router": "^4.5.1"
   },
   "lint-staged": {

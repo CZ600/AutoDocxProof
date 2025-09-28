@@ -10,15 +10,15 @@
 
       <!-- 导航菜单 -->
       <el-menu mode="horizontal" :default-active="currentPath" @select="handleSelect" class="nav-menu"
-        background-color="#e6f7ee" text-color="#333" active-text-color="#2e7d32" :ellipsis="false">
-        <el-menu-item index="/work">
+        background-color="#FFFFFF" text-color="#333" active-text-color="#2e7d32" :ellipsis="false">
+        <el-menu-item index="/work" class="navbutton">
           <el-icon>
             <HomeFilled />
           </el-icon>
           <span>工作区</span>
         </el-menu-item>
 
-        <el-menu-item index="/about">
+        <el-menu-item index="/about" class="navbutton">
           <el-icon>
             <InfoFilled />
           </el-icon>
@@ -57,12 +57,14 @@ const handleSelect = (key) => {
   height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .navbar {
   height: 60px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   z-index: 100;
+  -webkit-app-region: drag;
 }
 
 .logo {
@@ -86,6 +88,11 @@ const handleSelect = (key) => {
 .nav-menu {
   flex: 1;
   border-bottom: none !important;
+
+}
+
+.navbutton {
+  -webkit-app-region: no-drag;
 }
 
 :deep(.el-menu--horizontal > .el-menu-item) {
@@ -102,6 +109,6 @@ const handleSelect = (key) => {
   flex: 1;
   padding: 15px;
   background-color: #f9f9f9;
-  overflow-y: hidden;
+  overflow-y: auto;
 }
 </style>

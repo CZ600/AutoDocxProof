@@ -5,10 +5,12 @@ import router from './router'
 import ElementPlus from 'element-plus'
 import { createPinia } from 'pinia'
 import 'element-plus/dist/index.css'
+import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 // 引入中文语言包
 import zhCn from 'element-plus/es/locale/lang/zh-cn' // 根据需要选择语言
 const app = createApp(App)
 const pinia = createPinia()
+pinia.use(piniaPluginPersistedstate)
 
 app.use(router)
 app.use(pinia)
