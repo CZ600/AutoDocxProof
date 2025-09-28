@@ -11,7 +11,7 @@
       <!-- 导航菜单 -->
       <el-menu mode="horizontal" :default-active="currentPath" @select="handleSelect" class="nav-menu"
         background-color="#FFFFFF" text-color="#333" active-text-color="#2e7d32" :ellipsis="false">
-        <el-menu-item index="/work" class="navbutton">
+        <el-menu-item index="/work/proof" class="navbutton">
           <el-icon>
             <HomeFilled />
           </el-icon>

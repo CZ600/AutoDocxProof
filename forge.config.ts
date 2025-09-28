@@ -19,7 +19,7 @@ const config: ForgeConfig = {
   makers: [
     new MakerSquirrel({
       name: 'AutoDocxProofreading',
-      authors: 'ZhuChenhe',
+      authors: 'CZ600',
       iconUrl: 'https://raw.githubusercontent.com/CZ600/AutoDocxProofread/base_url/assets/logo.ico',
       setupIcon: 'assets/logo.ico'
     }),
