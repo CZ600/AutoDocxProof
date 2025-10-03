@@ -15,7 +15,19 @@
           <el-icon>
             <HomeFilled />
           </el-icon>
-          <span>工作区</span>
+          <span>文档校对</span>
+        </el-menu-item>
+        <el-menu-item index="/work/history" class="navbutton">
+          <el-icon>
+            <Clock />
+          </el-icon>
+          <span>历史记录</span>
+        </el-menu-item>
+        <el-menu-item index="/work/api" class="navbutton">
+          <el-icon>
+            <Setting />
+          </el-icon>
+          <span>功能设置</span>
         </el-menu-item>
 
         <el-menu-item index="/about" class="navbutton">
@@ -38,7 +50,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { HomeFilled, Monitor, InfoFilled } from '@element-plus/icons-vue'
+import { HomeFilled, Monitor, InfoFilled, Setting, Clock } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()

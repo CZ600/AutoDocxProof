@@ -6581,6 +6581,22 @@ sprintf-js@~1.0.2:
   resolved "https://registry.npmmirror.com/sprintf-js/-/sprintf-js-1.0.3.tgz"
   integrity sha512-D9cPgkvLlV3t3IzL0D0YLvGA9Ahk4PcvVwUbN0dSGr1aP0Nrt4AEnTUbuGvquEC0mA64Gqt1fzirlRs5ibXx8g==
 
+sqlite-vec-windows-x64@0.1.7-alpha.2:
+  version "0.1.7-alpha.2"
+  resolved "https://registry.npmmirror.com/sqlite-vec-windows-x64/-/sqlite-vec-windows-x64-0.1.7-alpha.2.tgz"
+  integrity sha512-TRP6hTjAcwvQ6xpCZvjP00pdlda8J38ArFy1lMYhtQWXiIBmWnhMaMbq4kaeCYwvTTddfidatRS+TJrwIKB/oQ==
+
+sqlite-vec@^0.1.7-alpha.2:
+  version "0.1.7-alpha.2"
+  resolved "https://registry.npmmirror.com/sqlite-vec/-/sqlite-vec-0.1.7-alpha.2.tgz"
+  integrity sha512-rNgRCv+4V4Ed3yc33Qr+nNmjhtrMnnHzXfLVPeGb28Dx5mmDL3Ngw/Wk8vhCGjj76+oC6gnkmMG8y73BZWGBwQ==
+  optionalDependencies:
+    sqlite-vec-darwin-arm64 "0.1.7-alpha.2"
+    sqlite-vec-darwin-x64 "0.1.7-alpha.2"
+    sqlite-vec-linux-arm64 "0.1.7-alpha.2"
+    sqlite-vec-linux-x64 "0.1.7-alpha.2"
+    sqlite-vec-windows-x64 "0.1.7-alpha.2"
+
 sqlite@^5.1.1:
   version "5.1.1"
   resolved "https://registry.npmmirror.com/sqlite/-/sqlite-5.1.1.tgz"

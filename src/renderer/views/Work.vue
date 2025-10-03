@@ -1,47 +1,14 @@
 <template>
     <el-layout style="height: calc(100vh - 80px);">
         <el-row>
-            <el-col :span="3">
-                <!-- 左侧侧边栏 -->
-                <el-aside width="100%" class="sidebar-container">
-                    <!-- 上传文件按钮 -->
-
-                    <!-- 折叠菜单 -->
-                    <el-menu class="side-menu" background-color="#e6f7ee" text-color="#000000"
-                        active-text-color="#409EFF" :collapse="false" :default-active="$route.path" router>
-                        <!-- 校正设置 -->
-                        <el-menu-item index="/work/proof">
-                            <span>校正页面</span>
-                        </el-menu-item>
-                        <el-menu-item index="/work/set">
-                            <span>校正参数</span>
-                        </el-menu-item>
-                        <el-menu-item index="/work/history">
-                            <span>校正历史</span>
-                        </el-menu-item>
-                        <el-menu-item index="/work/api">
-                            <span>API配置</span>
-                        </el-menu-item>
-
-                    </el-menu>
-                </el-aside>
-            </el-col>
-            <el-col :span="18">
+            <el-col :span="24">
                 <main id="main-area">
                     <!-- 主内容区域 -->
 
                     <router-view />
                 </main>
-
-
-
             </el-col>
-
-
         </el-row>
-
-
-
     </el-layout>
 </template>
 

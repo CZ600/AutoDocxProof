@@ -7,6 +7,8 @@ import Proof from '../views/Proof.vue'
 import ProofSet from '../views/ProofSet.vue'
 import History from '../views/history.vue'
 import Logs from '../views/logs.vue'
+import Dictionary from '../views/Dictionary.vue'
+import OutputWord from '../views/OutputWord.vue'
 import path from 'path'
 const routes = [
   {
@@ -48,6 +50,16 @@ const routes = [
         path: 'logs',
         name: 'Logs',
         component: Logs
+      },
+      {
+        path: 'dictionary',
+        name: 'Dictionary',
+        component: Dictionary
+      },
+      {
+        path: 'ouputWord',
+        name: 'OutputWord',
+        component: OutputWord
       }
     ]
   }

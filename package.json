@@ -75,6 +75,7 @@
     "pinia-plugin-persistedstate": "^4.5.0",
     "pizzip": "^3.2.0",
     "sqlite": "^5.1.1",
+    "sqlite-vec": "^0.1.7-alpha.2",
     "sqlite3": "^5.1.7",
     "vue": "^3.4.27",
     "vue-demi": "^0.14.10",
