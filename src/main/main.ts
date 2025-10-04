@@ -32,8 +32,8 @@ const createWindow = () => {
     // expose window controls in Windows/Linux
     ...(process.platform !== 'darwin' ? { titleBarOverlay: true } : {}),
     titleBarOverlay: {
-      color: '#fff',
-      symbolColor: '#74b1be',
+      color: 'rgba(255, 255, 255, 0)',
+      symbolColor: '#011216ff',
       height: 68
     }
   })

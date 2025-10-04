@@ -123,4 +123,23 @@ const handleSelect = (key) => {
   background-color: #f9f9f9;
   overflow-y: auto;
 }
+
+/* 隐藏滚动条 */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* 适用于所有浏览器 */
+body {
+  overflow: -moz-scrollbars-none;
+  -ms-overflow-style: none;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  height: 100% !important;
+}
 </style>
