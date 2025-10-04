@@ -8,6 +8,7 @@ import {
   Part
 } from '@google/generative-ai'
 import OpenAI from 'openai'
+import { basename } from 'path'
 /**
  * 调用 Gemini API 进行单次对话。
  *
@@ -153,5 +154,67 @@ export async function testAPI(apiURL: string, apiKey: string, modelName: string)
   } catch (error) {
     console.error('An error occurred while calling the Gemini API:', error)
     return false
+  }
+}
+
+// test modelname:doubao-embedding-text-240715
+// test url: https://ark.cn-beijing.volces.com/api/v3/
+export async function getEmbedding(text: string | string[], modelName: string, apiKey_input: string, apiURL: string) {
+  // 参数有效性检查
+  if (!text || (Array.isArray(text) && text.length === 0)) {
+    throw new Error('Text parameter is required and cannot be empty')
+  }
+
+  if (!modelName) {
+    throw new Error('Model name is required')
+  }
+
+  if (!apiKey_input) {
+    throw new Error('API key is required')
+  }
+
+  if (!apiURL) {
+    throw new Error('API URL is required')
+  }
+
+  // 对于数组类型，检查每个元素是否为字符串
+  if (Array.isArray(text)) {
+    for (let i = 0; i < text.length; i++) {
+      if (typeof text[i] !== 'string') {
+        throw new Error(`Element at index ${i} is not a string`)
+      }
+      if (text[i].trim() === '') {
+        throw new Error(`Element at index ${i} is an empty string`)
+      }
+    }
+  } else if (typeof text !== 'string') {
+    throw new Error('Text parameter must be a string or an array of strings')
+  } else if (text.trim() === '') {
+    throw new Error('Text parameter cannot be an empty string')
+  }
+
+  const openai = new OpenAI({
+    apiKey: apiKey_input,
+    baseURL: apiURL
+  })
+
+  try {
+    const response = await openai.embeddings.create({
+      model: modelName,
+      input: text
+    })
+
+    // 返回embedding结果
+    if (typeof text === 'string') {
+      return response.data[0].embedding
+    }
+    if (Array.isArray(text)) {
+      return response.data.map(item => item.embedding)
+    }
+
+    return response.data[0].embedding
+  } catch (error) {
+    console.log('error getting embedding:', error)
+    throw error
   }
 }

@@ -5,6 +5,52 @@ import path from 'path' // 新增导入
 import fs from 'fs'
 import { promises } from 'dns'
 import { b } from 'vite/dist/node/types.d-aGj9QkWt'
+import { LocalIndex } from 'vectra'
+import { getEmbedding } from './chat'
+// 创建一个localindex的存储实例
+const index = new LocalIndex(path.join(__dirname, '..', 'index'))
+
+// 创建向量数据库的索引
+async function createIndex(): Promise<void> {
+  await index.createIndex()
+}
+
+// 向向量数据库中添加数据信息
+async function addItem(text: string | string[], apiURL: string, apiKey: string, modelName: string) {
+  try {
+    if (typeof text === 'string') {
+      const embeddingResponse = await getEmbedding(text, modelName, apiKey, apiURL)
+      // 确保类型正确，embeddingResponse应该是一个number[]
+      await index.insertItem({
+        vector: embeddingResponse as number[],
+        metadata: { text }
+      })
+    }
+    if (Array.isArray(text)) {
+      const embeddingResponse = await getEmbedding(text, modelName, apiKey, apiURL)
+      // 分批处理，每批最多4个元素
+      const batchSize = 4
+      for (let i = 0; i < embeddingResponse.length; i += batchSize) {
+        const batch = embeddingResponse.slice(i, i + batchSize)
+        await Promise.all(
+          batch.map(async (item, index_) => {
+            const actualIndex = i + index_
+            if (actualIndex < text.length) {
+              await index.insertItem({
+                vector: item as number[],
+                metadata: { text: text[actualIndex] }
+              })
+            }
+          })
+        )
+      }
+    }
+  } catch (error) {
+    console.log('insert a vector data to db get a error:', error)
+    throw error
+  }
+}
+
 // 定义数据类型（TypeScript 类型安全）
 export interface User {
   id?: number
@@ -118,7 +164,7 @@ export class DB {
       console.error(errorMsg)
       throw new Error(errorMsg)
     }
-    
+
     // 验证JSON格式
     try {
       JSON.parse(result)
@@ -127,7 +173,7 @@ export class DB {
       console.error(errorMsg)
       throw new Error(errorMsg)
     }
-    
+
     try {
       const res = await db.run(
         `INSERT INTO proof_history (filePath, apiURL, modelName, result) VALUES (?, ?, ?, ?)`,
