@@ -6,6 +6,8 @@ import { proofreadDocument, getDefaultPrompt, setNewPrompt } from './proof'
 import { Mode } from '@google/genai'
 import * as mammoth from 'mammoth'
 import { replaceTextInDocx } from './wordProcess'
+import { initLanceDB, insertDocument, queryDocuments, updateDocument, deleteDocument } from './lancedb'
+import { processPDFDocument, getPDFDocumentChunks } from './pdfUtils'
 interface apiSettings {
   apiURL: string
   apiKey: string
@@ -196,12 +198,12 @@ export const registerIpcHandlers = () => {
       throw error
     }
   })
-
+  // 获取默认提示词
   ipcMain.handle('getDefaultPrompt', async event => {
     const prompt = await getDefaultPrompt()
     return prompt
   })
-
+  // 设置提示词（注意，这里设置的提示词没有长期记忆功能，只能暂时设置
   ipcMain.handle('setPrompt', async (event, newPrompt) => {
     if (newPrompt) {
       const result = await setNewPrompt(newPrompt)
@@ -214,7 +216,7 @@ export const registerIpcHandlers = () => {
       throw new Error('Please input a prompt!')
     }
   })
-  // 获取全部的历史记录
+  // 历史记录 - 获取全部的历史记录
   ipcMain.handle('getAllHistory', async event => {
     const result = await DB.getALLHistory()
     if (result) {
@@ -223,7 +225,7 @@ export const registerIpcHandlers = () => {
       throw new Error('No history found!')
     }
   })
-  // 删除全部的历史记录
+  // 历史记录 - 删除全部的历史记录
   ipcMain.handle('deleteAllHistory', async event => {
     const result = await DB.deleteALLHistory()
     if (result) {
@@ -232,6 +234,7 @@ export const registerIpcHandlers = () => {
       throw new Error('delete history failed!')
     }
   })
+  // 历史记录 - 根据id查询记录
   ipcMain.handle('getHistoryById', async (event, id) => {
     if (id) {
       const result = await DB.getHistoryById(id)
@@ -252,7 +255,7 @@ export const registerIpcHandlers = () => {
       return false
     }
   })
-
+  // 历史记录- 插入一条数据
   ipcMain.handle(
     'insertOneHistory',
     async (event, filePath: string, apiURL: string, modelName: string, resultCorrect: string) => {
@@ -282,4 +285,70 @@ export const registerIpcHandlers = () => {
       }
     }
   )
+
+  // 向量数据库 - 插入文档
+  ipcMain.handle('lancedb:insert', async (event, { text, id, metadata }, modelConfig) => {
+    return insertDocument(text, id, metadata, modelConfig.modelName, modelConfig.apiKey, modelConfig.apiURL)
+  })
+
+  // 向量数据库 - 查询文档
+  ipcMain.handle('lancedb:query', async (event, { queryText, limit, filter }, modelConfig) => {
+    return queryDocuments(queryText, modelConfig.modelName, modelConfig.apiKey, modelConfig.apiURL, limit, filter)
+  })
+
+  // 向量数据库 - 更新文档
+  ipcMain.handle('lancedb:update', async (event, { id, text, metadata }, modelConfig) => {
+    return updateDocument(id, text, metadata, modelConfig.modelName, modelConfig.apiKey, modelConfig.apiURL)
+  })
+
+  // 向量数据库 - 删除文档
+  ipcMain.handle('lancedb:delete', async (event, id) => {
+    return deleteDocument(id)
+  })
+
+  // IPC处理器 - 处理PDF文件
+  ipcMain.handle('pdf:process', async (event, { filePath, metadata }, modelConfig) => {
+    try {
+      return await processPDFDocument(
+        filePath,
+        undefined, // 自动生成documentId
+        metadata,
+        500, // 默认chunk大小
+        50, // 默认重叠大小
+        modelConfig.modelName,
+        modelConfig.apiKey,
+        modelConfig.apiURL
+      )
+    } catch (error) {
+      console.error('Failed to process PDF:', error)
+      throw error
+    }
+  })
+
+  // IPC处理器 - 选择并处理PDF文件
+  ipcMain.handle('pdf:select-and-process', async (event, { metadata }, modelConfig) => {
+    const { filePaths } = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
+    })
+
+    if (filePaths && filePaths.length > 0) {
+      return processPDFDocument(
+        filePaths[0],
+        undefined,
+        metadata,
+        500,
+        50,
+        modelConfig.modelName,
+        modelConfig.apiKey,
+        modelConfig.apiURL
+      )
+    }
+    return null
+  })
+
+  // IPC处理器 - 获取PDF文档的所有段落
+  ipcMain.handle('pdf:get-chunks', async (event, documentId) => {
+    return getPDFDocumentChunks(documentId)
+  })
 }

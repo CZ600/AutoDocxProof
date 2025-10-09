@@ -2,7 +2,6 @@ import * as fs from 'fs'
 import * as mammoth from 'mammoth'
 import { OpenaiGen } from './chat'
 import { url } from 'inspector'
-import { deflate } from 'zlib'
 
 interface ProofreadingCorrection {
   original: string

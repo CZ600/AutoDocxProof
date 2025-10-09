@@ -23,12 +23,20 @@
           </el-icon>
           <span>历史记录</span>
         </el-menu-item>
+        <el-menu-item index="/work/dictionary" class="navbutton">
+          <el-icon>
+            <Collection />
+          </el-icon>
+          <span>本地知识库</span>
+        </el-menu-item>
         <el-menu-item index="/work/api" class="navbutton">
           <el-icon>
             <Setting />
           </el-icon>
           <span>功能设置</span>
         </el-menu-item>
+
+
 
         <el-menu-item index="/about" class="navbutton">
           <el-icon>
@@ -50,7 +58,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { HomeFilled, Monitor, InfoFilled, Setting, Clock } from '@element-plus/icons-vue'
+import { HomeFilled, Monitor, InfoFilled, Setting, Clock, Collection } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
