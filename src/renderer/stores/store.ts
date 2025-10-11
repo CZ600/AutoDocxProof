@@ -1,5 +1,5 @@
 // stores/store.ts
-import { defineStore } from 'pinia'
+import { defineStore, getActivePinia } from 'pinia'
 
 export interface CorrectionResult {
   applied: boolean
@@ -55,5 +55,46 @@ export const fileInfoStore = defineStore('fileInfo', {
     key: 'fileInfo',
     storage: localStorage,
     paths: ['filePath', 'fileName', 'proofModel', 'results'] // ✅ 确保这四个字段都包含
+  }
+})
+
+export const embeddingSet = defineStore('embeddingSet', {
+  state: () => ({
+    ActiveRepositoryName: '', // 记录正在查看的仓库名称
+    apiURL: '', // api设置等
+    apiKey: '',
+    modelName: ''
+  }),
+  getters: {
+    getActive: state => state.ActiveRepositoryName,
+    getAPIURL: state => state.apiURL,
+    getAPIKey: state => state.apiKey,
+    getModelName: state => state.modelName
+  },
+  actions: {
+    setActive(activeName: string) {
+      this.ActiveRepositoryName = activeName
+    },
+    setURL(URL: string) {
+      this.apiURL = URL
+    },
+    setKey(Key: string) {
+      this.apiKey = Key
+    },
+    seteModelName(Name: string) {
+      this.modelName = Name
+    },
+    clearALL() {
+      this.ActiveRepositoryName = ''
+      this.apiKey = ''
+      this.apiURL = ''
+      this.modelName = ''
+    }
+  },
+  // ✅ 关键：启用持久化，字段名必须和 state 一致
+  persist: {
+    key: 'embeddingSet',
+    storage: localStorage,
+    paths: ['ActiveRepositoryName', 'apiURL', 'apiKey', 'modelName'] // ✅ 确保这四个字段都包含
   }
 })

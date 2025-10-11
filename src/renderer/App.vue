@@ -56,6 +56,7 @@
 </template>
 
 <script setup>
+import "./assets/css/common.css";
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { HomeFilled, Monitor, InfoFilled, Setting, Clock, Collection } from '@element-plus/icons-vue'
@@ -91,7 +92,7 @@ const handleSelect = (key) => {
   display: flex;
   align-items: center;
   padding: 0 20px;
-  min-width: 200px;
+  min-width: 150px;
 }
 
 .logo-img {
@@ -141,13 +142,5 @@ const handleSelect = (key) => {
 body {
   overflow: -moz-scrollbars-none;
   -ms-overflow-style: none;
-}
-
-html,
-body,
-#app {
-  margin: 0;
-  padding: 0;
-  height: 100% !important;
 }
 </style>

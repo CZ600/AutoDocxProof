@@ -60,7 +60,7 @@
                                         {{ formatCorrectionType(item.type) }}
                                     </span>
                                     <span class="correction-count">{{ index + 1 }}/{{ proofreadingResults.length
-                                    }}</span>
+                                        }}</span>
                                 </div>
                             </template>
 

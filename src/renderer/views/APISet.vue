@@ -271,6 +271,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
+el-tabs {
+    border-radius: 4px
+}
+
 .section-title {
     margin: 15px 0 10px 0;
 }

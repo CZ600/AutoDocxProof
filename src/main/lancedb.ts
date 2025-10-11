@@ -1,204 +1,457 @@
 import * as lancedb from '@lancedb/lancedb'
 import { app } from 'electron'
 import path from 'path'
-import { getEmbedding } from './chat' // 引入您提供的embedding函数
+import { getEmbedding } from './chat'
+import * as arrow from 'apache-arrow'
 
-// 数据库存储路径（使用Electron的userData目录）
 const DB_PATH = path.join(app.getPath('userData'), 'vector-db')
-let db: any
-let table: any
+let db: lancedb.Connection | null = null
+
+// ========================
+// 🛠️ 工具函数
+// ========================
 
 /**
- * 初始化LanceDB连接
- * LanceDB可以作为嵌入式向量数据库运行，适合本地AI应用 [[6]]
+ * 安全地将 repositoryName 转为合法表名
  */
-export async function initLanceDB() {
+function sanitizeTableName(name: string): string {
+  if (!name || typeof name !== 'string') {
+    throw new Error('Repository name must be a non-empty string')
+  }
+  return name.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase()
+}
+
+/**
+ * 生成唯一 ID
+ */
+function generateId(): number {
+  return Date.now() * 1000 + Math.floor(Math.random() * 1000)
+}
+
+/**
+ * 创建表的 schema
+ */
+function createTableSchema(dimension: number): arrow.Schema {
+  return new arrow.Schema([
+    new arrow.Field('id', new arrow.Int32(), false),
+    new arrow.Field('text', new arrow.Utf8(), true),
+    new arrow.Field('filename', new arrow.Utf8(), true),
+    new arrow.Field('vector', new arrow.FixedSizeList(dimension, new arrow.Field('item', new arrow.Float32())), false),
+    new arrow.Field('metadata', new arrow.Utf8(), true) // 存储 JSON 字符串
+  ])
+}
+
+// ========================
+// 🔌 数据库连接管理
+// ========================
+
+/**
+ * 初始化数据库连接（幂等）
+ */
+export async function initLanceDB(): Promise<lancedb.Connection> {
+  if (!db) {
+    try {
+      db = await lancedb.connect(DB_PATH)
+      console.log(`✅ Connected to LanceDB at ${DB_PATH}`)
+    } catch (error) {
+      console.error('Failed to connect to LanceDB:', error)
+      throw new Error(`数据库连接失败: ${error.message}`)
+    }
+  }
+  return db
+}
+
+/**
+ * 关闭数据库连接
+ */
+export async function closeLanceDB(): Promise<void> {
+  if (db) {
+    try {
+      // LanceDB 可能没有显式的 close 方法，根据实际 API 调整
+      db = null
+      console.log('✅ LanceDB connection closed')
+    } catch (error) {
+      console.error('Failed to close LanceDB:', error)
+    }
+  }
+}
+
+// ========================
+// 🗃️ 数据库级操作（跨表）
+// ========================
+
+/**
+ * 获取所有知识库（表）名称列表
+ */
+export async function listRepositories(): Promise<string[]> {
   try {
-    db = await lancedb.connect(DB_PATH)
-    console.log(`Connected to LanceDB at ${DB_PATH}`)
-    return db
+    await initLanceDB()
+    const tables = await db!.tableNames()
+    // 过滤掉 LanceDB 内部表（通常以下划线开头）
+    return tables.filter((name: string) => !name.startsWith('_'))
   } catch (error) {
-    console.error('Failed to connect to LanceDB:', error)
-    throw error
+    console.error('Failed to list repositories:', error)
+    throw new Error(`获取知识库列表失败: ${error.message}`)
   }
 }
 
 /**
- * 获取或创建文档表
- * LanceDB支持创建表并在需要时自动推断模式 [[9]]
+ * 创建一个空的知识库表（不插入数据）
+ * @param repositoryName 知识库名称
+ * @param modelName embedding 模型名（用于确定向量维度）
  */
-export async function getOrCreateTable(modelName: string, apiKey: string, apiURL: string) {
-  if (table) return table
-
+export async function createRepository(
+  repositoryName: string,
+  modelName: string,
+  apiKey: string,
+  apiURL: string
+): Promise<void> {
   try {
-    // 尝试打开现有表
-    table = await db.openTable('documents')
-    console.log('Using existing documents table')
-    return table
-  } catch (error) {
-    // 表不存在，创建新表
-    console.log('Documents table not found, creating new table...')
+    await initLanceDB()
+    const tableName = sanitizeTableName(repositoryName)
+    console.log('Creating repository:', repositoryName, 'with model:', modelName)
 
-    // 生成示例embedding以获取向量维度
-    const sampleEmbedding = await getEmbedding('Sample text for dimension detection', modelName, apiKey, apiURL)
+    // 检查是否已存在
+    const existingTables = await db!.tableNames()
+    if (existingTables.includes(tableName)) {
+      throw new Error(`Repository "${repositoryName}" already exists`)
+    }
+
+    // 获取 embedding 维度
+    const sampleEmbedding = await getEmbedding('Sample text for schema creation', modelName, apiKey, apiURL)
     const dimension = sampleEmbedding.length
 
-    // 创建表结构，LanceDB需要指定向量维度 [[3]]
-    const schema = [
-      { name: 'id', type: 'int32' },
-      { name: 'text', type: 'string' },
-      { name: 'vector', type: { type: 'vector', dimension: dimension } },
-      { name: 'metadata', type: 'struct' }
-    ]
+    // 创建表
+    const schema = createTableSchema(dimension)
+    await db!.createTable(tableName, [], { schema })
 
-    table = await db.createTable('documents', [], {
-      schema,
-      existOk: true // 如果表已存在则直接使用 [[9]]
-    })
-
-    console.log(`Created new documents table with vector dimension: ${dimension}`)
-    return table
+    console.log(`✅ Created repository: ${repositoryName} (dim=${dimension})`)
+  } catch (error) {
+    console.error('Failed to create repository:', error)
+    throw new Error(`创建知识库失败: ${error.message}`)
   }
 }
 
 /**
- * 插入文档到向量数据库
- * 支持自动创建表并在插入前生成embedding [[4]]
+ * 删除整个知识库（表）
+ */
+export async function deleteRepository(repositoryName: string): Promise<void> {
+  try {
+    await initLanceDB()
+    const tableName = sanitizeTableName(repositoryName)
+
+    const tables = await db!.tableNames()
+    if (!tables.includes(tableName)) {
+      throw new Error(`Repository "${repositoryName}" does not exist`)
+    }
+
+    await db!.dropTable(tableName)
+    console.log(`🗑️ Deleted repository: ${repositoryName}`)
+  } catch (error) {
+    console.error('Failed to delete repository:', error)
+    throw new Error(`删除知识库失败: ${error.message}`)
+  }
+}
+
+// ========================
+// 📄 表内文档操作（单表）
+// ========================
+
+/**
+ * 获取或创建指定知识库的表（内部使用）
+ */
+export async function getOrCreateTable(
+  repositoryName: string,
+  modelName: string,
+  apiKey: string,
+  apiURL: string
+): Promise<any> {
+  await initLanceDB()
+  const tableName = sanitizeTableName(repositoryName)
+
+  try {
+    return await db!.openTable(tableName)
+  } catch (error) {
+    // 表不存在，创建它
+    console.log(`Table ${tableName} not found, creating...`)
+
+    try {
+      const sampleEmbedding = await getEmbedding('Sample text for dimension detection', modelName, apiKey, apiURL)
+      const dimension = sampleEmbedding.length
+      const schema = createTableSchema(dimension)
+
+      const table = await db!.createTable(tableName, [], { schema })
+      console.log(`🆕 Created table ${tableName} with vector dim=${dimension}`)
+      return table
+    } catch (createError) {
+      console.error('Failed to create table:', createError)
+      throw new Error(`创建表失败: ${createError.message}`)
+    }
+  }
+}
+
+/**
+ * 插入文档（自动生成 ID）
  */
 export async function insertDocument(
+  repositoryName: string,
   text: string,
-  id: number,
+  filename: string,
   metadata: Record<string, any> = {},
   modelName: string,
   apiKey: string,
   apiURL: string
-) {
-  if (!db) await initLanceDB()
+): Promise<{ id: number; text: string; filename: string; metadata: Record<string, any> }> {
+  if (!filename) {
+    throw new Error('filename is required')
+  }
+  if (!text || text.trim().length === 0) {
+    throw new Error('text cannot be empty')
+  }
 
-  // 生成embedding向量
-  const embedding = await getEmbedding(text, modelName, apiKey, apiURL)
+  try {
+    const table = await getOrCreateTable(repositoryName, modelName, apiKey, apiURL)
+    const embedding = await getEmbedding(text, modelName, apiKey, apiURL)
+    const id = generateId()
 
-  // 获取或创建表
-  const tbl = await getOrCreateTable(modelName, apiKey, apiURL)
+    await table.add([
+      {
+        id,
+        text,
+        filename,
+        vector: embedding,
+        metadata: JSON.stringify(metadata)
+      }
+    ])
 
-  // 插入数据
-  await tbl.add([
-    {
-      id,
-      text,
-      vector: embedding,
-      metadata
-    }
-  ])
-
-  console.log(`Document inserted with ID: ${id}`)
-  return { id, text, metadata }
+    console.log(`📥 Inserted doc into ${repositoryName} (file: ${filename}, id: ${id})`)
+    return { id, text, filename, metadata }
+  } catch (error) {
+    console.error('Failed to insert document:', error)
+    throw new Error(`插入文档失败: ${error.message}`)
+  }
 }
 
 /**
- * 查询相似文档（向量搜索）
- * 使用LanceDB的向量搜索功能执行相似度查询 [[4]]
+ * 查询相似文档（支持按 filename 过滤）
+ * @param filter SQL WHERE 子句条件（不包括 filename），例如: "id > 100"
  */
 export async function queryDocuments(
+  repositoryName: string,
   queryText: string,
   modelName: string,
   apiKey: string,
   apiURL: string,
   limit: number = 5,
-  filter: string = ''
-) {
-  if (!db) await initLanceDB()
+  filter: string = '',
+  filename?: string
+): Promise<Array<{ id: number; text: string; filename: string; score: number; meta: any }>> {
+  try {
+    const table = await getOrCreateTable(repositoryName, modelName, apiKey, apiURL)
+    const embedding = await getEmbedding(queryText, modelName, apiKey, apiURL)
 
-  // 生成查询embedding
-  const embedding = await getEmbedding(queryText, modelName, apiKey, apiURL)
+    let whereClause = filter
+    if (filename) {
+      // 转义单引号以防止 SQL 注入
+      const escapedFilename = filename.replace(/'/g, "''")
+      whereClause = whereClause
+        ? `filename = '${escapedFilename}' AND (${whereClause})`
+        : `filename = '${escapedFilename}'`
+    }
 
-  // 获取表
-  const tbl = await getOrCreateTable(modelName, apiKey, apiURL)
-  if (!tbl) throw new Error('Documents table does not exist')
+    let searchQuery = table.search(embedding).limit(limit)
+    if (whereClause) {
+      searchQuery = searchQuery.where(whereClause)
+    }
 
-  // 执行向量搜索
-  let searchQuery = tbl.search(embedding).limit(limit)
-
-  // 应用过滤器（如果提供）
-  if (filter) {
-    searchQuery = searchQuery.where(filter)
+    const results = await searchQuery.toArray()
+    return results.map((r: any) => ({
+      id: r.id,
+      text: r.text,
+      filename: r.filename,
+      score: r._distance,
+      meta: r.metadata ? JSON.parse(r.metadata) : {}
+    }))
+  } catch (error) {
+    console.error('Failed to query documents:', error)
+    throw new Error(`查询文档失败: ${error.message}`)
   }
-
-  const results = await searchQuery.toArray()
-
-  // 转换结果格式
-  return results.map((result: any) => ({
-    id: result.id,
-    text: result.text,
-    score: result._distance, // 相似度分数（距离越小越相似）
-    metadata: result.metadata
-  }))
 }
 
 /**
- * 更新文档
- * LanceDB支持更新操作，可以修改现有记录 [[3]]
+ * 查询指定文件的所有文档（非向量搜索，全量返回）
+ */
+export async function getDocumentsByFilename(
+  repositoryName: string,
+  filename: string
+): Promise<Array<{ id: number; text: string; filename: string; meta: any }>> {
+  if (!filename) {
+    throw new Error('filename is required')
+  }
+
+  try {
+    await initLanceDB()
+    const tableName = sanitizeTableName(repositoryName)
+    const table = await db!.openTable(tableName)
+
+    const escapedFilename = filename.replace(/'/g, "''")
+
+    // 使用 query().where() 替代 filter()
+    const results = await table.query().where(`filename = '${escapedFilename}'`).toArray()
+
+    return results.map((r: any) => ({
+      id: r.id,
+      text: r.text,
+      filename: r.filename,
+      meta: r.metadata ? JSON.parse(r.metadata) : {}
+    }))
+  } catch (error) {
+    console.error('Failed to get documents by filename:', error)
+    throw new Error(`获取文件文档失败: ${error.message}`)
+  }
+}
+
+/**
+ * 删除指定文件的所有文档（弃用）
+ */
+export async function deleteDocumentsByFilename(repositoryName: string, filename: string): Promise<number> {
+  if (!filename) {
+    throw new Error('filename is required')
+  }
+
+  try {
+    await initLanceDB()
+    const tableName = sanitizeTableName(repositoryName)
+    const table = await db!.openTable(tableName)
+
+    const escapedFilename = filename.replace(/'/g, "''")
+    await table.delete(`filename = '${escapedFilename}'`)
+
+    console.log(`🗑️ Deleted all docs with filename: ${filename} in ${repositoryName}`)
+
+    // LanceDB 的 delete 方法可能不返回删除数量，这里返回 1 表示操作成功
+    return 1
+  } catch (error) {
+    console.error('Failed to delete documents by filename:', error)
+    throw new Error(`删除文件文档失败: ${error.message}`)
+  }
+}
+
+/**
+ * 更新文档（保留 filename 不变）
  */
 export async function updateDocument(
+  repositoryName: string,
   id: number,
   newText: string,
-  newMetadata: Record<string, any> = {},
+  newMeta: Record<string, any> = {},
   modelName: string,
   apiKey: string,
   apiURL: string
-) {
-  if (!db) await initLanceDB()
+): Promise<{ id: number; text: string; meta: Record<string, any> }> {
+  try {
+    const table = await getOrCreateTable(repositoryName, modelName, apiKey, apiURL)
+    const embedding = await getEmbedding(newText, modelName, apiKey, apiURL)
 
-  // 生成新的embedding
-  const embedding = await getEmbedding(newText, modelName, apiKey, apiURL)
+    // 先查询获取原始 filename
+    const existingDocs = await table.query().where(`id = ${id}`).limit(1).toArray()
 
-  // 获取表
-  const tbl = await getOrCreateTable(modelName, apiKey, apiURL)
-  if (!tbl) throw new Error('Documents table does not exist')
+    if (existingDocs.length === 0) {
+      throw new Error(`Document with id ${id} not found`)
+    }
 
-  // 执行更新
-  await tbl.update(
-    [
-      {
-        id,
+    const existingDoc = existingDocs[0]
+
+    // 使用 LanceDB 的 update 方法
+    await table.update({
+      where: `id = ${id}`,
+      values: {
         text: newText,
         vector: embedding,
-        metadata: newMetadata
+        metadata: JSON.stringify(newMeta)
       }
-    ],
-    { where: `id = ${id}` }
-  )
+    })
 
-  console.log(`Document updated with ID: ${id}`)
-  return { id, text: newText, metadata: newMetadata }
+    console.log(`✏️ Updated doc ${id} in ${repositoryName}`)
+    return { id, text: newText, meta: newMeta }
+  } catch (error) {
+    console.error('Failed to update document:', error)
+    throw new Error(`更新文档失败: ${error.message}`)
+  }
 }
 
 /**
- * 删除文档
- * 使用LanceDB的删除功能移除指定文档 [[3]]
+ * 删除单个文档（按 ID）
  */
-export async function deleteDocument(id: number) {
-  if (!db) await initLanceDB()
+export async function deleteDocument(repositoryName: string, id: number): Promise<{ id: number }> {
+  try {
+    await initLanceDB()
+    const tableName = sanitizeTableName(repositoryName)
+    const table = await db!.openTable(tableName)
 
-  // 获取表
-  const tbl = await getOrCreateTable('default', 'dummy', 'dummy')
-  if (!tbl) throw new Error('Documents table does not exist')
+    await table.delete(`id = ${id}`)
+    console.log(`🗑️ Deleted doc ${id} from ${repositoryName}`)
 
-  // 执行删除
-  await tbl.delete(`id = ${id}`)
-
-  console.log(`Document deleted with ID: ${id}`)
-  return { id }
+    return { id }
+  } catch (error) {
+    console.error('Failed to delete document:', error)
+    throw new Error(`删除文档失败: ${error.message}`)
+  }
 }
 
 /**
- * 获取所有文档（仅用于调试）
+ * 删除指定文件名的所有文档（修复后的版本）
  */
-export async function getAllDocuments() {
-  if (!db) await initLanceDB()
+export async function deleteDocumentByName(repositoryName: string, filename: string): Promise<{ filename: string }> {
+  if (!filename) {
+    throw new Error('filename is required')
+  }
 
-  const tbl = await getOrCreateTable('default', 'dummy', 'dummy')
-  if (!tbl) throw new Error('Documents table does not exist')
+  try {
+    await initLanceDB()
+    const tableName = sanitizeTableName(repositoryName)
+    const table = await db!.openTable(tableName)
 
-  return await tbl.toArrow()
+    const escapedFilename = filename.replace(/'/g, "''")
+    await table.delete(`filename = '${escapedFilename}'`)
+
+    console.log(`🗑️ Deleted docs with filename: ${filename} from ${repositoryName}`)
+
+    return { filename }
+  } catch (error) {
+    console.error('Failed to delete document by name:', error)
+    throw new Error(`删除文档失败: ${error.message}`)
+  }
+}
+
+/**
+ * 获取指定知识库中所有不重复的文件名列表
+ * @param repositoryName 知识库名称
+ * @returns 去重后的文件名数组
+ */
+export async function listFilenamesInRepository(repositoryName: string): Promise<string[]> {
+  try {
+    await initLanceDB()
+    const tableName = sanitizeTableName(repositoryName)
+
+    // 检查表是否存在
+    const tables = await db!.tableNames()
+    if (!tables.includes(tableName)) {
+      throw new Error(`Repository "${repositoryName}" does not exist`)
+    }
+
+    const table = await db!.openTable(tableName)
+
+    // 查询所有文档的filename字段
+    const results = await table.query().select('filename').toArray()
+
+    // 提取并去重文件名
+    const filenames = [...new Set(results.map((r: any) => r.filename).filter(Boolean))]
+
+    console.log(`📁 Found ${filenames.length} unique filenames in ${repositoryName}`)
+    return filenames
+  } catch (error) {
+    console.error('Failed to list filenames:', error)
+    throw new Error(`获取文件名列表失败: ${error.message}`)
+  }
 }

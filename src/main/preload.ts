@@ -52,5 +52,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteHistoryById: (id: number) => ipcRenderer.invoke('deleteHistoryById', id),
   // 插入一条历史记录
   insertOneHistory: (filePath: string, apiURL: string, modelName: string, resultCorrect: string) =>
-    ipcRenderer.invoke('insertOneHistory', filePath, apiURL, modelName, resultCorrect)
+    ipcRenderer.invoke('insertOneHistory', filePath, apiURL, modelName, resultCorrect),
+
+  // LanceDB 相关接口
+  lancedbInsert: (params: any, modelConfig: any) => ipcRenderer.invoke('lancedb:insert', params, modelConfig),
+  lancedbQuery: (params: any, modelConfig: any) => ipcRenderer.invoke('lancedb:query', params, modelConfig),
+  lancedbUpdate: (params: any, modelConfig: any) => ipcRenderer.invoke('lancedb:update', params, modelConfig),
+  lancedbDelete: (params: any) => ipcRenderer.invoke('lancedb:delete', params),
+  listRepositories: () => ipcRenderer.invoke('listRepositories'),
+  createRepository: (params: any) => ipcRenderer.invoke('createRepository', params),
+  deleteRepository: (repositoryName: string) => ipcRenderer.invoke('deleteRepository', repositoryName),
+  deleteDocumentByName: (repositoryName: string, filename: string) =>
+    ipcRenderer.invoke('deleteDocumentByName', repositoryName, filename),
+  listFilenamesInRepository: (repositoryName: string) =>
+    ipcRenderer.invoke('listFilenamesInRepository', repositoryName),
+  // PDF 处理相关接口
+  processPDF: (params: any, modelConfig: any) => ipcRenderer.invoke('pdf:process', params, modelConfig),
+  selectAndProcessPDF: (repositoryName: string, modelConfig: any) =>
+    ipcRenderer.invoke('pdf:select-and-process', repositoryName, modelConfig),
+  getPDFChunks: (params: any) => ipcRenderer.invoke('pdf:get-chunks', params)
 })

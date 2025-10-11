@@ -14,10 +14,13 @@ import { basename } from 'path'
  *
  * @param systemPrompt - 给模型的系统指令。这是一个对象，包含role和parts。
  * @param userPrompt - 用户的提问。
- * @param apiKey - 你的 Google AI API 密钥。
+ * @param apiKey -  Google AI API 密钥。
  * @param modelName - 要使用的模型名称，例如 "gemini-1.5-flash"。
  * @returns A Promise that resolves to the model's text response.
  */
+
+// gemini接口的实现
+// 但是实际上没有调用
 export async function getGeminiResponse(
   systemPrompt: string,
   userPrompt: string,
@@ -97,7 +100,7 @@ export async function getGeminiResponse(
     }
   }
 }
-
+// openai的接口
 export async function OpenaiGen(
   systemPrompt: string,
   userPrompt: string,
@@ -135,7 +138,7 @@ export async function OpenaiGen(
   }
 }
 
-// 帮我写一个简单的函数来测试api的可用性，传入参数包括apiURL和apiKey，发送一句你好，如果正常回答则返回true，否则返回false
+// 测试api可用性
 export async function testAPI(apiURL: string, apiKey: string, modelName: string): Promise<boolean> {
   try {
     const openai = new OpenAI({
@@ -213,8 +216,18 @@ export async function getEmbedding(text: string | string[], modelName: string, a
     }
 
     return response.data[0].embedding
-  } catch (error) {
+  } catch (error: any) {
     console.log('error getting embedding:', error)
-    throw error
+    
+    // 提供更详细的错误信息
+    if (error.status === 404) {
+      throw new Error(`嵌入API调用失败，状态码404: 请检查API地址(${apiURL})和模型名称(${modelName})是否正确，该模型可能不支持嵌入功能`)
+    } else if (error.status === 401) {
+      throw new Error(`嵌入API调用失败，认证错误: API密钥无效或权限不足`)
+    } else if (error.status === 400) {
+      throw new Error(`嵌入API调用失败，请求错误: ${error.message}`)
+    } else {
+      throw new Error(`嵌入API调用失败: ${error.message || '未知错误'}`)
+    }
   }
 }
