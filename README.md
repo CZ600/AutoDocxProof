@@ -13,6 +13,7 @@
 AutoDocxProofread（智能校对）是一款专为长文档校对而设计的桌面应用程序。它能够帮助用户有效检测 Word 文档中的错别字、标点符号错误、语法问题和文本一致性问题，并提供修改建议。
 针对大模型在处理长文档的时候存在的遗忘和幻觉问题，软件设计了专门的架构来增强校对的准确性，并能直接导出校对后的文档
 
+
 ### 核心功能
 
 - **多种校对模式**：
@@ -39,6 +40,9 @@ AutoDocxProofread（智能校对）是一款专为长文档校对而设计的桌
   - 灵活的 API 配置管理
   - API 可用性测试
 
+### 近期变动
+- 更新了本地知识库功能
+
 ### 使用展示
 
 在选择需要校对的文档后，再选择校对模式，然后开始校对，软件会将将对的结果显示在右边栏，并在文本中高亮展示，以方便查看。然后可以选择是否接受这些修改，可以导出接受修改后的文档
@@ -57,6 +61,7 @@ AutoDocxProofread（智能校对）是一款专为长文档校对而设计的桌
 - **数据库**：[SQLite](https://www.sqlite.org/)
 - **代码规范**：[ESLint](https://eslint.org/) + [Prettier](https://prettier.io/)
 - **版本管理**：[Standard Version](https://github.com/conventional-changelog/standard-version)
+- **本地知识库**：基于lancedb管理和实现
 
 ## 🚀 快速开始
 
