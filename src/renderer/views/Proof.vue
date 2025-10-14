@@ -4,9 +4,22 @@
         <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon class="error-alert" />
         <el-header class="action-bar">
             <div class="header-content">
-                <p v-if="fileName" class="file-info">
-                    当前文件: {{ fileName }}
-                </p>
+                <div class="file-info-container">
+                    <p v-if="fileName" class="file-info">
+                        当前文件: {{ fileName }}
+                    </p>
+                    <p class="file-info" v-if="selectRepository.length > 0" style="margin-left:30px"> 已经选择的知识库：</p>
+                    <div class="flex gap-2" v-if="selectRepository.length > 0">
+                        <el-tag type="success" v-for="item in selectRepository" :key="item" :index="item" closable
+                            :disable-transitions="false" @close="deleteSelectRepository(item)">{{ item
+                            }}</el-tag>
+                        <el-button type="danger" size="small" @click="deleteAllSelectRepository"
+                            v-if="selectRepository.length > 0" style="margin-left:5px">
+                            清空
+                        </el-button>
+
+                    </div>
+                </div>
                 <div class="button-group">
                     <el-button type="primary" :loading="isLoading" @click="selectFileWithMainProcessRead" size="large"
                         class="action-button">
@@ -18,6 +31,25 @@
                         <el-option label="逐段校正（适合长文献）" value="ComprehensiveError" />
                         <el-option label="全文润色（适合简文章）" value="polish" />
                     </el-select>
+
+
+                    <el-dropdown placement="bottom">
+                        <el-button color="#626aef" :dark="isDark" class="dictionary-button">
+                            <el-icon>
+                                <Collection />
+                            </el-icon>
+                        </el-button>
+                        <template #dropdown>
+                            <el-text class="mx-1"
+                                style="display: flex; justify-content: center; align-items: center; padding-top: 10px ; padding-bottom: 0px;">选择知识库</el-text>
+                            <el-dropdown-menu>
+                                <el-dropdown-item v-for="value in repositoryList" :key="value" :index="value"
+                                    @click="addRepository(value)">
+                                    {{ value }}
+                                </el-dropdown-item>
+                            </el-dropdown-menu>
+                        </template>
+                    </el-dropdown>
 
                     <el-button type="primary" size="large" @click="onSubmit" :disabled="!form.filePath || processing"
                         :loading="processing" class="action-button">
@@ -60,7 +92,7 @@
                                         {{ formatCorrectionType(item.type) }}
                                     </span>
                                     <span class="correction-count">{{ index + 1 }}/{{ proofreadingResults.length
-                                        }}</span>
+                                    }}</span>
                                 </div>
                             </template>
 
@@ -79,6 +111,15 @@
                                         :disabled="item.applied">
                                         {{ item.applied ? '已应用' : '应用修改' }}
                                     </el-button>
+                                    <el-popover class="box-item" placement="bottom-start">
+                                        <template #reference>
+                                            <el-button type="primary" size="small">
+                                                查看参考
+                                            </el-button>
+                                        </template>
+                                        {{ item.References }}
+                                    </el-popover>
+
                                 </div>
                             </div>
                         </el-collapse-item>
@@ -115,9 +156,10 @@ import {
     ElMessageBox
 } from 'element-plus'
 import { renderAsync } from 'docx-preview'
-import { fileInfoStore } from "../stores/store.ts"
+import { fileInfoStore } from "../stores/store"
+import { useEmbeddingStore } from "../stores/embeddingStore"
 import { files } from 'jszip'
-
+import { HomeFilled, Monitor, InfoFilled, Setting, Clock, Collection } from '@element-plus/icons-vue'
 // 从 Electron 获取 API
 const electronAPI = window.electronAPI
 // 状态变量
@@ -129,10 +171,13 @@ const processing = ref(false)
 const exporting = ref(false) // 新增导出状态
 // const proofreadingResults = ref([]) // 存储校对结果
 const activeNames = ref([]) // 折叠面板展开项
-// 从filestore中响应式的获取数据
+const isDark = ref(false) // 添加缺失的 isDark 属性
+// 从Pinia store中获取数据
 const fileStore = fileInfoStore()
+const embeddingStore = useEmbeddingStore()
 // 选择使用计算属性computed双向绑定store，避免手动watch同步
 const fileName = computed(() => fileStore.fileName)
+
 const form = ref({
     model: fileStore.proofModel,
     filePath: fileStore.filePath,
@@ -141,6 +186,15 @@ const proofreadingResults = computed({
     get: () => fileStore.results,
     set: (val) => fileStore.setCorrectResult(val)
 })
+// rag 多选器 设置选项
+const props = {
+    multiple: true
+}
+// 知识库列表名称
+const repositoryList = ref([])
+// the selected repositorylist
+const selectRepository = ref([])
+
 // 格式化校对类型显示
 const formatCorrectionType = (type) => {
     const typeMap = {
@@ -173,6 +227,42 @@ watch(
 watch(proofreadingResults, (newProof, oldProof) => {
     console.log("the result of the proof:", newProof)
 })
+// 获取后端的所有的repositoryName
+// 获取知识库列表
+const getRepositories = async () => {
+    try {
+        // 获取全部的知识库列表
+        const result = await electronAPI.listRepositories()
+        if (Array.isArray(result)) {
+            repositoryList.value = [...result]
+        }
+        return result
+    } catch (error) {
+        console.error("获取知识库列表失败:", error)
+        return []
+    }
+}
+
+function unique(arr) {
+    return Array.from(new Set(arr));
+}
+const addRepository = async (item) => {
+    selectRepository.value.push(item)
+    selectRepository.value = unique(selectRepository.value)  //  去重
+    console.log("new select repository:", selectRepository.value)
+}
+const deleteSelectRepository = async (value) => {
+    selectRepository.value = selectRepository.value.filter(function (item) {
+        return item !== value
+    })
+}
+const deleteAllSelectRepository = async (value) => {
+    selectRepository.value = []
+}
+
+const initRepository = async () => {
+    await getRepositories()
+}
 
 
 const pushToDB = async (resultCorrect) => {
@@ -425,8 +515,27 @@ const onSubmit = async () => {
         processing.value = true;
         error.value = '';
         proofreadingResults.value = [];
+        let results;
+        if (selectRepository.value.length > 0) {
+            // 确保传递的参数是可序列化的
+            const params = {
+                model: form.value.model,
+                filePath: form.value.filePath,
+                repositoryNameList: [...selectRepository.value]
+            };
+            // 从Pinia store获取embedding配置并传递给后端
+            // 确保传递可序列化的纯对象
+            const { apiURL, apiKey, modelName } = embeddingStore.getAPIConfig;
+            console.log("embedding settings:", { apiURL, apiKey, modelName })
+            results = await electronAPI.processDocx(params.model, params.filePath, params.repositoryNameList, { apiURL, apiKey, modelName });
+        } else {
+            const params = {
+                model: form.value.model,
+                filePath: form.value.filePath
+            };
+            results = await electronAPI.processDocx(params.model, params.filePath);
+        }
 
-        const results = await electronAPI.processDocx(form.value.model, form.value.filePath);
         if (results.message === "Please select an API setting!") {
             ElMessage({
                 message: '请先设置API密钥',
@@ -612,6 +721,7 @@ onMounted(async () => {
         error.value = 'Electron 环境未正确加载...'
         return
     }
+    initRepository()
 
     // 如果 store 中有文件路径，尝试重新加载预览
     if (fileStore.filePath && fileStore.fileName) {
@@ -667,13 +777,24 @@ onMounted(async () => {
 .header-content {
     max-width: 1200px;
     margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.file-info-container {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    padding: 10px 0;
+    justify-content: center;
 }
 
 .file-info {
-    margin: 10px 0;
+    margin: 0;
     color: #606266;
     font-size: 14px;
-    text-align: center;
 }
 
 .button-group {
@@ -682,12 +803,16 @@ onMounted(async () => {
     justify-content: center;
     align-items: center;
     flex-wrap: wrap;
-    margin-top: 10px;
+    margin: 10px 0;
 }
 
 .action-button {
     min-width: 120px;
     border-radius: 8px;
+}
+
+.dictionary-button {
+    height: 100%;
 }
 
 .mode-select {
@@ -710,11 +835,11 @@ onMounted(async () => {
     height: 100%;
     overflow: auto;
     border: 1px solid #dcdfe6;
-    border-radius: 8px;
+    border-radius: 0px;
     background-color: white;
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
     padding: 20px;
-    margin: 15px;
+    margin: 0px;
 }
 
 .proofreading-sidebar {

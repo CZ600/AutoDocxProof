@@ -39,7 +39,7 @@ if (require('electron-squirrel-startup')) {
 const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 1000,
+    width: 1300,
     height: 1200,
     title: 'AutoDocxProofreading',
     // autoHideMenuBar: true, // 禁用菜单栏

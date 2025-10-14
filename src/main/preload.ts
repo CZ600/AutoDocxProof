@@ -34,7 +34,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectAPISetting: (url: string, key: string, modelName: string) =>
     ipcRenderer.invoke('selectAPISetting', url, key, modelName),
   getAPISettings: () => ipcRenderer.invoke('get-api-settings', {}),
-  processDocx: (model: string, filePath: string) => ipcRenderer.invoke('process-docx', model, filePath),
+  // 文档校对处理函数
+  processDocx: (model: string, filePath: string, repositoryNameList?: string[]) => {
+    // 确保传递的参数是可序列化的
+    const serializableParams = {
+      model,
+      filePath,
+      repositoryNameList: repositoryNameList ? [...repositoryNameList] : undefined
+    }
+
+    return ipcRenderer.invoke(
+      'process-docx',
+      serializableParams.model,
+      serializableParams.filePath,
+      serializableParams.repositoryNameList
+    )
+  },
 
   // 导出修正到文件中
   exportCorrectedDocx: (config: any) => ipcRenderer.invoke('exportCorrectedDocx', config),
@@ -70,5 +85,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   processPDF: (params: any, modelConfig: any) => ipcRenderer.invoke('pdf:process', params, modelConfig),
   selectAndProcessPDF: (repositoryName: string, modelConfig: any) =>
     ipcRenderer.invoke('pdf:select-and-process', repositoryName, modelConfig),
-  getPDFChunks: (params: any) => ipcRenderer.invoke('pdf:get-chunks', params)
+  getPDFChunks: (params: any) => ipcRenderer.invoke('pdf:get-chunks', params),
+  setEmbeddingAPI: (apiKey: string, apiURL: string, modelName: string) =>
+    ipcRenderer.invoke('setEmbeddingAPI', apiKey, apiURL, modelName),
+  getEmbeddingAPI: () => ipcRenderer.invoke('getEmbeddingAPI')
 })

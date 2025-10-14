@@ -81,10 +81,10 @@ export const embeddingSet = defineStore('embeddingSet', {
     setKey(Key: string) {
       this.apiKey = Key
     },
-    seteModelName(Name: string) {
+    setModelName(Name: string) {
       this.modelName = Name
     },
-    clearALL() {
+    clearAll() {
       this.ActiveRepositoryName = ''
       this.apiKey = ''
       this.apiURL = ''

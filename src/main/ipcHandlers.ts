@@ -32,6 +32,7 @@ let api_info: apiSettings = {
   modelName: ''
 }
 
+// 全局embedding_api变量已移除，由Pinia store管理
 export const registerIpcHandlers = () => {
   // 单向通信：接收渲染进程的消息
   // 监听消息，通道是message
@@ -150,34 +151,85 @@ export const registerIpcHandlers = () => {
   })
 
   // 处理文档校对请求
-  ipcMain.handle('process-docx', async (event, Model, filePath) => {
-    // 三种校对模式：mode: 'section' | 'sentence' | 'full',
-    console.log('Processing DOCX file:', Model, filePath)
-    if (!Model || !filePath) {
-      return {
-        isSuccess: false,
-        message: 'Please select a model and a file!'
+  // 更新了对于rag功能的支持，实现了并行操作，提升性能
+  ipcMain.handle('process-docx', async (event, Model, filePath, repositoryNameList?: string[], embeddingConfig?: apiSettings) => {
+    try {
+      // 三种校对模式：mode: 'section' | 'sentence' | 'full',
+      console.log('Processing DOCX file:', Model, filePath, repositoryNameList)
+      if (!Model || !filePath) {
+        return {
+          isSuccess: false,
+          message: 'Please select a model and a file!'
+        }
       }
-    }
 
-    if (!api_info.apiKey || !api_info.apiURL || !api_info.modelName) {
+      if (!api_info.apiKey || !api_info.apiURL || !api_info.modelName) {
+        return {
+          isSuccess: false,
+          message: 'Please select an API setting!'
+        }
+      }
+      if (Model === 'wordError') {
+        console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
+        const res = await proofreadDocument(
+          filePath,
+          'sentence',
+          api_info.apiKey,
+          api_info.modelName,
+          api_info.apiURL,
+          repositoryNameList,
+          embeddingConfig
+        )
+        // 确保返回的数据是可克隆的
+        try {
+          return JSON.parse(JSON.stringify(res))
+        } catch (error) {
+          console.error('序列化校对结果时出错:', error)
+          return []
+        }
+      } else if (Model === 'ComprehensiveError') {
+        console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
+        const res = await proofreadDocument(
+          filePath,
+          'section',
+          api_info.apiKey,
+          api_info.modelName,
+          api_info.apiURL,
+          repositoryNameList,
+          embeddingConfig
+        )
+        // 确保返回的数据是可克隆的
+        try {
+          return JSON.parse(JSON.stringify(res))
+        } catch (error) {
+          console.error('序列化校对结果时出错:', error)
+          return []
+        }
+      } else if (Model === 'polish') {
+        console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
+        const res = await proofreadDocument(
+          filePath,
+          'full',
+          api_info.apiKey,
+          api_info.modelName,
+          api_info.apiURL,
+          repositoryNameList,
+          embeddingConfig
+        )
+        // 确保返回的数据是可克隆的
+        try {
+          return JSON.parse(JSON.stringify(res))
+        } catch (error) {
+          console.error('序列化校对结果时出错:', error)
+          return []
+        }
+      }
+    } catch (error) {
+      console.error('处理文档校对请求时出错:', error)
       return {
         isSuccess: false,
-        message: 'Please select an API setting!'
+        message: `处理文档校对请求时出错: ${error.message}`
       }
-    }
-    if (Model === 'wordError') {
-      console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
-      const res = await proofreadDocument(filePath, 'sentence', api_info.apiKey, api_info.modelName, api_info.apiURL)
-      return res
-    } else if (Model === 'ComprehensiveError') {
-      console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
-      const res = await proofreadDocument(filePath, 'section', api_info.apiKey, api_info.modelName, api_info.apiURL)
-      return res
-    } else if (Model === 'polish') {
-      console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
-      const res = await proofreadDocument(filePath, 'full', api_info.apiKey, api_info.modelName, api_info.apiURL)
-      return res
     }
   })
 
@@ -369,7 +421,7 @@ export const registerIpcHandlers = () => {
   })
   // 向量数据库 -
 
-  // IPC处理器 - 处理PDF文件
+  // IPC处理器 - 处理PDF文件(弃用)
   ipcMain.handle('pdf:process', async (event, { repositoryName, filePath }, modelConfig) => {
     try {
       return await processDocument(
@@ -435,4 +487,9 @@ export const registerIpcHandlers = () => {
     const fileList = await listFilenamesInRepository(repositoryName)
     return fileList
   })
+  // 设置embedding模型 - 通过其他机制由前端Pinia store管理，不再需要此IPC处理
+  // ipcMain.handle('setEmbeddingAPI', ...) 已移除
+  
+  // 获取embedding模型信息 - 通过其他机制由前端Pinia store管理，不再需要此IPC处理
+  // ipcMain.handle('getEmbeddingAPI', ...) 已移除
 }

@@ -100,7 +100,8 @@ export async function getGeminiResponse(
     }
   }
 }
-// openai的接口
+// openai的接口  带 null 安全
+
 export async function OpenaiGen(
   systemPrompt: string,
   userPrompt: string,
@@ -126,14 +127,13 @@ export async function OpenaiGen(
       ]
     })
 
-    return chatCompletion.choices[0].message.content
+    return chatCompletion.choices[0].message.content ?? ''
   } catch (error) {
-    console.error('An error occurred while calling the Gemini API:', error)
-    // 抛出更具体的错误信息
+    console.error('An error occurred while calling the OpenAI-compatible API:', error)
     if (error instanceof Error) {
-      throw new Error(`Gemini API call failed: ${error.message}`)
+      throw new Error(`OpenAI API call failed: ${error.message}`)
     } else {
-      throw new Error('An unknown error occurred during the Gemini API call.')
+      throw new Error('An unknown error occurred during the OpenAI API call.')
     }
   }
 }
@@ -218,10 +218,12 @@ export async function getEmbedding(text: string | string[], modelName: string, a
     return response.data[0].embedding
   } catch (error: any) {
     console.log('error getting embedding:', error)
-    
+
     // 提供更详细的错误信息
     if (error.status === 404) {
-      throw new Error(`嵌入API调用失败，状态码404: 请检查API地址(${apiURL})和模型名称(${modelName})是否正确，该模型可能不支持嵌入功能`)
+      throw new Error(
+        `嵌入API调用失败，状态码404: 请检查API地址(${apiURL})和模型名称(${modelName})是否正确，该模型可能不支持嵌入功能`
+      )
     } else if (error.status === 401) {
       throw new Error(`嵌入API调用失败，认证错误: API密钥无效或权限不足`)
     } else if (error.status === 400) {

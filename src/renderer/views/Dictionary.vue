@@ -45,15 +45,14 @@
                 <el-header class="header">
                     <div class="header-content">
                         <div class="api-selector">
-                            <el-form-item label="选择API模型">
+                            <el-form-item label="选择Embedding模型">
                                 <el-select v-model="selectform.id" placeholder="请选择您的API模型" class="api-select"
                                     @change="handleApiChange">
                                     <el-option v-for="item in apiSettings" :key="item.id" :label="item.modelName"
                                         :value="item.id">
                                         <div class="api-option">
                                             <span class="api-name">{{ item.modelName }}</span>
-                                            <el-button type="danger" :icon="Delete" size="small" circle
-                                                @click.stop="deleteItem(item.id)" class="delete-api-btn" />
+
                                         </div>
                                     </el-option>
                                 </el-select>
@@ -90,16 +89,17 @@
                                 </div>
                             </template>
                             <div class="detail-content">
-                              <el-table :data="fileList" style="width: 100%">
-                                <el-table-column label="文件名">
-                                  <template #default="{ row }">{{ row }}</template>
-                                </el-table-column>
-                                <el-table-column label="操作">
-                                  <template #default="{ row }">
-                                    <el-button type="danger" size="small" @click.stop="deleteFile(row)">删除</el-button>
-                                  </template>
-                                </el-table-column>
-                              </el-table>
+                                <el-table :data="fileList" style="width: 100%">
+                                    <el-table-column label="文件名">
+                                        <template #default="{ row }">{{ row }}</template>
+                                    </el-table-column>
+                                    <el-table-column label="操作">
+                                        <template #default="{ row }">
+                                            <el-button type="danger" size="small"
+                                                @click.stop="deleteFile(row)">删除</el-button>
+                                        </template>
+                                    </el-table-column>
+                                </el-table>
                             </div>
                         </el-card>
                     </div>
@@ -128,11 +128,11 @@
 <script setup lang='ts'>
 import { HomeFilled, Monitor, InfoFilled, Setting, Clock, Collection, FolderAdd, Edit, Delete } from '@element-plus/icons-vue'
 import { ref, reactive, onMounted, watch } from 'vue'
-import { embeddingSet } from "../stores/store"
+import { useEmbeddingStore } from "../stores/embeddingStore"
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 // 变量设置
-const fileStore = embeddingSet()
+const fileStore = useEmbeddingStore()
 const activeIndex = ref('')
 const repositoryList = ref<string[]>([])
 const electronAPI = window.electronAPI
@@ -181,12 +181,12 @@ const handleApiChange = (newId: number | null) => {
         form.apiKey = selectedItem.apiKey || ''
         form.modelName = selectedItem.modelName || ''
 
-        // 通知主进程更新API设置
-        electronAPI.selectAPISetting(
-            selectform.value.URL,
-            selectform.value.key,
-            selectform.value.name
-        )
+        // 更新Pinia store中的embedding配置
+        fileStore.setConfig({
+          apiURL: selectform.value.URL,
+          apiKey: selectform.value.key,
+          modelName: selectform.value.name
+        })
     }
 }
 
@@ -237,30 +237,32 @@ const getALLAPISettings = async () => {
     }
 }
 
-// 初始化API选择
+// 初始化API选择 - 从Pinia store获取当前配置
 const initSelect = async () => {
     try {
-        const res = await electronAPI.getAPISettings()
-        if (res) {
-            selectform.value.URL = res.URL
-            selectform.value.key = res.Key
-            selectform.value.name = res.modelName
+        // 从embedding store获取当前配置
+        const config = fileStore.getAPIConfig
+            
+        if (config.apiURL && config.apiKey && config.modelName) {
+            selectform.value.URL = config.apiURL
+            selectform.value.key = config.apiKey
+            selectform.value.name = config.modelName
 
-            form.apiKey = res.Key
-            form.apiURL = res.URL
-            form.modelName = res.modelName
+            form.apiKey = config.apiKey
+            form.apiURL = config.apiURL
+            form.modelName = config.modelName
 
             // 找到对应的ID并设置
             const matchedApi = apiSettings.find(item =>
-                item.modelName === res.modelName &&
-                item.apiURL === res.URL
+                item.modelName === config.modelName &&
+                item.apiURL === config.apiURL
             )
             if (matchedApi) {
                 selectform.value.id = matchedApi.id
             }
         }
     } catch (error) {
-        console.error('初始化API设置失败:', error)
+        console.error('初始化API选择失败:', error)
     }
 }
 
@@ -299,10 +301,12 @@ const addOneRepository = async (repositoryName_: string, modelName_: string, api
 
 // 添加知识库窗口
 const addRepositoryWindow = async () => {
-    if (!form.apiKey || !form.apiURL || !form.modelName) {
-        ElMessage.error("请先选择一个API模型用于初始化知识库向量")
+    if (!fileStore.isConfigured) {
+        ElMessage.error("请先选择一个Embedding API模型用于初始化知识库向量")
         return
     }
+
+    const config = fileStore.getAPIConfig
 
     if (!form.repositoryName.trim()) {
         ElMessage.error("请输入知识库名称")
@@ -313,9 +317,9 @@ const addRepositoryWindow = async () => {
     try {
         await addOneRepository(
             form.repositoryName,
-            form.modelName,
-            form.apiKey,
-            form.apiURL
+            config.modelName,
+            config.apiKey,
+            config.apiURL
         )
 
         dialogFormVisible.value = false
@@ -361,58 +365,54 @@ const initRepositories = async () => {
 const fileList = ref<string[]>([])
 
 const loadFileList = async () => {
-  if (!activeIndex.value) return
-  try {
-    const files = await electronAPI.listFilenamesInRepository(activeIndex.value)
-    fileList.value = files
-  } catch (error) {
-    console.error('加载文件列表失败:', error)
-    fileList.value = []
-  }
+    if (!activeIndex.value) return
+    try {
+        const files = await electronAPI.listFilenamesInRepository(activeIndex.value)
+        fileList.value = files
+    } catch (error) {
+        console.error('加载文件列表失败:', error)
+        fileList.value = []
+    }
 }
 
 const addFile = async () => {
-  if (!activeIndex.value) {
-    ElMessage.warning('请先选择一个知识库')
-    return
-  }
-  try {
-    const modelConfig = {
-      modelName: selectform.value.name,
-      apiKey: selectform.value.key,
-      apiURL: selectform.value.URL
+    if (!activeIndex.value) {
+        ElMessage.warning('请先选择一个知识库')
+        return
     }
-    await electronAPI.selectAndProcessPDF(activeIndex.value, modelConfig)
-    await loadFileList()
-    ElMessage.success('文件添加成功')
-  } catch (error) {
-    ElMessage.error('添加文件失败')
-    console.error(error)
-  }
+    try {
+        const modelConfig = fileStore.getAPIConfig
+        await electronAPI.selectAndProcessPDF(activeIndex.value, modelConfig)
+        await loadFileList()
+        ElMessage.success('文件添加成功')
+    } catch (error) {
+        ElMessage.error('添加文件失败')
+        console.error(error)
+    }
 }
 
 const deleteFile = async (filename: string) => {
-  try {
-    await ElMessageBox.confirm(`确定要删除文件 "${filename}" 吗？`, '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    await electronAPI.deleteDocumentByName(activeIndex.value, filename)
-    await loadFileList()
-    ElMessage.success('删除成功')
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('删除失败')
+    try {
+        await ElMessageBox.confirm(`确定要删除文件 "${filename}" 吗？`, '提示', {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+        })
+        await electronAPI.deleteDocumentByName(activeIndex.value, filename)
+        await loadFileList()
+        ElMessage.success('删除成功')
+    } catch (error) {
+        if (error !== 'cancel') {
+            ElMessage.error('删除失败')
+        }
     }
-  }
 }
 
 // 监听activeIndex变化，加载文件列表
 watch(activeIndex, async (newVal) => {
-  if (newVal) {
-    await loadFileList()
-  }
+    if (newVal) {
+        await loadFileList()
+    }
 }, { immediate: true })
 
 onMounted(async () => {

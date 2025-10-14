@@ -100,7 +100,7 @@ export default interface ElectronApi {
   }
 
   // 文档处理接口
-  processDocx: (model: string, filePath: string) => Promise<ProofreadingCorrection[]>
+  processDocx: (model: string, filePath: string, repositoryNameList?: string[]) => Promise<ProofreadingCorrection[]> // 进行了更新
   exportCorrectedDocx: (config: any) => Promise<boolean>
 
   // 提示词处理接口
@@ -134,6 +134,9 @@ export default interface ElectronApi {
   processPDF: (params: PDFProcessParams, modelConfig: ModelConfig) => Promise<any>
   selectAndProcessPDF: (repositoryName: string, modelConfig: ModelConfig) => Promise<any> // 支持处理pdf、txt、docx文件
   getPDFChunks: (params: PDFGetChunksParams) => Promise<any>
+  // 设置embedding api
+  getEmbeddingAPI: () => Promise<{ URL: string; Key: string; modelName: string }>
+  setEmbeddingAPI: (apiKey: string, apiURL: string, modelName: string) => Promise<boolean>
 }
 
 declare global {

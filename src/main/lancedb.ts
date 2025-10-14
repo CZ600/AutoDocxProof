@@ -169,21 +169,21 @@ export async function getOrCreateTable(
   await initLanceDB()
   const tableName = sanitizeTableName(repositoryName)
 
+  // 先尝试打开
   try {
     return await db!.openTable(tableName)
-  } catch (error) {
-    // 表不存在，创建它
-    console.log(`Table ${tableName} not found, creating...`)
-
+  } catch (openError) {
+    // 表不存在，尝试创建
     try {
       const sampleEmbedding = await getEmbedding('Sample text for dimension detection', modelName, apiKey, apiURL)
       const dimension = sampleEmbedding.length
       const schema = createTableSchema(dimension)
-
-      const table = await db!.createTable(tableName, [], { schema })
-      console.log(`🆕 Created table ${tableName} with vector dim=${dimension}`)
-      return table
-    } catch (createError) {
+      return await db!.createTable(tableName, [], { schema })
+    } catch (createError: any) {
+      // 如果是因为表已存在而失败，再次尝试打开
+      if (createError.message?.includes('already exists') || createError.message?.includes('Table already exists')) {
+        return await db!.openTable(tableName)
+      }
       console.error('Failed to create table:', createError)
       throw new Error(`创建表失败: ${createError.message}`)
     }
