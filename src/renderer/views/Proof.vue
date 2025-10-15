@@ -92,7 +92,7 @@
                                         {{ formatCorrectionType(item.type) }}
                                     </span>
                                     <span class="correction-count">{{ index + 1 }}/{{ proofreadingResults.length
-                                    }}</span>
+                                        }}</span>
                                 </div>
                             </template>
 
@@ -111,13 +111,24 @@
                                         :disabled="item.applied">
                                         {{ item.applied ? '已应用' : '应用修改' }}
                                     </el-button>
-                                    <el-popover class="box-item" placement="bottom-start">
+                                    <el-popover placement="bottom-start" width="500px" trigger="click"
+                                        popper-class="reference-popover">
                                         <template #reference>
-                                            <el-button type="primary" size="small">
+                                            <el-button type="primary" size="small" style="margin-left: 8px;">
                                                 查看参考
                                             </el-button>
                                         </template>
-                                        {{ item.References }}
+
+                                        <div class="reference-content">
+                                            <h4>参考内容：</h4>
+                                            <div class="reference-list">
+                                                <div v-for="(reference, refIndex) in item.References" :key="refIndex"
+                                                    class="reference-item">
+                                                    <span class="reference-index">{{ refIndex + 1 }}.</span>
+                                                    <span class="reference-text">{{ reference }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </el-popover>
 
                                 </div>
@@ -994,5 +1005,85 @@ onMounted(async () => {
 .highlight-correction:hover {
     box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.3) !important;
     background-color: rgba(255, 200, 0, 0.7) !important;
+}
+</style>
+
+<style scoped>
+/* 参考内容样式 */
+.reference-content {
+    padding: 8px 0;
+}
+
+.reference-content h4 {
+    margin: 0 0 12px 0;
+    color: #303133;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.reference-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.reference-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border-left: 3px solid #409eff;
+    line-height: 1.5;
+}
+
+.reference-item:last-child {
+    margin-bottom: 0;
+}
+
+.reference-index {
+    color: #409eff;
+    font-weight: 600;
+    margin-right: 8px;
+    min-width: 20px;
+    flex-shrink: 0;
+}
+
+.reference-text {
+    color: #606266;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+/* 滚动条样式 */
+.reference-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.reference-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.reference-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.reference-list::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+</style>
+
+<style>
+/* 全局弹窗样式 */
+.reference-popover {
+    max-width: 500px;
+}
+
+.reference-popover .el-popover__title {
+    margin-bottom: 12px;
+    color: #303133;
+    font-weight: 600;
 }
 </style>

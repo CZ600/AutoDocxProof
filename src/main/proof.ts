@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as mammoth from 'mammoth'
 import { OpenaiGen } from './chat'
 import path from 'path'
-import { queryDocuments } from './lancedb'
+import { queryDocuments, getAllDocuments } from './lancedb'
 
 // ====== 类型定义 ======
 interface ProofreadingCorrection {
@@ -280,7 +280,7 @@ const queryDocChunk = async (
   const chunkList: RAGQueryResult[] = []
 
   const queries = repositoryNameList.map(repoName =>
-    queryDocuments(repoName, content.trim(), modelName, apiKey, apiURL, perRepoLimit, filter, fileName).catch(
+    queryDocuments(repoName, content.trim(), modelName, apiKey, apiURL, perRepoLimit, filter).catch(
       (err): RAGQueryResult[] => {
         console.error(`queryDocChunk: failed to query repository "${repoName}"`, err)
         return []
@@ -308,6 +308,7 @@ const queryDocChunk = async (
   }
   console.info('-----------------------------------RAG Query----------------------------')
   console.info('the unique results of query:', uniqueChunks)
+  console.log('the proofreading content:', content)
 
   const topChunks = uniqueChunks
     .filter(item => typeof item.score === 'number' && typeof item.text === 'string')
@@ -318,7 +319,7 @@ const queryDocChunk = async (
   return topChunks.map(item => item.text)
 }
 
-// ====== 通用校对函数（核心优化） ======
+// ====== 通用RAG校对函数 ======
 async function proofreadTextWithRAG(
   text: string,
   systemContext: string,
@@ -331,7 +332,11 @@ async function proofreadTextWithRAG(
 ): Promise<ProofreadingCorrection[]> {
   try {
     let systemPrompt = systemContext
-
+    for (let name of repositoryNameList) {
+      const result = await getAllDocuments(name)
+      console.info('the content of the ', name)
+      console.info(result)
+    }
     if (repositoryNameList && repositoryNameList.length > 0 && fileName) {
       const embApiKey = embeddingConfig?.apiKey || apiKey
       const embApiURL = embeddingConfig?.apiURL || apiURL

@@ -55,7 +55,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // 导出修正到文件中
-  exportCorrectedDocx: (config: any) => ipcRenderer.invoke('exportCorrectedDocx', config),
+  exportCorrectedDocx: (config: any) => {
+    // 确保传递的参数是可序列化的
+    const serializableConfig = JSON.parse(JSON.stringify(config))
+    return ipcRenderer.invoke('exportCorrectedDocx', serializableConfig)
+  },
   // 获取默认的提示词
   getDefaultPrompt: () => ipcRenderer.invoke('getDefaultPrompt'),
   // 设置新的提示词

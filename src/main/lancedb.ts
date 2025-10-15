@@ -249,11 +249,13 @@ export async function queryDocuments(
   try {
     const table = await getOrCreateTable(repositoryName, modelName, apiKey, apiURL)
     const embedding = await getEmbedding(queryText, modelName, apiKey, apiURL)
+    console.log('qureyText:', queryText)
 
     let whereClause = filter
     if (filename) {
       // 转义单引号以防止 SQL 注入
-      const escapedFilename = filename.replace(/'/g, "''")
+      const pureFilename = path.basename(filename)
+      const escapedFilename = pureFilename.replace(/'/g, "''")
       whereClause = whereClause
         ? `filename = '${escapedFilename}' AND (${whereClause})`
         : `filename = '${escapedFilename}'`
@@ -265,13 +267,24 @@ export async function queryDocuments(
     }
 
     const results = await searchQuery.toArray()
-    return results.map((r: any) => ({
+    const resultMap = results.map((r: any) => ({
       id: r.id,
       text: r.text,
       filename: r.filename,
       score: r._distance,
       meta: r.metadata ? JSON.parse(r.metadata) : {}
     }))
+    resultMap.forEach((element: any) => {
+      console.log('the query result text:', element.text)
+      console.log('the query result score:', element.score)
+    })
+    console.log(`🔍 RAG查询详情:
+  仓库: ${repositoryName}
+  查询文本: ${queryText.substring(0, 50)}...
+  实际WHERE条件: ${whereClause}
+  返回结果数: ${results.length}
+  首条结果分数: ${results[0]?._distance}`)
+    return resultMap
   } catch (error) {
     console.error('Failed to query documents:', error)
     throw new Error(`查询文档失败: ${error.message}`)
@@ -453,5 +466,40 @@ export async function listFilenamesInRepository(repositoryName: string): Promise
   } catch (error) {
     console.error('Failed to list filenames:', error)
     throw new Error(`获取文件名列表失败: ${error.message}`)
+  }
+}
+
+/**
+ * 查询指定表中的所有对象
+ * @param repositoryName 知识库名称
+ * @returns 表中所有文档的数组
+ */
+export async function getAllDocuments(
+  repositoryName: string
+): Promise<Array<{ id: number; text: string; filename: string; meta: any }>> {
+  try {
+    await initLanceDB()
+    const tableName = sanitizeTableName(repositoryName)
+
+    // 检查表是否存在
+    const tables = await db!.tableNames()
+    if (!tables.includes(tableName)) {
+      throw new Error(`Repository "${repositoryName}" does not exist`)
+    }
+
+    const table = await db!.openTable(tableName)
+
+    // 查询所有文档
+    const results = await table.query().toArray()
+
+    return results.map((r: any) => ({
+      id: r.id,
+      text: r.text,
+      filename: r.filename,
+      meta: r.metadata ? JSON.parse(r.metadata) : {}
+    }))
+  } catch (error) {
+    console.error('Failed to get all documents:', error)
+    throw new Error(`获取所有文档失败: ${error.message}`)
   }
 }

@@ -256,9 +256,12 @@ export const registerIpcHandlers = () => {
   // 导出修正后的DOCX文件
   ipcMain.handle('exportCorrectedDocx', async (event, config) => {
     try {
-      const filePath = config.originalFilePath
+      // 确保传递的数据是可克隆的
+      const serializableConfig = JSON.parse(JSON.stringify(config))
+      
+      const filePath = serializableConfig.originalFilePath
       const newPath = filePath.replace(/(\.\w+)$/, '_new$1') // 正则捕获“最后一个点+扩展名”
-      const correctedText = config.appliedCorrections.map((correction: Correction) => ({
+      const correctedText = serializableConfig.appliedCorrections.map((correction: Correction) => ({
         origin: correction.original,
         suggested: correction.suggested
       }))

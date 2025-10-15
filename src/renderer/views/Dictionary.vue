@@ -183,9 +183,9 @@ const handleApiChange = (newId: number | null) => {
 
         // 更新Pinia store中的embedding配置
         fileStore.setConfig({
-          apiURL: selectform.value.URL,
-          apiKey: selectform.value.key,
-          modelName: selectform.value.name
+            apiURL: selectform.value.URL,
+            apiKey: selectform.value.key,
+            modelName: selectform.value.name
         })
     }
 }
@@ -242,7 +242,7 @@ const initSelect = async () => {
     try {
         // 从embedding store获取当前配置
         const config = fileStore.getAPIConfig
-            
+
         if (config.apiURL && config.apiKey && config.modelName) {
             selectform.value.URL = config.apiURL
             selectform.value.key = config.apiKey
@@ -382,7 +382,12 @@ const addFile = async () => {
     }
     try {
         const modelConfig = fileStore.getAPIConfig
-        await electronAPI.selectAndProcessPDF(activeIndex.value, modelConfig)
+        const newConfig = {
+            apiURL: modelConfig.apiURL,
+            apiKey: modelConfig.apiKey,
+            modelName: modelConfig.modelName
+        }
+        await electronAPI.selectAndProcessPDF(activeIndex.value, newConfig)
         await loadFileList()
         ElMessage.success('文件添加成功')
     } catch (error) {
