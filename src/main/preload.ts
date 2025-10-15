@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { get } from 'http'
 import test from 'node:test'
 import { setNewPrompt } from './proof'
+import { apiSettings } from './database'
 
 console.log('this message from the preload')
 
@@ -35,19 +36,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('selectAPISetting', url, key, modelName),
   getAPISettings: () => ipcRenderer.invoke('get-api-settings', {}),
   // 文档校对处理函数
-  processDocx: (model: string, filePath: string, repositoryNameList?: string[]) => {
+  processDocx: (model: string, filePath: string, repositoryNameList?: string[], embeddingConfig?: apiSettings) => {
     // 确保传递的参数是可序列化的
     const serializableParams = {
       model,
       filePath,
-      repositoryNameList: repositoryNameList ? [...repositoryNameList] : undefined
+      repositoryNameList: repositoryNameList ? [...repositoryNameList] : undefined,
+      embeddingConfig: embeddingConfig ? { ...embeddingConfig } : undefined
     }
 
     return ipcRenderer.invoke(
       'process-docx',
       serializableParams.model,
       serializableParams.filePath,
-      serializableParams.repositoryNameList
+      serializableParams.repositoryNameList,
+      serializableParams.embeddingConfig
     )
   },
 

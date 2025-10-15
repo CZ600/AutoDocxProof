@@ -4,6 +4,7 @@ import { OpenaiGen } from './chat'
 import path from 'path'
 import { queryDocuments } from './lancedb'
 
+// ====== 类型定义 ======
 interface ProofreadingCorrection {
   original: string
   suggested: string
@@ -31,6 +32,13 @@ interface RAGQueryResult {
   meta: any
 }
 
+interface ApiSettings {
+  apiKey: string
+  apiURL: string
+  modelName: string
+}
+
+// ====== 全局 Prompt ======
 let defaultPrompt = `
 你是一个专业的中文文本校对专家。请仔细检查文本中的错别字、标点错误和语法问题。
 要求：
@@ -53,7 +61,7 @@ let defaultPrompt = `
 const ragText =
   '以下内容是校对的参考内容，请结合这些文字进行校对工作（如果是双语内容，则对翻译校对），校对规则遵循之前讲述的要求'
 
-// ====== 新增：并发控制工具函数 ======
+// ====== 并发控制工具函数（保留原逻辑） ======
 async function runWithConcurrencyLimit<T, R>(
   items: T[],
   maxConcurrency: number,
@@ -68,7 +76,7 @@ async function runWithConcurrencyLimit<T, R>(
         results[i] = await processor(items[i])
       } catch (error) {
         console.error(`并发任务 ${i} 失败:`, error)
-        results[i] = undefined // 或可返回空数组等
+        results[i] = undefined
       }
     }
 
@@ -87,9 +95,9 @@ async function runWithConcurrencyLimit<T, R>(
   return results.filter((r): r is R => r !== undefined)
 }
 
-// 并发上限常量
 const MAX_CONCURRENCY = 30
 
+// ====== 导出 Prompt 管理 ======
 export async function getDefaultPrompt(): Promise<string> {
   return defaultPrompt
 }
@@ -99,14 +107,13 @@ export async function setNewPrompt(newPrompt: string): Promise<boolean> {
   return true
 }
 
-// 工具函数：切分句子
-async function splitSentences(text: string): Promise<string[]> {
-  const sentenceRegex = /[^。！？…!?]+[。！？…!?]*/g
+// ====== 工具函数 ======
+function splitSentences(text: string): string[] {
+  const sentenceRegex = /[^。！？…!?]+[。！？…!?]+|[^。！？…!?]+$/g
   const sentences = text.match(sentenceRegex) || []
   return sentences.map(s => s.trim()).filter(s => s.length > 0)
 }
 
-// 判断是否为标题
 function isLikelyTitle(line: string): boolean {
   const trimmed = line.trim()
   return (
@@ -121,7 +128,6 @@ function isLikelyTitle(line: string): boolean {
   )
 }
 
-// 获取标题层级
 function getHeadingLevel(line: string): number {
   const trimmed = line.trim()
   if (/^第[一二三四五六七八九十\d]+章/.test(trimmed)) return 1
@@ -131,7 +137,7 @@ function getHeadingLevel(line: string): number {
   return 2
 }
 
-// 解析 Word 文档结构
+// ====== 文档解析 ======
 async function parseWordDocument(documentPath: string): Promise<DocumentStructure> {
   try {
     const result = await mammoth.extractRawText({ path: documentPath })
@@ -176,7 +182,8 @@ async function parseWordDocument(documentPath: string): Promise<DocumentStructur
     throw new Error(`解析Word文档失败: ${error.message}`)
   }
 }
-// 分析文档主题
+
+// ====== 文档主题总结 ======
 async function summarizeDocumentTheme(
   docStructure: DocumentStructure,
   apiKey: string,
@@ -194,14 +201,14 @@ async function summarizeDocumentTheme(
   }
 }
 
-// 解析模型返回的校对结果
-function parseCorrections(result: string, RAGResult?: string[]): ProofreadingCorrection[] {
+// ====== 校对结果解析 ======
+function parseCorrections(result: string, ragChunks?: string[]): ProofreadingCorrection[] {
   try {
     const parsed = JSON.parse(result)
     if (Array.isArray(parsed)) {
       return parsed.map(item => {
-        if (RAGResult) {
-          return { ...item, References: [...RAGResult] }
+        if (ragChunks) {
+          return { ...item, References: [...ragChunks] }
         }
         return item
       })
@@ -215,11 +222,11 @@ function parseCorrections(result: string, RAGResult?: string[]): ProofreadingCor
   }
 }
 
-// 从非标准文本中提取校对信息（可扩展）
 function extractCorrectionsFromText(text: string): ProofreadingCorrection[] {
   return []
 }
 
+// ====== RAG 查询 ======
 interface QueryDocChunkOptions {
   maxSelectNum?: number
   enableDeduplication?: boolean
@@ -299,143 +306,70 @@ const queryDocChunk = async (
       return true
     })
   }
+  console.info('-----------------------------------RAG Query----------------------------')
+  console.info('the unique results of query:', uniqueChunks)
 
   const topChunks = uniqueChunks
     .filter(item => typeof item.score === 'number' && typeof item.text === 'string')
     .sort((a, b) => b.score - a.score)
     .slice(0, effectiveSelectNum)
+  console.info('the top relative result of query:', topChunks)
 
   return topChunks.map(item => item.text)
 }
 
-// 校对单个段落
-async function proofreadSection(
-  section: DocumentSection,
-  documentTitle: string,
-  documentTheme: string,
+// ====== 通用校对函数（核心优化） ======
+async function proofreadTextWithRAG(
+  text: string,
+  systemContext: string,
   apiKey: string,
   modelName: string,
   apiURL: string,
   repositoryNameList?: string[],
-  fileName?: string
+  fileName?: string,
+  embeddingConfig?: ApiSettings
 ): Promise<ProofreadingCorrection[]> {
-  const systemPrompt =
-    defaultPrompt +
-    `
-文档标题: ${documentTitle}
-文档主题: ${documentTheme}
-当前章节标题: ${section.title}`
-
-  const userPrompt = `当前章节内容: ${section.content}`
-
   try {
-    if (repositoryNameList && fileName) {
-      const resultRAG = await queryDocChunk(
+    let systemPrompt = systemContext
+
+    if (repositoryNameList && repositoryNameList.length > 0 && fileName) {
+      const embApiKey = embeddingConfig?.apiKey || apiKey
+      const embApiURL = embeddingConfig?.apiURL || apiURL
+      const embModelName = embeddingConfig?.modelName || modelName
+      console.log('------------------------setting of RAG-------------------------------------')
+      console.log('embedding key:', embApiKey)
+      console.log('embedding URL:', embApiURL)
+      console.log('embedding modelName:', embModelName)
+
+      const ragChunks = await queryDocChunk(
         repositoryNameList,
-        apiKey,
-        apiURL,
-        modelName,
+        embApiKey,
+        embApiURL,
+        embModelName,
         fileName,
-        section.content,
+        text,
         '',
         3
       )
-      const ragContext =
-        resultRAG.length > 0
-          ? `\n${ragText}:
-${resultRAG.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
-          : ''
-      const newSysPrompt = systemPrompt + ragContext
-      const result = await OpenaiGen(newSysPrompt, userPrompt, apiKey, modelName, apiURL)
-      return parseCorrections(result, resultRAG)
+
+      if (ragChunks.length > 0) {
+        const ragContext = `\n${ragText}:\n${ragChunks.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
+        systemPrompt += ragContext
+      }
+
+      const result = await OpenaiGen(systemPrompt, `需要校对的内容:\n${text}`, apiKey, modelName, apiURL)
+      return parseCorrections(result, ragChunks)
     } else {
-      const result = await OpenaiGen(systemPrompt, userPrompt, apiKey, modelName, apiURL)
+      const result = await OpenaiGen(systemPrompt, `需要校对的内容:\n${text}`, apiKey, modelName, apiURL)
       return parseCorrections(result)
     }
   } catch (error) {
-    console.error(`校对章节 "${section.title}" 时出错:`, error)
+    console.error('校对文本失败:', error)
     return []
   }
 }
 
-// 逐句校对
-async function proofreadSectionBySentence(
-  section: DocumentSection,
-  documentTitle: string,
-  documentTheme: string,
-  apiKey: string,
-  modelName: string,
-  apiURL: string,
-  repositoryNameList?: string[],
-  fileName?: string
-): Promise<ProofreadingCorrection[]> {
-  const sentences = await splitSentences(section.content)
-  const allCorrections: ProofreadingCorrection[] = []
-
-  const systemPrompt =
-    defaultPrompt +
-    `
-文档标题: ${documentTitle}
-文档主题: ${documentTheme}
-当前章节标题: ${section.title}
-`
-
-  for (const sentence of sentences) {
-    if (!sentence.trim()) continue
-    const userPrompt = `需要校对的内容:\n${sentence}`
-
-    try {
-      if (repositoryNameList && fileName) {
-        const resultRAG = await queryDocChunk(repositoryNameList, apiKey, apiURL, modelName, fileName, sentence, '', 3)
-        const ragContext =
-          resultRAG.length > 0
-            ? `\n${ragText}:
-${resultRAG.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
-            : ''
-        const newSysPrompt = systemPrompt + ragContext
-        const result = await OpenaiGen(newSysPrompt, userPrompt, apiKey, modelName, apiURL)
-        const corrections = parseCorrections(result, resultRAG)
-        allCorrections.push(...corrections)
-      } else {
-        const result = await OpenaiGen(systemPrompt, userPrompt, apiKey, modelName, apiURL)
-        const corrections = parseCorrections(result)
-        allCorrections.push(...corrections)
-      }
-    } catch (error) {
-      console.error(`校对句子失败:`, sentence, error)
-    }
-  }
-
-  return allCorrections
-}
-
-// 全文校对
-async function proofreadEntireDocument(
-  text: string,
-  apiKey: string,
-  modelName: string,
-  apiURL: string,
-  RAGchunk?: string[]
-): Promise<ProofreadingCorrection[]> {
-  let systemPrompt = defaultPrompt
-  if (RAGchunk && RAGchunk.length > 0) {
-    const ragContext = `\n${ragText}:
-${RAGchunk.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
-    systemPrompt += ragContext
-  }
-
-  const userPrompt = `需要校对的内容：${text}`
-
-  try {
-    const result = await OpenaiGen(systemPrompt, userPrompt, apiKey, modelName, apiURL)
-    return parseCorrections(result, RAGchunk)
-  } catch (error) {
-    console.error('全文校对失败:', error)
-    return []
-  }
-}
-
-// 主函数：统一校对接口，支持rag和并行处理（并发量默认为30
+// ====== 主校对函数 ======
 export async function proofreadDocument(
   documentPath: string,
   mode: 'section' | 'sentence' | 'full',
@@ -443,7 +377,7 @@ export async function proofreadDocument(
   modelName: string,
   apiURL: string,
   repositoryNameList?: string[],
-  embeddingConfig?: apiSettings
+  embeddingConfig?: ApiSettings
 ): Promise<ProofreadingCorrection[]> {
   console.log('process mode is:', mode)
   console.log('process api is:', apiURL, modelName)
@@ -456,127 +390,84 @@ export async function proofreadDocument(
       const text = result.value.trim()
       if (!text) return []
 
-      // 使用独立的embedding配置进行RAG查询
-      const embeddingApiKey = embeddingConfig?.apiKey || apiKey
-      const embeddingApiURL = embeddingConfig?.apiURL || apiURL
-      const embeddingModelName = embeddingConfig?.modelName || modelName
-
-      if (repositoryNameList) {
-        const chunks = await queryDocChunk(
-          repositoryNameList,
-          embeddingApiKey,
-          embeddingApiURL,
-          embeddingModelName,
-          fileName,
-          text,
-          '',
-          3
-        )
-        return await proofreadEntireDocument(text, apiKey, modelName, apiURL, chunks)
-      } else {
-        return await proofreadEntireDocument(text, apiKey, modelName, apiURL)
-      }
+      return await proofreadTextWithRAG(
+        text,
+        defaultPrompt,
+        apiKey,
+        modelName,
+        apiURL,
+        repositoryNameList,
+        fileName,
+        embeddingConfig
+      )
     }
 
     const docStructure = await parseWordDocument(documentPath)
     const documentTheme = await summarizeDocumentTheme(docStructure, apiKey, modelName, apiURL)
-
-    // 跳过空内容段落
     const nonEmptySections = docStructure.sections.filter(sec => sec.content.trim().length > 0)
     if (nonEmptySections.length === 0) return []
 
     let allCorrections: ProofreadingCorrection[] = []
 
     if (mode === 'section') {
-      // 使用独立的embedding配置进行RAG查询
-      const embeddingApiKey = embeddingConfig?.apiKey || apiKey
-      const embeddingApiURL = embeddingConfig?.apiURL || apiURL
-      const embeddingModelName = embeddingConfig?.modelName || modelName
-
-      // 并行处理段落
       const sectionResults = await runWithConcurrencyLimit(nonEmptySections, MAX_CONCURRENCY, async section => {
-        return await proofreadSection(
-          section,
-          docStructure.title,
-          documentTheme,
+        const systemContext = `${defaultPrompt}
+文档标题: ${docStructure.title}
+文档主题: ${documentTheme}
+当前章节标题: ${section.title}`
+        return proofreadTextWithRAG(
+          section.content,
+          systemContext,
           apiKey,
           modelName,
           apiURL,
           repositoryNameList,
-          fileName
+          fileName,
+          embeddingConfig
         )
       })
       allCorrections = sectionResults.flat()
     } else if (mode === 'sentence') {
-      // 对每个段落内的句子进行并行处理
       const sentenceTasks: (() => Promise<ProofreadingCorrection[]>)[] = []
       for (const section of nonEmptySections) {
-        const sentences = await splitSentences(section.content)
+        const sentences = splitSentences(section.content)
         const validSentences = sentences.filter(s => s.trim().length > 0)
         if (validSentences.length === 0) continue
 
-        // 为每个句子创建校对任务（闭包捕获上下文）
         for (const sentence of validSentences) {
           sentenceTasks.push(async () => {
-            const systemPrompt =
-              defaultPrompt +
-              `
+            const systemContext = `${defaultPrompt}
 文档标题: ${docStructure.title}
 文档主题: ${documentTheme}
-当前章节标题: ${section.title}
-`
-
-            const userPrompt = `需要校对的内容:\n${sentence}`
-
-            try {
-              if (repositoryNameList && fileName) {
-                const resultRAG = await queryDocChunk(
-                  repositoryNameList,
-                  apiKey,
-                  apiURL,
-                  modelName,
-                  fileName,
-                  sentence,
-                  '',
-                  3
-                )
-                const ragContext =
-                  resultRAG.length > 0
-                    ? `\n${ragText}:
-${resultRAG.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
-                    : ''
-                const newSysPrompt = systemPrompt + ragContext
-                const result = await OpenaiGen(newSysPrompt, userPrompt, apiKey, modelName, apiURL)
-                return parseCorrections(result, resultRAG)
-              } else {
-                const result = await OpenaiGen(systemPrompt, userPrompt, apiKey, modelName, apiURL)
-                return parseCorrections(result)
-              }
-            } catch (error) {
-              console.error(`校对句子失败:`, sentence, error)
-              return []
-            }
+当前章节标题: ${section.title}`
+            return proofreadTextWithRAG(
+              sentence,
+              systemContext,
+              apiKey,
+              modelName,
+              apiURL,
+              repositoryNameList,
+              fileName,
+              embeddingConfig
+            )
           })
         }
       }
 
-      // 并行执行所有句子任务
       if (sentenceTasks.length > 0) {
         const sentenceResults = await runWithConcurrencyLimit(sentenceTasks, MAX_CONCURRENCY, task => task())
         allCorrections = sentenceResults.flat()
       }
     }
 
-    // 确保返回的对象是可序列化的，移除任何可能的循环引用或不可序列化的属性
-    const serializableCorrections = allCorrections.map(correction => {
-      return {
-        original: correction.original,
-        suggested: correction.suggested,
-        reason: correction.reason,
-        type: correction.type,
-        ...(correction.References ? { References: correction.References } : {})
-      }
-    })
+    // 确保可序列化
+    const serializableCorrections = allCorrections.map(correction => ({
+      original: correction.original,
+      suggested: correction.suggested,
+      reason: correction.reason,
+      type: correction.type,
+      ...(correction.References ? { References: correction.References } : {})
+    }))
 
     console.log('校对结果:', serializableCorrections)
     return serializableCorrections

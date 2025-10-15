@@ -4,6 +4,7 @@
  * 防止运行时错误
  */
 import { proofreadLargeDocument, ProofreadingCorrection } from './proof'
+import { apiSettings } from './ipcHandlers'
 
 export interface proofHistory {
   id?: number
@@ -100,7 +101,12 @@ export default interface ElectronApi {
   }
 
   // 文档处理接口
-  processDocx: (model: string, filePath: string, repositoryNameList?: string[]) => Promise<ProofreadingCorrection[]> // 进行了更新
+  processDocx: (
+    model: string,
+    filePath: string,
+    repositoryNameList?: string,
+    embeddingConfig?: apiSettings
+  ) => Promise<ProofreadingCorrection[]> // 进行了更新
   exportCorrectedDocx: (config: any) => Promise<boolean>
 
   // 提示词处理接口

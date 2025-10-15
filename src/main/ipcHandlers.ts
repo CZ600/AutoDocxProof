@@ -20,7 +20,7 @@ import {
 import { processDocument, getPDFDocumentChunks } from './pdfUtils'
 import { list } from 'changelog.config'
 import { error } from 'console'
-interface apiSettings {
+export interface apiSettings {
   apiURL: string
   apiKey: string
   modelName: string
@@ -152,86 +152,94 @@ export const registerIpcHandlers = () => {
 
   // 处理文档校对请求
   // 更新了对于rag功能的支持，实现了并行操作，提升性能
-  ipcMain.handle('process-docx', async (event, Model, filePath, repositoryNameList?: string[], embeddingConfig?: apiSettings) => {
-    try {
-      // 三种校对模式：mode: 'section' | 'sentence' | 'full',
-      console.log('Processing DOCX file:', Model, filePath, repositoryNameList)
-      if (!Model || !filePath) {
-        return {
-          isSuccess: false,
-          message: 'Please select a model and a file!'
-        }
-      }
+  ipcMain.handle(
+    'process-docx',
+    async (event, Model, filePath, repositoryNameList?: string[], embeddingConfig?: apiSettings) => {
+      try {
+        // 三种校对模式：mode: 'section' | 'sentence' | 'full',
+        console.log(
+          '-----------------------------------------------processing docx file-------------------------------------------------------'
+        )
+        console.info('Processing settings:', Model, filePath)
+        console.info('embedding settings:', repositoryNameList, embeddingConfig)
 
-      if (!api_info.apiKey || !api_info.apiURL || !api_info.modelName) {
+        if (!Model || !filePath) {
+          return {
+            isSuccess: false,
+            message: 'Please select a model and a file!'
+          }
+        }
+
+        if (!api_info.apiKey || !api_info.apiURL || !api_info.modelName) {
+          return {
+            isSuccess: false,
+            message: 'Please select an API setting!'
+          }
+        }
+        if (Model === 'wordError') {
+          console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
+          const res = await proofreadDocument(
+            filePath,
+            'sentence',
+            api_info.apiKey,
+            api_info.modelName,
+            api_info.apiURL,
+            repositoryNameList,
+            embeddingConfig
+          )
+          // 确保返回的数据是可克隆的
+          try {
+            return JSON.parse(JSON.stringify(res))
+          } catch (error) {
+            console.error('序列化校对结果时出错:', error)
+            return []
+          }
+        } else if (Model === 'ComprehensiveError') {
+          console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
+          const res = await proofreadDocument(
+            filePath,
+            'section',
+            api_info.apiKey,
+            api_info.modelName,
+            api_info.apiURL,
+            repositoryNameList,
+            embeddingConfig
+          )
+          // 确保返回的数据是可克隆的
+          try {
+            return JSON.parse(JSON.stringify(res))
+          } catch (error) {
+            console.error('序列化校对结果时出错:', error)
+            return []
+          }
+        } else if (Model === 'polish') {
+          console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
+          const res = await proofreadDocument(
+            filePath,
+            'full',
+            api_info.apiKey,
+            api_info.modelName,
+            api_info.apiURL,
+            repositoryNameList,
+            embeddingConfig
+          )
+          // 确保返回的数据是可克隆的
+          try {
+            return JSON.parse(JSON.stringify(res))
+          } catch (error) {
+            console.error('序列化校对结果时出错:', error)
+            return []
+          }
+        }
+      } catch (error) {
+        console.error('处理文档校对请求时出错:', error)
         return {
           isSuccess: false,
-          message: 'Please select an API setting!'
+          message: `处理文档校对请求时出错: ${error.message}`
         }
-      }
-      if (Model === 'wordError') {
-        console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
-        const res = await proofreadDocument(
-          filePath,
-          'sentence',
-          api_info.apiKey,
-          api_info.modelName,
-          api_info.apiURL,
-          repositoryNameList,
-          embeddingConfig
-        )
-        // 确保返回的数据是可克隆的
-        try {
-          return JSON.parse(JSON.stringify(res))
-        } catch (error) {
-          console.error('序列化校对结果时出错:', error)
-          return []
-        }
-      } else if (Model === 'ComprehensiveError') {
-        console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
-        const res = await proofreadDocument(
-          filePath,
-          'section',
-          api_info.apiKey,
-          api_info.modelName,
-          api_info.apiURL,
-          repositoryNameList,
-          embeddingConfig
-        )
-        // 确保返回的数据是可克隆的
-        try {
-          return JSON.parse(JSON.stringify(res))
-        } catch (error) {
-          console.error('序列化校对结果时出错:', error)
-          return []
-        }
-      } else if (Model === 'polish') {
-        console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
-        const res = await proofreadDocument(
-          filePath,
-          'full',
-          api_info.apiKey,
-          api_info.modelName,
-          api_info.apiURL,
-          repositoryNameList,
-          embeddingConfig
-        )
-        // 确保返回的数据是可克隆的
-        try {
-          return JSON.parse(JSON.stringify(res))
-        } catch (error) {
-          console.error('序列化校对结果时出错:', error)
-          return []
-        }
-      }
-    } catch (error) {
-      console.error('处理文档校对请求时出错:', error)
-      return {
-        isSuccess: false,
-        message: `处理文档校对请求时出错: ${error.message}`
       }
     }
-  })
+  )
 
   // 新增的返回值形式
   interface ResponseData<T = any> {
@@ -489,7 +497,7 @@ export const registerIpcHandlers = () => {
   })
   // 设置embedding模型 - 通过其他机制由前端Pinia store管理，不再需要此IPC处理
   // ipcMain.handle('setEmbeddingAPI', ...) 已移除
-  
+
   // 获取embedding模型信息 - 通过其他机制由前端Pinia store管理，不再需要此IPC处理
   // ipcMain.handle('getEmbeddingAPI', ...) 已移除
 }
