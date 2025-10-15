@@ -7,7 +7,14 @@ export const builtins = ['electron', ...builtinModules.map(m => [m, `node:${m}`]
 
 export const external = [
   ...builtins,
-  ...Object.keys('dependencies' in pkg ? (pkg.dependencies as Record<string, unknown>) : {})
+  ...Object.keys('dependencies' in pkg ? (pkg.dependencies as Record<string, unknown>) : {}),
+  // 添加 LanceDB 相关的原生模块作为外部依赖
+  '@lancedb/lancedb',
+  '@lancedb/lancedb-win32-x64-msvc',
+  '@lancedb/lancedb-darwin-arm64',
+  '@lancedb/lancedb-darwin-x64',
+  '@lancedb/lancedb-linux-arm64-gnu',
+  '@lancedb/lancedb-linux-x64-gnu'
 ]
 
 export function getBuildConfig(env: ConfigEnv<'build'>): UserConfig {

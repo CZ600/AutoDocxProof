@@ -1,8 +1,21 @@
-import * as lancedb from '@lancedb/lancedb'
 import { app } from 'electron'
 import path from 'path'
 import { getEmbedding } from './chat'
 import * as arrow from 'apache-arrow'
+
+let lancedb: typeof import('@lancedb/lancedb') | null = null
+
+async function getLanceDB() {
+  if (!lancedb) {
+    try {
+      lancedb = await import('@lancedb/lancedb')
+    } catch (error) {
+      console.error('Failed to import LanceDB:', error)
+      throw error
+    }
+  }
+  return lancedb
+}
 
 const DB_PATH = path.join(app.getPath('userData'), 'vector-db')
 let db: lancedb.Connection | null = null
@@ -51,7 +64,8 @@ function createTableSchema(dimension: number): arrow.Schema {
 export async function initLanceDB(): Promise<lancedb.Connection> {
   if (!db) {
     try {
-      db = await lancedb.connect(DB_PATH)
+      const ldb = await getLanceDB()
+      db = await ldb.connect(DB_PATH)
       console.log(`✅ Connected to LanceDB at ${DB_PATH}`)
     } catch (error) {
       console.error('Failed to connect to LanceDB:', error)
@@ -123,6 +137,7 @@ export async function createRepository(
 
     // 创建表
     const schema = createTableSchema(dimension)
+    const ldb = await getLanceDB()
     await db!.createTable(tableName, [], { schema })
 
     console.log(`✅ Created repository: ${repositoryName} (dim=${dimension})`)
@@ -178,6 +193,7 @@ export async function getOrCreateTable(
       const sampleEmbedding = await getEmbedding('Sample text for dimension detection', modelName, apiKey, apiURL)
       const dimension = sampleEmbedding.length
       const schema = createTableSchema(dimension)
+      const ldb = await getLanceDB()
       return await db!.createTable(tableName, [], { schema })
     } catch (createError: any) {
       // 如果是因为表已存在而失败，再次尝试打开

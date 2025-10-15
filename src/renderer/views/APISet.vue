@@ -212,6 +212,8 @@ const testAPI = async () => {
         const res = await electronAPI.testAPI(url, key, modelName)
         if (res) {
             ElMessage.success('测试成功')
+        } else {
+            ElMessage.error('测试失败')
         }
     } catch (err) {
         ElMessage.error('测试失败')
@@ -232,7 +234,7 @@ watch(
             selectform.value.URL = ''
             selectform.value.key = ''
             selectform.value.name = ''
-            
+
             // 同步到 Pinia store
             apiSettingsStore.clearSelectedApi()
             return
@@ -247,10 +249,10 @@ watch(
             selectform.value.id = newId
             selectform.value.time = selectedItem.time || ''
         }
-        
+
         // 同步到 Pinia store
         apiSettingsStore.setSelectedApi({ ...selectform.value })
-        
+
         const res = electronAPI.selectAPISetting(selectform.value.URL, selectform.value.key, selectform.value.name)
         if (res) {
             console.log('已经更新api设置的选择:', res, selectform.value.name, selectform.value.URL, selectform.value.key);
