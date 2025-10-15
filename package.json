@@ -1,7 +1,7 @@
 {
   "name": "AutoDocxProofreading",
   "productName": "AutoDocxProofreading",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "An intelligent long-document proofreading software powered by large language models. 基于大模型的简单的docx格式文档的校对",
   "main": ".vite/build/main.js",
   "scripts": {
@@ -48,8 +48,8 @@
   },
   "keywords": [],
   "author": {
-    "name": "night-peiqi",
-    "url": "https://github.com/night-peiqi"
+    "name": "CZ600",
+    "url": "https://github.com/CZ600"
   },
   "license": "MIT",
   "dependencies": {
@@ -68,7 +68,6 @@
     "fast-xml-parser": "^5.2.5",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
-    "langchain": "^0.3.36",
     "mammoth": "^1.11.0",
     "marked": "^16.3.0",
     "openai": "^5.19.1",

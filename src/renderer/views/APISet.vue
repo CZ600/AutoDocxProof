@@ -98,6 +98,7 @@ import { on } from 'events'
 import { get } from 'http'
 import { reactive, ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { apiStore } from '../stores/apiStore'
 const activeTab = ref('api')
 const dialogVisible = ref(false)
 const electronAPI = window.electronAPI
@@ -124,6 +125,8 @@ const selectform = ref(
         time: ''
     }
 )
+
+const apiSettingsStore = apiStore()
 
 const newForm = reactive({
     URL: '',
@@ -229,6 +232,9 @@ watch(
             selectform.value.URL = ''
             selectform.value.key = ''
             selectform.value.name = ''
+            
+            // 同步到 Pinia store
+            apiSettingsStore.clearSelectedApi()
             return
         }
 
@@ -238,7 +244,13 @@ watch(
             selectform.value.URL = selectedItem.apiURL || ''
             selectform.value.key = selectedItem.apiKey || ''
             selectform.value.name = selectedItem.modelName || '' // 注意：你存储的是 modelName，不是 name
+            selectform.value.id = newId
+            selectform.value.time = selectedItem.time || ''
         }
+        
+        // 同步到 Pinia store
+        apiSettingsStore.setSelectedApi({ ...selectform.value })
+        
         const res = electronAPI.selectAPISetting(selectform.value.URL, selectform.value.key, selectform.value.name)
         if (res) {
             console.log('已经更新api设置的选择:', res, selectform.value.name, selectform.value.URL, selectform.value.key);
@@ -249,6 +261,12 @@ watch(
 )
 
 const initSelect = async () => {
+    // 先尝试从 Pinia store 获取数据
+    if (apiSettingsStore.selectedApi.id !== null) {
+        selectform.value = { ...apiSettingsStore.selectedApi }
+        return
+    }
+
     const res = await electronAPI.getAPISettings()
     if (res) {
         selectform.value.URL = res.URL
