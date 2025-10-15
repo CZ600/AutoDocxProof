@@ -1,280 +1,291 @@
 <template>
     <div class="about-container">
-        <div class="header">
+        <el-page-header @back="goBack" content="AutoDocxProof 智能文档校对应用" />
+
+        <div class="logo-section">
             <img src="../assets/logo.png" alt="Logo" class="logo" />
-            <h1>AutoDocxProof 智能文档校对应用</h1>
-            <p>一款基于 Electron、Vue 3 和 TypeScript 构建的智能文档校对桌面应用程序</p>
+            <p class="subtitle">一款基于 Electron、Vue 3 和 TypeScript 构建的智能长文档校对桌面应用程序</p>
         </div>
 
-        <section class="intro">
-            <h2>📝 项目简介</h2>
-            <p>
-                AutoDocxProof（智能校对）是一款专为中文文档校对而设计的桌面应用程序。它能够帮助用户快速检测 Word
-                文档中的错别字、标点符号错误、语法问题和文本一致性问题，并提供修改建议。应用采用现代化的技术栈构建，具有直观的用户界面和强大的校对功能。
-            </p>
-        </section>
+        <el-tabs v-model="activeTab" type="card" class="content-tabs">
+            <el-tab-pane label="项目简介" name="intro">
+                <el-card>
+                    <h2>📝 项目简介</h2>
+                    <p>
+                        AutoDocxProofread（智能校对）是一款专为长文档校对而设计的桌面应用程序。它能够帮助用户有效检测 Word
+                        文档中的错别字、标点符号错误、语法问题和文本一致性问题，并提供修改建议。
+                    </p>
+                    <p>
+                        针对大模型在处理长文档时存在的遗忘和幻觉问题，软件设计了专门的架构来增强校对的准确性，并能直接导出校对后的文档。并且软件采用了并行处理架构，显著提升大模型处理长文档的速度。新版本引入了本地知识库功能，支持RAG功能给模型校对参考。
+                    </p>
 
-        <section class="features">
-            <h2>✨ 核心功能</h2>
+                    <h3>核心功能与软件优势</h3>
+                    <el-collapse v-model="activeCollapse" accordion>
+                        <el-collapse-item title="多种校对模式" name="1">
+                            <ul>
+                                <li><strong>逐句精校</strong>：适合需要高精度校对的短文本</li>
+                                <li><strong>逐段校正</strong>：适合长篇文献的校对</li>
+                                <li><strong>全文润色</strong>：对整篇文档进行语言润色和优化</li>
+                            </ul>
+                        </el-collapse-item>
+                        <el-collapse-item title="智能错误识别" name="2">
+                            <ul>
+                                <li>错别字检测</li>
+                                <li>标点符号错误识别</li>
+                                <li>语法问题检测</li>
+                            </ul>
+                        </el-collapse-item>
+                        <el-collapse-item title="知识库系统" name="3">
+                            <ul>
+                                <li>创建和管理多个本地知识库</li>
+                                <li>支持PDF、Word和TXT文档导入作为参考材料</li>
+                                <li>基于向量数据库的RAG检索增强生成算法</li>
+                            </ul>
+                        </el-collapse-item>
+                        <el-collapse-item title="更快的处理速度和用户友好的操作体验" name="4">
+                            <ul>
+                                <li>使用并行处理的方式优化处理效率，显著提升对于长文本的校对速度</li>
+                                <li>清晰的错误展示和修改建议</li>
+                                <li>一键应用修改建议</li>
+                                <li>响应式设计，支持窗口缩放</li>
+                            </ul>
+                        </el-collapse-item>
+                        <el-collapse-item title="便捷的 API 配置管理" name="5">
+                            <ul>
+                                <li>兼容 OpenAI 接口，支持多种大语言模型 API</li>
+                                <li>灵活的 API 配置管理</li>
+                            </ul>
+                        </el-collapse-item>
+                        <el-collapse-item title="清晰的历史记录管理" name="6">
+                            <ul>
+                                <li>清晰查看历史记录，包括时间、校对模型、校对文件路径和具体的结果</li>
+                                <li>支持对结果的批量管理</li>
+                            </ul>
+                        </el-collapse-item>
+                    </el-collapse>
 
-            <h3>多种校对模式：</h3>
-            <ul>
-                <li>逐句精校：适合需要高精度校对的短文本</li>
-                <li>逐段校正：适合长篇文献的校对</li>
-                <li>全文润色：对整篇文档进行语言润色和优化</li>
-            </ul>
+                    <el-alert title="注意" type="warning" description="校对结果的准确度很大程度上取决于模型能力，软件无法保证校对结果的完全准确，还需要人工再次检验。"
+                        show-icon :closable="false" style="margin-top: 16px;" />
+                    <el-alert title="提示1" type="info" description="结果导出功能尚不完善，无法精准的将所有的结果应用到文档中，可能存在疏漏。" show-icon
+                        :closable="false" style="margin-top: 8px;" />
+                    <el-alert title="提示2" type="info" description="全文润色功能适合较短篇幅的文档。逐句校对对 token 的消耗很大。" show-icon
+                        :closable="false" style="margin-top: 8px;" />
+                </el-card>
+            </el-tab-pane>
 
-            <h3>智能错误识别：</h3>
-            <ul>
-                <li>错别字检测</li>
-                <li>标点符号错误识别</li>
-                <li>语法问题检测</li>
-                <li>文本一致性检查</li>
-            </ul>
+            <el-tab-pane label="技术栈" name="tech">
+                <el-card>
+                    <h2>🛠 技术栈</h2>
+                    <el-descriptions :column="2" border>
+                        <el-descriptions-item label="主框架">
+                            <el-link href="https://www.electronjs.org/" target="_blank">Electron</el-link> +
+                            <el-link href="https://vuejs.org/" target="_blank">Vue 3</el-link> +
+                            <el-link href="https://www.typescriptlang.org/" target="_blank">TypeScript</el-link>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="UI 组件库">
+                            <el-link href="https://element-plus.org/" target="_blank">Element Plus</el-link>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="构建工具">
+                            <el-link href="https://vitejs.dev/" target="_blank">Vite</el-link> +
+                            <el-link href="https://www.electronforge.io/" target="_blank">Electron Forge</el-link>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="文档处理">
+                            <el-link href="https://github.com/mwilliamson/mammoth.js" target="_blank">Mammoth</el-link>
+                            +
+                            <el-link href="https://github.com/open-xml-templating/docxtemplater"
+                                target="_blank">Docxtemplater</el-link>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="向量数据库">
+                            <el-link href="https://lancedb.com/" target="_blank">LanceDB</el-link>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="代码规范">
+                            <el-link href="https://eslint.org/" target="_blank">ESLint</el-link> +
+                            <el-link href="https://prettier.io/" target="_blank">Prettier</el-link>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="版本管理">
+                            <el-link href="https://github.com/conventional-changelog/standard-version"
+                                target="_blank">Standard Version</el-link>
+                        </el-descriptions-item>
+                    </el-descriptions>
+                </el-card>
+            </el-tab-pane>
 
-            <h3>友好的用户界面：</h3>
-            <ul>
-                <li>实时文档预览</li>
-                <li>清晰的错误展示和修改建议</li>
-                <li>一键应用修改建议</li>
-            </ul>
-
-            <h3>API 配置管理：</h3>
-            <ul>
-                <li>支持多种大语言模型 API</li>
-                <li>灵活的 API 配置管理</li>
-                <li>API 可用性测试</li>
-            </ul>
-        </section>
-
-        <section class="showcase">
-            <h2>🖼 使用展示</h2>
-
-            <p>
-                在选择需要校对的文档后，再选择校对模式，然后开始校对，软件会将校对的结果显示在右边栏，并在文本中高亮展示，以方便查看。然后可以选择是否接受这些修改，可以导出接受修改后的文档。
-            </p>
-            <img src="../assets/Proofreading.jpg" alt="校对界面" class="screenshot" />
-
-            <p>
-                本应用可以自行设置 API，兼容满足 OpenAI 规范的 API 接口，推荐使用非推理模型。
-            </p>
-            <img src="../assets/apiset.jpg" alt="API 设置界面" class="screenshot" />
-
-            <p>本应用还可以浏览和管理校对记录。</p>
-            <img src="../assets/history.jpg" alt="历史记录界面" class="screenshot" />
-        </section>
-
-        <section class="tech-stack">
-            <h2>🛠 技术栈</h2>
-            <ul>
-                <li><strong>主框架</strong>：<a href="https://www.electronjs.org/" target="_blank">Electron</a> + <a
-                        href="https://vuejs.org/" target="_blank">Vue 3</a> + <a href="https://www.typescriptlang.org/"
-                        target="_blank">TypeScript</a></li>
-                <li><strong>UI 组件库</strong>：<a href="https://element-plus.org/" target="_blank">Element Plus</a></li>
-                <li><strong>构建工具</strong>：<a href="https://vitejs.dev/" target="_blank">Vite</a> + <a
-                        href="https://www.electronforge.io/" target="_blank">Electron Forge</a></li>
-                <li><strong>文档处理</strong>：<a href="https://github.com/mwilliamson/mammoth.js"
-                        target="_blank">Mammoth</a> + <a href="https://github.com/open-xml-templating/docxtemplater"
-                        target="_blank">Docxtemplater</a></li>
-                <li><strong>数据库</strong>：<a href="https://www.sqlite.org/" target="_blank">SQLite</a></li>
-                <li><strong>代码规范</strong>：<a href="https://eslint.org/" target="_blank">ESLint</a> + <a
-                        href="https://prettier.io/" target="_blank">Prettier</a></li>
-                <li><strong>版本管理</strong>：<a href="https://github.com/conventional-changelog/standard-version"
-                        target="_blank">Standard Version</a></li>
-            </ul>
-        </section>
-
-        <section class="quick-start">
-            <h2>🚀 快速开始</h2>
-
-            <h3>环境要求</h3>
-            <ul>
-                <li>Node.js >= 16.x</li>
-                <li>npm 或 yarn</li>
-            </ul>
-
-            <h3>安装依赖</h3>
-            <pre><code>npm install</code></pre>
-
-            <h3>开发模式运行</h3>
-            <pre><code>npm run start</code></pre>
-
-            <h3>构建可执行文件（无需安装）</h3>
-            <pre><code>npm run package</code></pre>
-
-            <h3>制作安装包</h3>
-            <pre><code>npm run make</code></pre>
-            <p>根据不同操作系统生成相应的安装包，位于 <code>out/make</code> 目录中：</p>
-            <ul>
-                <li>Windows: <code>.exe</code> 或 <code>.msi</code> 安装包</li>
-                <li>macOS: <code>.dmg</code> 或 <code>.pkg</code> 安装包</li>
-                <li>Linux: <code>.deb</code> 或 <code>.rpm</code> 安装包</li>
-            </ul>
-        </section>
-
-        <section class="project-structure">
-            <h2>📦 项目结构</h2>
-            <pre><code>.
-├── src/
-│   ├── main/              # 主进程代码
-│   │   ├── chat.ts        # AI 对话相关功能
-│   │   ├── database.ts    # 数据库操作
-│   │   ├── ipcHandlers.ts # IPC 通信处理
-│   │   ├── main.ts        # 主进程入口
-│   │   ├── preload.ts     # 预加载脚本
-│   │   ├── proof.ts       # 文档校对核心逻辑
-│   │   └── wordProcess.ts # Word 文档处理
-│   └── renderer/          # 渲染进程代码
-│       ├── router/        # 路由配置
-│       ├── views/         # 页面组件
-│       ├── App.vue        # 根组件
-│       └── renderer.ts    # 渲染进程入口
-├── assets/                # 静态资源
-├── out/                   # 构建输出目录
-└── forge.config.ts        # Electron Forge 配置
-</code></pre>
-        </section>
-
-        <section class="usage-guide">
-            <h2>🎯 使用指南</h2>
-
-            <h3>1. 配置 API</h3>
-            <ol>
-                <li>点击导航栏中的"工作区"</li>
-                <li>选择"API 设置"选项卡</li>
-                <li>填写 API 地址、密钥和模型名称</li>
-                <li>点击"测试连接"验证配置</li>
-                <li>点击"保存配置"保存设置</li>
-            </ol>
-
-            <h3>2. 文档校对</h3>
-            <ol>
-                <li>点击导航栏中的"工作区"</li>
-                <li>选择"文档校对"选项卡</li>
-                <li>点击"选择 DOCX 文件"按钮选择要校对的 Word 文档</li>
-                <li>选择合适的校对模式：
+            <el-tab-pane label="快速开始" name="start">
+                <el-card>
+                    <h2>🚀 快速开始</h2>
+                    <h3>环境要求</h3>
                     <ul>
-                        <li><strong>逐句精校</strong>：适合需要高精度校对的短文本</li>
-                        <li><strong>逐段校正</strong>：适合长篇文献的校对</li>
-                        <li><strong>全文润色</strong>：对整篇文档进行语言润色和优化</li>
+                        <li>Node.js >= 16.x</li>
+                        <li>npm 或 yarn</li>
                     </ul>
-                </li>
-                <li>点击"开始校正"按钮开始校对过程</li>
-                <li>在右侧栏查看校对结果和修改建议</li>
-                <li>点击"应用修改"按钮接受建议的修改</li>
-                <li>点击"导出结果"按钮保存修改后的文档</li>
-            </ol>
-        </section>
 
-        <section class="dev-guide">
-            <h2>📖 开发指南</h2>
+                    <h3>安装依赖</h3>
+                    <el-code-block lang="bash">npm install</el-code-block>
 
-            <h3>代码提交规范</h3>
-            <p>项目使用 <a href="https://github.com/commitizen/cz-cli" target="_blank">Commitizen</a> 和 <a
-                    href="https://commitlint.js.org/" target="_blank">Commitlint</a> 规范提交信息：</p>
-            <pre><code>npm run commit</code></pre>
+                    <h3>开发模式运行</h3>
+                    <el-code-block lang="bash">npm run start</el-code-block>
+                </el-card>
+            </el-tab-pane>
 
-            <h3>代码格式化</h3>
-            <p>项目使用 ESLint 和 Prettier 保证代码风格统一：</p>
-            <pre><code># 检查并自动修复代码格式问题
-npm run lint:fix</code></pre>
-        </section>
+            <el-tab-pane label="项目结构" name="structure">
+                <el-card>
+                    <h2>📦 项目结构</h2>
+                    <el-code-block lang="text">
+                        .
+                        ├── src/
+                        │ ├── main/ # 主进程代码
+                        │ │ ├── chat.ts # AI 对话相关功能
+                        │ │ ├── database.ts # 数据库操作
+                        │ │ ├── ipcHandlers.ts # IPC 通信处理
+                        │ │ ├── lancedb.ts # 向量数据库操作
+                        │ │ ├── main.ts # 主进程入口
+                        │ │ ├── pdfUtils.ts # PDF文档处理
+                        │ │ ├── preload.ts # 预加载脚本
+                        │ │ ├── proof.ts # 文档校对核心逻辑
+                        │ │ └── wordProcess.ts # Word 文档处理
+                        │ └── renderer/ # 渲染进程代码
+                        │ ├── router/ # 路由配置
+                        │ ├── stores/ # Pinia存储目录
+                        │ ├── views/ # 页面组件
+                        │ ├── App.vue # 根组件
+                        │ └── renderer.ts # 渲染进程入口
+                        ├── assets/ # 静态资源
+                        ├── out/ # 构建输出目录
+                        └── forge.config.ts # Electron Forge 配置
+                    </el-code-block>
+                </el-card>
+            </el-tab-pane>
 
-        <footer class="footer">
-            <p>Made with ❤️ by night-peiqi</p>
-        </footer>
+            <el-tab-pane label="使用指南" name="guide">
+                <el-card>
+                    <h2>🎯 使用指南</h2>
+                    <el-steps direction="vertical" :active="3">
+                        <el-step title="配置 API">
+                            <template #description>
+                                <ol>
+                                    <li>点击导航栏中的"工作区"</li>
+                                    <li>选择"API 设置"选项卡</li>
+                                    <li>填写 API 地址、密钥和模型名称</li>
+                                    <li>点击"测试连接"验证配置</li>
+                                    <li>点击"保存配置"保存设置</li>
+                                </ol>
+                            </template>
+                        </el-step>
+                        <el-step title="创建知识库">
+                            <template #description>
+                                <ol>
+                                    <li>点击导航栏中的"知识库"</li>
+                                    <li>选择"Embedding模型"（需要选择专门的embedding模型）</li>
+                                    <li>点击"添加知识库"按钮创建新知识库</li>
+                                    <li>选择知识库后可添加PDF文件作为参考材料</li>
+                                </ol>
+                            </template>
+                        </el-step>
+                        <el-step title="文档校对">
+                            <template #description>
+                                <ol>
+                                    <li>点击导航栏中的"工作区"</li>
+                                    <li>选择"文档校对"选项卡</li>
+                                    <li>点击"选择 DOCX 文件"按钮选择要校对的 Word 文档</li>
+                                    <li>（可选）选择知识库以增强校对准确性</li>
+                                    <li>选择合适的校对模式</li>
+                                    <li>点击"开始校正"按钮开始校对过程</li>
+                                    <li>在右侧栏查看校对结果和修改建议</li>
+                                    <li>点击"应用修改"按钮接受建议的修改</li>
+                                    <li>点击"导出结果"按钮保存修改后的文档</li>
+                                </ol>
+                            </template>
+                        </el-step>
+                    </el-steps>
+                </el-card>
+            </el-tab-pane>
+
+            <el-tab-pane label="其他信息" name="other">
+                <el-card>
+                    <h2>🔧 开发计划</h2>
+                    <ul>
+                        <li>大语言模型的格式化输出转 Word 文档</li>
+                        <li>增强用户界面交互体验</li>
+                        <li>优化 .docx 文件的处理算法</li>
+                    </ul>
+
+                    <h2>📖 版本情况</h2>
+                    <p>当前版本：v1.1.0</p>
+                    <p>v1.1.0 版本的 .exe 包已经发布，可以在本项目页面上下载</p>
+                    <el-link href="https://github.com/CZ600/AutoDocxProofread" target="_blank" type="primary">
+                        项目地址：https://github.com/CZ600/AutoDocxProofread
+                    </el-link>
+                    <h2> 📖 致谢 </h2>
+                    <p> 部分代码使用了night-peiqi的项目：</p>
+                    <el-link href="https://github.com/night-peiqi/electron-vue3-typescript-template" target="_blank"
+                        type="primary">
+                        https://github.com/night-peiqi/electron-vue3-typescript-template
+                    </el-link>
+                    <h2>📄 许可证</h2>
+                    <p>本项目采用 MIT 许可证 - 查看 <el-link href="/LICENSE" target="_blank">LICENSE</el-link> 文件了解详情</p>
+                </el-card>
+            </el-tab-pane>
+        </el-tabs>
     </div>
 </template>
 
 <script setup lang="ts">
-// 无需额外逻辑，纯静态展示页面
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+const activeTab = ref('intro');
+const activeCollapse = ref('1');
+
+const goBack = () => {
+    router.back();
+};
 </script>
 
 <style scoped>
 .about-container {
-    max-width: 900px;
+    padding: 20px;
+    max-width: 1200px;
     margin: 0 auto;
-    padding: 2rem;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
-    line-height: 1.6;
-    color: #333;
 }
 
-.header {
+.logo-section {
     text-align: center;
-    margin-bottom: 2.5rem;
+    margin: 24px 0;
 }
 
 .logo {
     width: 120px;
     height: auto;
-    margin-bottom: 1rem;
+    margin-bottom: 16px;
 }
 
-h1 {
-    font-size: 1.8rem;
-    margin-bottom: 0.5rem;
-}
-
-h2 {
-    font-size: 1.6rem;
-    margin-top: 2rem;
-    margin-bottom: 1rem;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 0.3rem;
-}
-
-h3 {
-    font-size: 1.25rem;
-    margin-top: 1.2rem;
-    margin-bottom: 0.6rem;
-}
-
-ul,
-ol {
-    padding-left: 1.5rem;
-    margin-bottom: 1rem;
-}
-
-li {
-    margin-bottom: 0.3rem;
-}
-
-.screenshot {
-    max-width: 100%;
-    height: auto;
-    margin: 1rem 0;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-}
-
-pre {
-    background-color: #f6f8fa;
-    padding: 1rem;
-    border-radius: 6px;
-    overflow-x: auto;
-    margin: 1rem 0;
-}
-
-code {
-    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-    font-size: 0.95em;
-}
-
-a {
-    color: #007acc;
-    text-decoration: none;
-}
-
-a:hover {
-    text-decoration: underline;
-}
-
-.footer {
-    text-align: center;
-    margin-top: 3rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid #eee;
+.subtitle {
+    font-size: 16px;
     color: #666;
+}
+
+.content-tabs :deep(.el-card__body) {
+    padding: 20px;
+}
+
+.content-tabs h2 {
+    margin-top: 0;
+    margin-bottom: 16px;
+    color: #333;
+}
+
+.content-tabs h3 {
+    margin: 16px 0 8px;
+    color: #444;
+}
+
+.content-tabs ul {
+    padding-left: 20px;
+    margin: 8px 0;
+}
+
+.content-tabs li {
+    margin: 4px 0;
 }
 </style>
