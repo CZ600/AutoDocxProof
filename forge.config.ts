@@ -14,7 +14,10 @@ const config: ForgeConfig = {
     asar: true,
     icon: path.resolve(__dirname, 'assets/logo.ico'),
     name: 'AutoDocxProofreading',
-    executableName: 'DocxProofread'
+    executableName: 'DocxProofread',
+    extraResource: [
+      'node_modules/@lancedb/lancedb-win32-x64-msvc'
+    ]
   },
   rebuildConfig: {},
   makers: [
@@ -29,7 +32,6 @@ const config: ForgeConfig = {
     new MakerDeb({})
   ],
   plugins: [
-    new AutoUnpackNativesPlugin({}),
     new VitePlugin({
       // `build` can specify multiple entry builds, which can be Main process, Preload scripts, Worker process, etc.
       // If you are familiar with Vite configuration, it will look really familiar.

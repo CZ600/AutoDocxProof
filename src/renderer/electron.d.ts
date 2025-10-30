@@ -143,6 +143,7 @@ export default interface ElectronApi {
   // 设置embedding api
   getEmbeddingAPI: () => Promise<{ URL: string; Key: string; modelName: string }>
   setEmbeddingAPI: (apiKey: string, apiURL: string, modelName: string) => Promise<boolean>
+  getEnvPath: () => Promise<string>
 }
 
 declare global {

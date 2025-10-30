@@ -57,10 +57,10 @@
 
 <script setup>
 import "./assets/css/common.css";
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { HomeFilled, Monitor, InfoFilled, Setting, Clock, Collection } from '@element-plus/icons-vue'
-
+const electronAPI = window.electronAPI
 const router = useRouter()
 const route = useRoute()
 
@@ -71,6 +71,14 @@ const currentPath = computed(() => route.path)
 const handleSelect = (key) => {
   router.push(key)
 }
+
+const getEnv = async () => {
+  const envPath = await electronAPI.getEnvPath()
+  console.log('envPath:', envPath)
+}
+
+getEnv()
+
 </script>
 
 <style scoped>

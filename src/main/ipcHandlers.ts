@@ -20,6 +20,8 @@ import {
 import { processDocument, getPDFDocumentChunks } from './pdfUtils'
 import { list } from 'changelog.config'
 import { error } from 'console'
+import { eventNames, env } from 'process'
+// const { platform, arch, env } = process;
 export interface apiSettings {
   apiURL: string
   apiKey: string
@@ -258,7 +260,7 @@ export const registerIpcHandlers = () => {
     try {
       // 确保传递的数据是可克隆的
       const serializableConfig = JSON.parse(JSON.stringify(config))
-      
+
       const filePath = serializableConfig.originalFilePath
       const newPath = filePath.replace(/(\.\w+)$/, '_new$1') // 正则捕获“最后一个点+扩展名”
       const correctedText = serializableConfig.appliedCorrections.map((correction: Correction) => ({
@@ -503,4 +505,9 @@ export const registerIpcHandlers = () => {
 
   // 获取embedding模型信息 - 通过其他机制由前端Pinia store管理，不再需要此IPC处理
   // ipcMain.handle('getEmbeddingAPI', ...) 已移除
+  // 调试用接口
+  ipcMain.handle('getEnvPath', async event => {
+    console.log(' env.LANCEDB_NATIVE_PATH:', env.LANCEDB_NATIVE_PATH)
+    return env.LANCEDB_NATIVE_PATH
+  })
 }

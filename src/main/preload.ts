@@ -95,5 +95,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPDFChunks: (params: any) => ipcRenderer.invoke('pdf:get-chunks', params),
   setEmbeddingAPI: (apiKey: string, apiURL: string, modelName: string) =>
     ipcRenderer.invoke('setEmbeddingAPI', apiKey, apiURL, modelName),
-  getEmbeddingAPI: () => ipcRenderer.invoke('getEmbeddingAPI')
+  getEmbeddingAPI: () => ipcRenderer.invoke('getEmbeddingAPI'),
+  getEnvPath: () => ipcRenderer.invoke('getEnvPath') // 调试用，检验打包后的
 })

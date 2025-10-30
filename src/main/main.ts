@@ -1,5 +1,8 @@
 import { app, BrowserWindow, session } from 'electron' // app是必须引入的，
 import path from 'path'
+
+// 将LanceDB原生模块路径添加到PATH环境变量，确保运行时能正确加载
+
 import { registerIpcHandlers } from './ipcHandlers'
 import { initLanceDB } from './lancedb'
 // main.js 或主进程中的其他文件
@@ -99,7 +102,26 @@ app.whenReady().then(async () => {
       createWindow()
     }
   })
-  // 进行数据库初始化操作
+
+  // 判断是否为开发环境
+  const isDev = MAIN_WINDOW_VITE_DEV_SERVER_URL !== undefined
+
+  let nativeModulePath
+  if (isDev) {
+    // 开发环境：假设原生模块在项目根目录的 resources/ 下
+    // const projectRoot = app.getAppPath(); // 项目根目录
+    // nativeModulePath = path.join(projectRoot, 'resources', 'lancedb-win32-x64-msvc');
+    // 开发环境不设置
+  } else {
+    // 生产环境：原生模块应位于 resources/ 目录下（且需 unpacked）
+    const installDir = path.dirname(app.getPath('exe'))
+    const resourcesPath = path.join(installDir, 'resources')
+    nativeModulePath = path.join(resourcesPath, 'lancedb-win32-x64-msvc')
+  }
+
+  process.env.LANCEDB_NATIVE_PATH = nativeModulePath
+  process.env.PATH = `${nativeModulePath};${process.env.PATH}`
+
   try {
     await initLanceDB()
     console.log('LanceDB initialized successfully')
