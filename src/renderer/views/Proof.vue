@@ -31,8 +31,6 @@
                         <el-option label="逐段校正（适合长文献）" value="ComprehensiveError" />
                         <el-option label="全文润色（适合简文章）" value="polish" />
                     </el-select>
-
-
                     <el-dropdown placement="bottom">
                         <el-button color="#626aef" :dark="isDark" class="dictionary-button">
                             <el-icon>
@@ -847,7 +845,6 @@ onMounted(async () => {
     overflow: auto;
     border: 1px solid #dcdfe6;
     border-radius: 0px;
-    background-color: white;
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
     padding: 20px;
     margin: 0px;
@@ -856,7 +853,6 @@ onMounted(async () => {
 .proofreading-sidebar {
     width: 30%;
     border-left: 1px solid #ebeef5;
-    background: #f8f9fa;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -865,7 +861,6 @@ onMounted(async () => {
 .sidebar-header {
     padding: 15px;
     border-bottom: 1px solid #ebeef5;
-    background: white;
 }
 
 .apply-all-button {
@@ -909,7 +904,6 @@ onMounted(async () => {
 
 .correction-content {
     padding: 15px;
-    background: #fff;
     border-top: 1px solid #ebeef5;
 }
 

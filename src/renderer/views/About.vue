@@ -130,29 +130,18 @@
             <el-tab-pane label="项目结构" name="structure">
                 <el-card>
                     <h2>📦 项目结构</h2>
-                    <el-code-block lang="text">
-                        .
-                        ├── src/
-                        │ ├── main/ # 主进程代码
-                        │ │ ├── chat.ts # AI 对话相关功能
-                        │ │ ├── database.ts # 数据库操作
-                        │ │ ├── ipcHandlers.ts # IPC 通信处理
-                        │ │ ├── lancedb.ts # 向量数据库操作
-                        │ │ ├── main.ts # 主进程入口
-                        │ │ ├── pdfUtils.ts # PDF文档处理
-                        │ │ ├── preload.ts # 预加载脚本
-                        │ │ ├── proof.ts # 文档校对核心逻辑
-                        │ │ └── wordProcess.ts # Word 文档处理
-                        │ └── renderer/ # 渲染进程代码
-                        │ ├── router/ # 路由配置
-                        │ ├── stores/ # Pinia存储目录
-                        │ ├── views/ # 页面组件
-                        │ ├── App.vue # 根组件
-                        │ └── renderer.ts # 渲染进程入口
-                        ├── assets/ # 静态资源
-                        ├── out/ # 构建输出目录
-                        └── forge.config.ts # Electron Forge 配置
-                    </el-code-block>
+                    <div class="structure-container">
+                        <el-tree :data="structureData" :props="defaultProps" default-expand-all show-line
+                            class="structure-tree">
+                            <template #default="{ node, data }">
+                                <div class="tree-node">
+                                    <span class="file-icon">{{ data.icon }}</span>
+                                    <span class="file-name">{{ node.label }}</span>
+                                    <span v-if="data.description" class="file-description">{{ data.description }}</span>
+                                </div>
+                            </template>
+                        </el-tree>
+                    </div>
                 </el-card>
             </el-tab-pane>
 
@@ -237,6 +226,57 @@ const router = useRouter();
 const activeTab = ref('intro');
 const activeCollapse = ref('1');
 
+const structureData = [
+    {
+        label: '.',
+        icon: '📁',
+        children: [
+            {
+                label: 'src/',
+                icon: '📁',
+                children: [
+                    {
+                        label: 'main/',
+                        icon: '📁',
+                        description: '# 主进程代码',
+                        children: [
+                            { label: 'chat.ts', icon: '📄', description: '# AI 对话相关功能' },
+                            { label: 'database.ts', icon: '📄', description: '# 数据库操作' },
+                            { label: 'ipcHandlers.ts', icon: '📄', description: '# IPC 通信处理' },
+                            { label: 'lancedb.ts', icon: '📄', description: '# 向量数据库操作' },
+                            { label: 'main.ts', icon: '📄', description: '# 主进程入口' },
+                            { label: 'pdfUtils.ts', icon: '📄', description: '# PDF文档处理' },
+                            { label: 'preload.ts', icon: '📄', description: '# 预加载脚本' },
+                            { label: 'proof.ts', icon: '📄', description: '# 文档校对核心逻辑' },
+                            { label: 'wordProcess.ts', icon: '📄', description: '# Word 文档处理' }
+                        ]
+                    },
+                    {
+                        label: 'renderer/',
+                        icon: '📁',
+                        description: '# 渲染进程代码',
+                        children: [
+                            { label: 'router/', icon: '📁', description: '# 路由配置' },
+                            { label: 'stores/', icon: '📁', description: '# Pinia存储目录' },
+                            { label: 'views/', icon: '📁', description: '# 页面组件' },
+                            { label: 'App.vue', icon: '📄', description: '# 根组件' },
+                            { label: 'renderer.ts', icon: '📄', description: '# 渲染进程入口' }
+                        ]
+                    }
+                ]
+            },
+            { label: 'assets/', icon: '📁', description: '# 静态资源' },
+            { label: 'out/', icon: '📁', description: '# 构建输出目录' },
+            { label: 'forge.config.ts', icon: '📄', description: '# Electron Forge 配置' }
+        ]
+    }
+];
+
+const defaultProps = {
+    children: 'children',
+    label: 'label'
+};
+
 const goBack = () => {
     router.back();
 };
@@ -287,5 +327,37 @@ const goBack = () => {
 
 .content-tabs li {
     margin: 4px 0;
+}
+
+.structure-container {
+
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 16px;
+}
+
+.structure-tree {
+    background-color: transparent;
+}
+
+.tree-node {
+    display: flex;
+    align-items: center;
+    padding: 4px 0;
+}
+
+.file-icon {
+    margin-right: 8px;
+    font-size: 14px;
+}
+
+.file-name {
+    font-weight: 500;
+    margin-right: 8px;
+}
+
+.file-description {
+    color: #909399;
+    font-size: 12px;
 }
 </style>

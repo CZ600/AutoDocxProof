@@ -62,7 +62,7 @@ const createWindow = () => {
     ...(process.platform !== 'darwin' ? { titleBarOverlay: true } : {}),
     titleBarOverlay: {
       color: 'rgba(255, 255, 255, 0)',
-      symbolColor: '#011216ff',
+      symbolColor: '#807e85ff',
       height: 60
     }
   })

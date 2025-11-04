@@ -1,5 +1,5 @@
 <template>
-  <div class="navbar-container">
+  <div class="navbar-container" :class="{ dark: isDark }">
     <!-- 导航栏 -->
     <div class="navbar" style="display: flex; align-items: center;">
       <!-- Logo区域 -->
@@ -10,7 +10,8 @@
 
       <!-- 导航菜单 -->
       <el-menu mode="horizontal" :default-active="currentPath" @select="handleSelect" class="nav-menu"
-        background-color="#FFFFFF" text-color="#333" active-text-color="#2e7d32" :ellipsis="false">
+        :background-color="isDark ? '#1d1e1f' : '#FFFFFF'" :text-color="isDark ? '#ffffff' : '#333'"
+        :active-text-color="isDark ? '#75c777' : '#2e7d32'" :ellipsis="false">
         <el-menu-item index="/work/proof" class="navbutton">
           <el-icon>
             <HomeFilled />
@@ -44,6 +45,13 @@
           </el-icon>
           <span>关于应用</span>
         </el-menu-item>
+        <el-menu-item class="navbutton">
+          <el-button @click="toggleDark()"
+            :style="{ backgroundColor: isDark ? '#1d1e1f' : '#FFFFFF', color: isDark ? '#ffffff' : '#333' }">
+            {{ isDark ? '切换到浅色' : '切换到深色' }}
+          </el-button>
+
+        </el-menu-item>
       </el-menu>
     </div>
 
@@ -63,6 +71,12 @@ import { HomeFilled, Monitor, InfoFilled, Setting, Clock, Collection } from '@el
 const electronAPI = window.electronAPI
 const router = useRouter()
 const route = useRoute()
+import { useDark, useToggle } from '@vueuse/core'
+import 'element-plus/theme-chalk/dark/css-vars.css'
+// 使用 useDark 创建响应式状态
+const isDark = useDark()
+// 使用 useToggle 创建切换函数
+const toggleDark = useToggle(isDark)
 
 // 获取当前路由路径
 const currentPath = computed(() => route.path)
@@ -96,6 +110,10 @@ getEnv()
   -webkit-app-region: drag;
 }
 
+.navbar.dark {
+  background-color: #1d1e1f;
+}
+
 .logo {
   display: flex;
   align-items: center;
@@ -117,7 +135,6 @@ getEnv()
 .nav-menu {
   flex: 1;
   border-bottom: none !important;
-
 }
 
 .navbutton {
@@ -139,6 +156,12 @@ getEnv()
   padding: 15px;
   background-color: #f9f9f9;
   overflow-y: auto;
+}
+
+/* 暗黑模式样式 */
+.dark .router-view-container {
+  background-color: #121212;
+  color: #ffffff;
 }
 
 /* 隐藏滚动条 */

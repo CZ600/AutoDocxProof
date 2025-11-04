@@ -16,9 +16,9 @@
 
                     <div class="repository-list">
                         <el-menu :default-active="activeIndex" class="el-menu-vertical" @select="handleSelect"
-                            background-color="#f8f9fa" text-color="#606266" active-text-color="#409eff"
-                            :unique-opened="true">
-                            <el-menu-item v-for="item in repositoryList" :key="item" :index="item">
+                            active-text-color="#409eff" :unique-opened="true">
+                            <el-menu-item v-for="item in repositoryList" :key="item" :index="item"
+                                class="repository-item">
                                 <div class="menu-item-content">
                                     <span class="repository-name">{{ item }}</span>
                                     <el-button type="danger" size="small" :icon="Delete" circle
@@ -432,7 +432,7 @@ onMounted(async () => {
 <style scoped>
 .common-layout {
     height: 100vh;
-    background: whitesmoke;
+
 }
 
 .sidebar {
@@ -475,6 +475,11 @@ onMounted(async () => {
     justify-content: space-between;
     align-items: center;
     width: 100%;
+    box-shadow: 2px 2px 5px rgb(212, 211, 211);
+    margin-bottom: 10px;
+    padding-left: 20px;
+    padding-right: 20px;
+    border-radius: 5px;
 }
 
 .repository-name {
@@ -482,6 +487,7 @@ onMounted(async () => {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+
 }
 
 .delete-btn {
@@ -492,6 +498,7 @@ onMounted(async () => {
 .el-menu-item:hover .delete-btn {
     opacity: 1;
 }
+
 
 .empty-state {
     padding: 20px;
@@ -509,7 +516,6 @@ onMounted(async () => {
 }
 
 .header {
-    background: white;
     border-radius: 12px;
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
     padding: 0 24px;
@@ -573,12 +579,14 @@ onMounted(async () => {
 .welcome-content {
     text-align: center;
     padding: 60px 20px;
+
 }
 
 .welcome-content h2 {
     margin: 20px 0 12px;
     color: #303133;
     font-size: 24px;
+
 }
 
 .welcome-content p {
@@ -607,12 +615,10 @@ onMounted(async () => {
 }
 
 .repository-list::-webkit-scrollbar-track {
-    background: #f1f1f1;
     border-radius: 3px;
 }
 
 .repository-list::-webkit-scrollbar-thumb {
-    background: #c0c4cc;
     border-radius: 3px;
 }
 

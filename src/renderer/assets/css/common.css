@@ -5,3 +5,22 @@ body,
   padding: 0;
   height: 100%;
 }
+
+/* 深色模式样式 */
+.dark {
+  background-color: #1d1e1f;
+  color: #ffffff;
+}
+
+.dark ::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background-color: #555;
+  border-radius: 3px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background-color: #2d2d2d;
+}
