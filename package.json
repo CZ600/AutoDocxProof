@@ -1,7 +1,7 @@
 {
   "name": "AutoDocxProofreading",
   "productName": "AutoDocxProofreading",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "An intelligent long-document proofreading software powered by large language models. 基于大模型的简单的docx格式文档的校对",
   "main": ".vite/build/main.js",
   "scripts": {
@@ -25,6 +25,7 @@
     "@electron-forge/maker-deb": "^7.4.0",
     "@electron-forge/maker-rpm": "^7.4.0",
     "@electron-forge/maker-squirrel": "^7.4.0",
+    "@electron-forge/maker-wix": "^7.10.2",
     "@electron-forge/maker-zip": "^7.4.0",
     "@electron-forge/plugin-auto-unpack-natives": "^7.10.2",
     "@electron-forge/plugin-fuses": "^7.4.0",

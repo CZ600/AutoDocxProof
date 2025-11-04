@@ -15,9 +15,7 @@ const config: ForgeConfig = {
     icon: path.resolve(__dirname, 'assets/logo.ico'),
     name: 'AutoDocxProofreading',
     executableName: 'DocxProofread',
-    extraResource: [
-      'node_modules/@lancedb/lancedb-win32-x64-msvc'
-    ]
+    extraResource: ['node_modules/@lancedb/lancedb-win32-x64-msvc']
   },
   rebuildConfig: {},
   makers: [

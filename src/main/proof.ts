@@ -3,6 +3,7 @@ import * as mammoth from 'mammoth'
 import { OpenaiGen } from './chat'
 import path from 'path'
 import { queryDocuments, getAllDocuments } from './lancedb'
+import { error } from 'console'
 
 // ====== 类型定义 ======
 interface ProofreadingCorrection {
@@ -332,12 +333,20 @@ async function proofreadTextWithRAG(
 ): Promise<ProofreadingCorrection[]> {
   try {
     let systemPrompt = systemContext
-    for (let name of repositoryNameList) {
-      const result = await getAllDocuments(name)
-      console.info('the content of the ', name)
-      console.info(result)
+    if (repositoryNameList === undefined) {
+      console.log('use normal proof without rag:')
+      console.log('proof content:', text)
+      const result = await OpenaiGen(systemPrompt, `需要校对的内容:\n${text}`, apiKey, modelName, apiURL)
+      return parseCorrections(result)
     }
-    if (repositoryNameList && repositoryNameList.length > 0 && fileName) {
+    else if(repositoryNameList.length === 0){
+       if (repositoryNameList === undefined) {
+      console.log('use normal proof without rag:')
+      console.log('proof content:', text)
+      const result = await OpenaiGen(systemPrompt, `需要校对的内容:\n${text}`, apiKey, modelName, apiURL)
+      return parseCorrections(result)
+    } 
+    else if (repositoryNameList.length > 0 && fileName) {
       const embApiKey = embeddingConfig?.apiKey || apiKey
       const embApiURL = embeddingConfig?.apiURL || apiURL
       const embModelName = embeddingConfig?.modelName || modelName
@@ -365,8 +374,8 @@ async function proofreadTextWithRAG(
       const result = await OpenaiGen(systemPrompt, `需要校对的内容:\n${text}`, apiKey, modelName, apiURL)
       return parseCorrections(result, ragChunks)
     } else {
-      const result = await OpenaiGen(systemPrompt, `需要校对的内容:\n${text}`, apiKey, modelName, apiURL)
-      return parseCorrections(result)
+      console.log("the proof mode don't catch any preload,please check!")
+      throw error("the proof mode don't catch any preload,please check!")
     }
   } catch (error) {
     console.error('校对文本失败:', error)
@@ -391,8 +400,8 @@ export async function proofreadDocument(
     const fileName = path.basename(documentPath)
 
     if (mode === 'full') {
-      const result = await mammoth.extractRawText({ path: documentPath })
-      const text = result.value.trim()
+      const result = await mammoth.extractRawText({ path: documentPath }) // get full text
+      const text = result.value.trim() // trim
       if (!text) return []
 
       return await proofreadTextWithRAG(
