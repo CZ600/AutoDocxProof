@@ -338,44 +338,43 @@ async function proofreadTextWithRAG(
       console.log('proof content:', text)
       const result = await OpenaiGen(systemPrompt, `需要校对的内容:\n${text}`, apiKey, modelName, apiURL)
       return parseCorrections(result)
-    }
-    else if(repositoryNameList.length === 0){
-       if (repositoryNameList === undefined) {
-      console.log('use normal proof without rag:')
-      console.log('proof content:', text)
-      const result = await OpenaiGen(systemPrompt, `需要校对的内容:\n${text}`, apiKey, modelName, apiURL)
-      return parseCorrections(result)
-    } 
-    else if (repositoryNameList.length > 0 && fileName) {
-      const embApiKey = embeddingConfig?.apiKey || apiKey
-      const embApiURL = embeddingConfig?.apiURL || apiURL
-      const embModelName = embeddingConfig?.modelName || modelName
-      console.log('------------------------setting of RAG-------------------------------------')
-      console.log('embedding key:', embApiKey)
-      console.log('embedding URL:', embApiURL)
-      console.log('embedding modelName:', embModelName)
+    } else if (repositoryNameList.length === 0) {
+      if (repositoryNameList === undefined) {
+        console.log('use normal proof without rag:')
+        console.log('proof content:', text)
+        const result = await OpenaiGen(systemPrompt, `需要校对的内容:\n${text}`, apiKey, modelName, apiURL)
+        return parseCorrections(result)
+      } else if (repositoryNameList.length > 0 && fileName) {
+        const embApiKey = embeddingConfig?.apiKey || apiKey
+        const embApiURL = embeddingConfig?.apiURL || apiURL
+        const embModelName = embeddingConfig?.modelName || modelName
+        console.log('------------------------setting of RAG-------------------------------------')
+        console.log('embedding key:', embApiKey)
+        console.log('embedding URL:', embApiURL)
+        console.log('embedding modelName:', embModelName)
 
-      const ragChunks = await queryDocChunk(
-        repositoryNameList,
-        embApiKey,
-        embApiURL,
-        embModelName,
-        fileName,
-        text,
-        '',
-        3
-      )
+        const ragChunks = await queryDocChunk(
+          repositoryNameList,
+          embApiKey,
+          embApiURL,
+          embModelName,
+          fileName,
+          text,
+          '',
+          3
+        )
 
-      if (ragChunks.length > 0) {
-        const ragContext = `\n${ragText}:\n${ragChunks.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
-        systemPrompt += ragContext
+        if (ragChunks.length > 0) {
+          const ragContext = `\n${ragText}:\n${ragChunks.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
+          systemPrompt += ragContext
+        }
+
+        const result = await OpenaiGen(systemPrompt, `需要校对的内容:\n${text}`, apiKey, modelName, apiURL)
+        return parseCorrections(result, ragChunks)
+      } else {
+        console.log("the proof mode don't catch any preload,please check!")
+        throw error("the proof mode don't catch any preload,please check!")
       }
-
-      const result = await OpenaiGen(systemPrompt, `需要校对的内容:\n${text}`, apiKey, modelName, apiURL)
-      return parseCorrections(result, ragChunks)
-    } else {
-      console.log("the proof mode don't catch any preload,please check!")
-      throw error("the proof mode don't catch any preload,please check!")
     }
   } catch (error) {
     console.error('校对文本失败:', error)
