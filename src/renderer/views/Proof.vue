@@ -167,7 +167,7 @@ import {
 import { renderAsync } from 'docx-preview'
 import { fileInfoStore } from "../stores/store"
 import { useEmbeddingStore } from "../stores/embeddingStore"
-import { apiStore } from "../stores/apiStore"
+import { useApiStore } from "../stores/apiStore"
 import { files } from 'jszip'
 import { HomeFilled, Monitor, InfoFilled, Setting, Clock, Collection } from '@element-plus/icons-vue'
 // 从 Electron 获取 API
@@ -184,7 +184,7 @@ const activeNames = ref([]) // 折叠面板展开项
 const isDark = ref(false) // 添加缺失的 isDark 属性
 // 从Pinia store中获取数据
 const fileStore = fileInfoStore()
-const apiSettingsStore = apiStore()
+const apiSettingsStore = useApiStore()
 const embeddingStore = useEmbeddingStore()
 // 选择使用计算属性computed双向绑定store，避免手动watch同步
 const fileName = computed(() => fileStore.fileName)
