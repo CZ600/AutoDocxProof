@@ -167,6 +167,7 @@ import {
 import { renderAsync } from 'docx-preview'
 import { fileInfoStore } from "../stores/store"
 import { useEmbeddingStore } from "../stores/embeddingStore"
+import { apiStore } from "../stores/apiStore"
 import { files } from 'jszip'
 import { HomeFilled, Monitor, InfoFilled, Setting, Clock, Collection } from '@element-plus/icons-vue'
 // 从 Electron 获取 API
@@ -183,6 +184,7 @@ const activeNames = ref([]) // 折叠面板展开项
 const isDark = ref(false) // 添加缺失的 isDark 属性
 // 从Pinia store中获取数据
 const fileStore = fileInfoStore()
+const apiSettingsStore = apiStore()
 const embeddingStore = useEmbeddingStore()
 // 选择使用计算属性computed双向绑定store，避免手动watch同步
 const fileName = computed(() => fileStore.fileName)
@@ -536,13 +538,13 @@ const onSubmit = async () => {
             // 确保传递可序列化的纯对象
             const { apiURL, apiKey, modelName } = embeddingStore.getAPIConfig;
             console.log("embedding settings:", { apiURL, apiKey, modelName })
-            results = await electronAPI.processDocx(params.model, params.filePath, params.repositoryNameList, { apiURL, apiKey, modelName });
+            results = await electronAPI.processDocx(params.model, params.filePath, params.repositoryNameList, { apiURL, apiKey, modelName }, apiSettingsStore.selectedApi.parallel);
         } else {
             const params = {
                 model: form.value.model,
                 filePath: form.value.filePath
             };
-            results = await electronAPI.processDocx(params.model, params.filePath);
+            results = await electronAPI.processDocx(params.model, params.filePath, undefined, undefined, apiSettingsStore.selectedApi.parallel);
         }
 
         if (results.message === "Please select an API setting!") {
@@ -1073,11 +1075,13 @@ onMounted(async () => {
 /* 全局弹窗样式 */
 .reference-popover {
     max-width: 500px;
+    text-align: center;
 }
 
 .reference-popover .el-popover__title {
     margin-bottom: 12px;
     color: #303133;
     font-weight: 600;
+    text-align: center;
 }
 </style>

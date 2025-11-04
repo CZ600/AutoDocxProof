@@ -1,6 +1,7 @@
 <template>
     <el-tabs v-model="activeTab" type="border-card">
         <el-tab-pane label="API设置" name="api">
+            <el-divider />
             <el-alert v-if="showAlertSuccess" type="success" auto-close="4000" show-icon>
                 {{ AlertTitle }}
             </el-alert>
@@ -8,13 +9,13 @@
                 {{ AlertTitle }}
             </el-alert>
             <div class="section-title">
-                <el-text class="mx-1" type="primary" size="large">选择或添加API配置信息</el-text>
+                <el-text class="mx-1" type="primary" size="large">管理api配置</el-text>
             </div>
             <div class="section-description">
                 <el-text class="mx-1" type="default" size="small">本软件适配所有兼容OpenAI规范的大模型API，推荐使用非推理模型</el-text>
             </div>
             <el-form :model="selectform" label-width="auto" style="max-width: 600px">
-                <el-form-item label="选择您的API">
+                <el-form-item label="选择API:">
                     <el-select v-model="selectform.id" placeholder="请选择您的API">
                         <el-option v-for="item in apiSettings" :key="item.id" :label="item.modelName" :value="item.id"
                             id="api-item">
@@ -35,6 +36,7 @@
                     <el-button @click="testAPI()">测试连通性</el-button>
                 </div>
 
+
                 <el-dialog v-model="dialogVisible" title="添加新API" width="400px">
                     <el-form-item label="API URL:">
                         <el-input v-model="newForm.URL" />
@@ -52,6 +54,22 @@
                     </el-form-item>
                 </el-dialog>
             </el-form>
+            <el-divider />
+            <div class="slider-demo-block">
+                <div class="section-title">
+                    <el-text size="large" type="primary"> 并发设置 </el-text>
+                </div>
+                <div class="section-description">
+                    <el-text size="small" type="default">
+                        设置最大并发限制，具体数值取决于接口提供者的限制，更高的并发可以提高处理速度
+                    </el-text>
+                </div>
+
+
+                <div class="slider-demo-block">
+                    <el-slider v-model="ParallelSet" show-input :min="1" :max="100" />
+                </div>
+            </div>
         </el-tab-pane>
 
         <el-tab-pane label="提示词设置" name="prompt">
@@ -98,7 +116,7 @@ import { on } from 'events'
 import { get } from 'http'
 import { reactive, ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { apiStore } from '../stores/apiStore'
+import { useApiStore } from '../stores/apiStore'
 const activeTab = ref('api')
 const dialogVisible = ref(false)
 const electronAPI = window.electronAPI
@@ -114,6 +132,8 @@ const promptForm = reactive({
     prompt: ''
 })
 
+const ParallelSet = ref(30) // 设置默认值为30而不是undefined
+
 // API相关变量
 // do not use same name with ref
 const selectform = ref(
@@ -122,11 +142,70 @@ const selectform = ref(
         URL: '',
         key: '',
         name: '',
-        time: ''
+        time: '',
+        parallel: 30
     }
 )
 
-const apiSettingsStore = apiStore()
+const apiSettingsStore = useApiStore()
+
+// 监听变化，更新selectform的值
+watch(
+  () => selectform.value.id,
+  (newId) => {
+    console.log('选中的 API ID:', newId)
+    if (newId === null) {
+      // 清空表单
+      selectform.value.URL = ''
+      selectform.value.key = ''
+      selectform.value.name = ''
+
+      // 同步到 Pinia store
+      apiSettingsStore.clearSelectedApi()
+      return
+    }
+
+    // 根据 id 查找对应的 API 设置
+    const selectedItem = apiSettings.find(item => item.id === newId)
+    if (selectedItem) {
+      selectform.value.URL = selectedItem.apiURL || ''
+      selectform.value.key = selectedItem.apiKey || ''
+      selectform.value.name = selectedItem.modelName || '' // 注意：你存储的是 modelName，不是 name
+      selectform.value.id = newId
+      selectform.value.time = selectedItem.time || ''
+      selectform.value.parallel = selectedItem.parallel || 30
+      ParallelSet.value = selectedItem.parallel || 30
+    }
+
+    // 同步到 Pinia store
+    apiSettingsStore.setSelectedApi({ ...selectform.value })
+
+    const res = electronAPI.selectAPISetting(selectform.value.URL, selectform.value.key, selectform.value.name)
+    if (res) {
+      console.log('已经更新api设置的选择:', res, selectform.value.name, selectform.value.URL, selectform.value.key);
+    } else {
+      console.log('更新api设置的选择失败');
+    }
+  }
+)
+
+// 更新并发参数设置
+watch(ParallelSet, async (newVal, oldVal) => {
+  selectform.value.parallel = newVal
+  apiSettingsStore.setParallel(newVal)
+
+  // 同时更新到选中的API设置中
+  if (selectform.value.id !== null) {
+    const res = await electronAPI.selectAPISetting(
+      selectform.value.URL,
+      selectform.value.key,
+      selectform.value.name
+    )
+    console.log("API设置已更新:", res)
+  }
+  const newParallel = apiSettingsStore.selectedApi.parallel
+  console.log("newParallel in store", newParallel)
+})
 
 const newForm = reactive({
     URL: '',
@@ -224,62 +303,36 @@ function initForm() {
     getALLAPISettings()
 }
 
-// 监听变化，更新selectform的值
-watch(
-    () => selectform.value.id,
-    (newId) => {
-        console.log('选中的 API ID:', newId)
-        if (newId === null) {
-            // 清空表单
-            selectform.value.URL = ''
-            selectform.value.key = ''
-            selectform.value.name = ''
-
-            // 同步到 Pinia store
-            apiSettingsStore.clearSelectedApi()
-            return
-        }
-
-        // 根据 id 查找对应的 API 设置
-        const selectedItem = apiSettings.find(item => item.id === newId)
-        if (selectedItem) {
-            selectform.value.URL = selectedItem.apiURL || ''
-            selectform.value.key = selectedItem.apiKey || ''
-            selectform.value.name = selectedItem.modelName || '' // 注意：你存储的是 modelName，不是 name
-            selectform.value.id = newId
-            selectform.value.time = selectedItem.time || ''
-        }
-
-        // 同步到 Pinia store
-        apiSettingsStore.setSelectedApi({ ...selectform.value })
-
-        const res = electronAPI.selectAPISetting(selectform.value.URL, selectform.value.key, selectform.value.name)
-        if (res) {
-            console.log('已经更新api设置的选择:', res, selectform.value.name, selectform.value.URL, selectform.value.key);
-        } else {
-            console.log('更新api设置的选择失败');
-        }
-    }
-)
-
+// 修改 initSelect 函数
 const initSelect = async () => {
-    // 先尝试从 Pinia store 获取数据
-    if (apiSettingsStore.selectedApi.id !== null) {
-        selectform.value = { ...apiSettingsStore.selectedApi }
-        return
-    }
+  // 先尝试从 Pinia store 获取数据
+  if (apiSettingsStore.selectedApi.id !== null) {
+    selectform.value = { ...apiSettingsStore.selectedApi }
+    ParallelSet.value = apiSettingsStore.selectedApi.parallel
+    selectform.value.parallel = apiSettingsStore.selectedApi.parallel
+    console.log('从 Pinia store 恢复数据:', selectform.value)
+    return
+  }
 
-    const res = await electronAPI.getAPISettings()
-    if (res) {
-        selectform.value.URL = res.URL
-        selectform.value.key = res.Key
-        selectform.value.name = res.modelName
-        console.log('已经初始化了api设置的选择');
-        console.log(res);
-    }
-    else {
-        console.log('初始化api设置的选择失败');
-    }
+  // 如果 store 中没有数据，从 electronAPI 获取
+  const res = await electronAPI.getAPISettings()
+  if (res) {
+    selectform.value.URL = res.URL
+    selectform.value.key = res.Key
+    selectform.value.name = res.modelName
+    selectform.value.parallel = 30  // 确保有默认值
+    ParallelSet.value = 30
+
+    // 同步到 Pinia store
+    apiSettingsStore.setSelectedApi({
+      ...selectform.value
+    })
+    console.log('从 electronAPI 初始化数据:', res)
+  } else {
+    // 如果都没有数据，设置默认值
+    ParallelSet.value = 30
+    selectform.value.parallel = 30
+  }
 }
 
 // 挂载时执行
@@ -300,7 +353,7 @@ el-tabs {
 }
 
 .section-description {
-    margin-bottom: 20px;
+    margin-bottom: 35px;
 }
 
 .button-group {
@@ -326,5 +379,11 @@ el-tabs {
 
 .el-tab-pane {
     padding: 20px 0;
+}
+
+.slider-demo-block {
+    max-width: 80%;
+    margin-top: 20px;
+
 }
 </style>

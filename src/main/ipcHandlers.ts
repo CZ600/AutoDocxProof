@@ -156,7 +156,14 @@ export const registerIpcHandlers = () => {
   // 更新了对于rag功能的支持，实现了并行操作，提升性能
   ipcMain.handle(
     'process-docx',
-    async (event, Model, filePath, repositoryNameList?: string[], embeddingConfig?: apiSettings) => {
+    async (
+      event,
+      Model,
+      filePath,
+      repositoryNameList?: string[],
+      embeddingConfig?: apiSettings,
+      parallelSet: number = 30
+    ) => {
       try {
         // 三种校对模式：mode: 'section' | 'sentence' | 'full',
         console.log(
@@ -164,6 +171,7 @@ export const registerIpcHandlers = () => {
         )
         console.info('Processing settings:', Model, filePath)
         console.info('embedding settings:', repositoryNameList, embeddingConfig)
+        console.info('the parallel set is:', parallelSet)
 
         if (!Model || !filePath) {
           return {
@@ -187,7 +195,8 @@ export const registerIpcHandlers = () => {
             api_info.modelName,
             api_info.apiURL,
             repositoryNameList,
-            embeddingConfig
+            embeddingConfig,
+            parallelSet
           )
           // 确保返回的数据是可克隆的
           try {
@@ -205,7 +214,8 @@ export const registerIpcHandlers = () => {
             api_info.modelName,
             api_info.apiURL,
             repositoryNameList,
-            embeddingConfig
+            embeddingConfig,
+            parallelSet
           )
           // 确保返回的数据是可克隆的
           try {
@@ -223,7 +233,8 @@ export const registerIpcHandlers = () => {
             api_info.modelName,
             api_info.apiURL,
             repositoryNameList,
-            embeddingConfig
+            embeddingConfig,
+            parallelSet
           )
           // 确保返回的数据是可克隆的
           try {

@@ -390,7 +390,8 @@ export async function proofreadDocument(
   modelName: string,
   apiURL: string,
   repositoryNameList?: string[],
-  embeddingConfig?: ApiSettings
+  embeddingConfig?: ApiSettings,
+  parallelSet:number = 30  // 并发限制
 ): Promise<ProofreadingCorrection[]> {
   console.log('process mode is:', mode)
   console.log('process api is:', apiURL, modelName)
@@ -423,7 +424,7 @@ export async function proofreadDocument(
     let allCorrections: ProofreadingCorrection[] = []
 
     if (mode === 'section') {
-      const sectionResults = await runWithConcurrencyLimit(nonEmptySections, MAX_CONCURRENCY, async section => {
+      const sectionResults = await runWithConcurrencyLimit(nonEmptySections, parallelSet, async section => {
         const systemContext = `${defaultPrompt}
 文档标题: ${docStructure.title}
 文档主题: ${documentTheme}
@@ -468,7 +469,7 @@ export async function proofreadDocument(
       }
 
       if (sentenceTasks.length > 0) {
-        const sentenceResults = await runWithConcurrencyLimit(sentenceTasks, MAX_CONCURRENCY, task => task())
+        const sentenceResults = await runWithConcurrencyLimit(sentenceTasks, parallelSet, task => task())
         allCorrections = sentenceResults.flat()
       }
     }

@@ -104,8 +104,9 @@ export default interface ElectronApi {
   processDocx: (
     model: string,
     filePath: string,
-    repositoryNameList?: string,
-    embeddingConfig?: apiSettings
+    repositoryNameList?: string[],
+    embeddingConfig?: apiSettings,
+    parallelSet?: number
   ) => Promise<ProofreadingCorrection[]> // 进行了更新
   exportCorrectedDocx: (config: any) => Promise<boolean>
 

@@ -2,39 +2,55 @@
 import { defineStore } from 'pinia'
 import { reactive } from 'vue'
 
-interface SelectedApi {
+interface ApiSettings {
   id: number | null
   URL: string
   key: string
   name: string
   time: string
+  parallel: number
 }
 
-export const apiStore = defineStore('apiSettings', () => {
-  const selectedApi = reactive({
-    id: null as number | null,
-    URL: '',
-    key: '',
-    name: '',
-    time: ''
-  })
+// 默认值作为常量，便于维护
+const defaultApiSettings: ApiSettings = {
+  id: null,
+  URL: '',
+  key: '',
+  name: '',
+  time: '',
+  parallel: 30
+}
 
-  function setSelectedApi(api: SelectedApi) {
-    Object.assign(selectedApi, api)
-  }
-  
-  function clearSelectedApi() {
-    selectedApi.id = null
-    selectedApi.URL = ''
-    selectedApi.key = ''
-    selectedApi.name = ''
-    selectedApi.time = ''
-  }
+export const useApiStore = defineStore(
+  'apiSettings',
+  () => {
+    // 使用默认值初始化
+    const selectedApi = reactive<ApiSettings>({ ...defaultApiSettings })
 
-  return { selectedApi, setSelectedApi, clearSelectedApi }
-}, {
-  persist: {
-    key: 'apiSettings',
-    storage: localStorage
+    function setSelectedApi(api: Partial<ApiSettings>) {
+      Object.assign(selectedApi, api)
+    }
+
+    function clearSelectedApi() {
+      Object.assign(selectedApi, defaultApiSettings)
+    }
+
+    function setParallel(parallelSet: number) {
+      selectedApi.parallel = parallelSet
+    }
+
+    return {
+      selectedApi,
+      setSelectedApi,
+      clearSelectedApi,
+      setParallel
+    }
+  },
+  {
+    persist: {
+      key: 'apiSettings',
+      storage: localStorage,
+      pick: ['selectedApi'] // 明确指定需要持久化的路径
+    }
   }
-})
+)

@@ -36,13 +36,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('selectAPISetting', url, key, modelName),
   getAPISettings: () => ipcRenderer.invoke('get-api-settings', {}),
   // 文档校对处理函数
-  processDocx: (model: string, filePath: string, repositoryNameList?: string[], embeddingConfig?: apiSettings) => {
+  processDocx: (model: string, filePath: string, repositoryNameList?: string[], embeddingConfig?: apiSettings, parallelSet?:number) => {
     // 确保传递的参数是可序列化的
     const serializableParams = {
       model,
       filePath,
       repositoryNameList: repositoryNameList ? [...repositoryNameList] : undefined,
-      embeddingConfig: embeddingConfig ? { ...embeddingConfig } : undefined
+      embeddingConfig: embeddingConfig ? { ...embeddingConfig } : undefined,
+      parallelSet: parallelSet || 30
     }
 
     return ipcRenderer.invoke(
@@ -50,7 +51,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       serializableParams.model,
       serializableParams.filePath,
       serializableParams.repositoryNameList,
-      serializableParams.embeddingConfig
+      serializableParams.embeddingConfig,
+      serializableParams.parallelSet
     )
   },
 

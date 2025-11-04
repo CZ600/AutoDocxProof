@@ -46,10 +46,21 @@
           <span>关于应用</span>
         </el-menu-item>
         <el-menu-item class="navbutton">
-          <el-button @click="toggleDark()"
-            :style="{ backgroundColor: isDark ? '#1d1e1f' : '#FFFFFF', color: isDark ? '#ffffff' : '#333' }">
-            {{ isDark ? '切换到浅色' : '切换到深色' }}
-          </el-button>
+          <el-popover placement="bottom">
+            <p style="text-align: center;font-size:16px">明暗模式切换</p>
+            <template #reference>
+              <el-button @click.stop="toggleDark()"
+                :style="{ backgroundColor: isDark ? '#1d1e1f' : '#FFFFFF', color: isDark ? '#ffffff' : '#333' }" circle>
+                <el-icon v-if="isDark" style="margin-left: 3px;">
+                  <Moon />
+                </el-icon>
+                <el-icon v-else style="margin-left: 5px;">
+                  <Sunny />
+                </el-icon>
+              </el-button>
+            </template>
+          </el-popover>
+
 
         </el-menu-item>
       </el-menu>
@@ -67,7 +78,7 @@
 import "./assets/css/common.css";
 import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { HomeFilled, Monitor, InfoFilled, Setting, Clock, Collection } from '@element-plus/icons-vue'
+import { HomeFilled, Monitor, InfoFilled, Setting, Clock, Collection, Sunny, Moon } from '@element-plus/icons-vue'
 const electronAPI = window.electronAPI
 const router = useRouter()
 const route = useRoute()
