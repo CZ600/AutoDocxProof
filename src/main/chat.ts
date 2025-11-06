@@ -127,8 +127,8 @@ export async function OpenaiGen(
       ]
     })
 
-    const { prompt_tokens, completion_tokens, total_tokens } = chatCompletion.usage!
-    const result = chatCompletion.choices[0].message.content ?? ''
+    const result = chatCompletion.choices[0]?.message?.content ?? ''
+    const total_tokens = chatCompletion.usage?.total_tokens ?? 0
 
     return { result, total_tokens }
   } catch (error) {

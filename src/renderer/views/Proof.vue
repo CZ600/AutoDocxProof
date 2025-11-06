@@ -90,7 +90,7 @@
                                         {{ formatCorrectionType(item.type) }}
                                     </span>
                                     <span class="correction-count">{{ index + 1 }}/{{ proofreadingResults.length
-                                    }}</span>
+                                        }}</span>
                                 </div>
                             </template>
 
@@ -542,10 +542,10 @@ const onSubmit = async () => {
             // 从Pinia store获取embedding配置并传递给后端
             // 确保传递可序列化的纯对象
             const { apiURL, apiKey, modelName } = embeddingStore.getAPIConfig;
-            console.log("embedding settings:", { apiURL, apiKey, modelName })
-            console.log("parallel set:", apiSettingsStore.selectedApi.parallel)
-            console.log("timelimit set is:", timeLimit)
-            preResult = await electronAPI.processDocx(
+            // console.log("embedding settings:", { apiURL, apiKey, modelName })
+            // console.log("parallel set:", apiSettingsStore.selectedApi.parallel)
+            // console.log("timelimit set is:", timeLimit)
+            let preResult = await electronAPI.processDocx(
                 params.model,
                 params.filePath,
                 params.repositoryNameList,
@@ -553,7 +553,19 @@ const onSubmit = async () => {
                 timeLimit,
                 apiSettingsStore.selectedApi.parallel,
             );
+            console.log("校对结果和token消耗量：", preResult)
+            if ("message" in preResult) {
+                if (preResult.message === "Please select an API setting!") {
+                    ElMessage({
+                        message: '请先设置API密钥',
+                        type: 'error',
+                        duration: 1500
+                    });
+                    return;
+                }
+            }
             results = preResult.proofResult
+
             token_usage += preResult.token_usage
         } else {
             const params = {
@@ -562,7 +574,7 @@ const onSubmit = async () => {
             };
             console.log("parallel set is:", apiSettingsStore.selectedApi.parallel)
             console.log("timelimit set is:", timeLimit)
-            preResult = await electronAPI.processDocx(
+            let preResult = await electronAPI.processDocx(
                 params.model,
                 params.filePath,
                 undefined,
@@ -573,16 +585,16 @@ const onSubmit = async () => {
             results = preResult.proofResult
             token_usage += preResult.token_usage
         }
+        apiSettingsStore.addTotalTokens(token_usage)  // 将本次使用的token加入到总的token消耗量中
 
-        if (results.message === "Please select an API setting!") {
-            ElMessage({
-                message: '请先设置API密钥',
-                type: 'error',
-                duration: 1500
-            });
-            return;
-        }
+        ElMessage(
+            {
+                message: "处理成功,本次任务消耗token: " + toString(token_usage),
+                type: 'success',
+                duration: 2000
 
+            }
+        )
         // 确保结果是数组格式
         const finalResults = Array.isArray(results) ? results : [];
         proofreadingResults.value = finalResults.map((item, index) => ({
@@ -605,17 +617,6 @@ const onSubmit = async () => {
         if (finalResults.length > 0) {
             activeNames.value = [0];
         }
-
-        apiSettingsStore.addTotalTokens(token_usage)  // 将本次使用的token加入到总的token消耗量中
-
-        ElMessage(
-            {
-                message: "处理成功,本次任务消耗token: ${token_usage}",
-                type: success,
-                duration: 1000
-
-            }
-        )
     } catch (err) {
         error.value = `校对处理失败: ${err.message}`
         console.error('校对处理异常:', err)

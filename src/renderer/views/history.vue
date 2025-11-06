@@ -1,32 +1,35 @@
 <template>
-  <el-table :data="history" style="width: 100%" max-height="1200">
-    <el-table-column prop="created_at" label="Date" width="150" />
-    <el-table-column prop="modelName" label="modelName" width="120" />
-    <el-table-column prop="filePath" label="filePath" width="300" />
-    <el-table-column fixed="right" label="Operations" width="200">
-      <template #default="scope">
-        <el-button link type="primary" size="small" @click="showDetail(scope.row)">
-          Detail
-        </el-button>
-        <el-button link type="danger" size="small" @click="deleteHistory(scope.row.id)">
-          Delete
-        </el-button>
+  <div class="table-container">
+    <el-table :data="history" max-height="1200" class="table">
+      <el-table-column prop="created_at" label="Date" width="150" />
+      <el-table-column prop="modelName" label="modelName" width="120" />
+      <el-table-column prop="filePath" label="filePath" width="300" />
+      <el-table-column fixed="right" label="Operations" width="200">
+        <template #default="scope">
+          <el-button link type="primary" size="small" @click="showDetail(scope.row)">
+            Detail
+          </el-button>
+          <el-button link type="danger" size="small" @click="deleteHistory(scope.row.id)">
+            Delete
+          </el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <div style="margin-top: 20px;">
+      <el-button type="danger" @click="deleteAllHistory" :disabled="history.length === 0">Delete All</el-button>
+    </div>
+
+    <!-- 详情弹窗 -->
+    <el-dialog v-model="dialogVisible" title="校对结果详情" width="60%">
+      <pre style="white-space: pre-wrap; word-wrap: break-word;">{{ detailContent }}</pre>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="dialogVisible = false">关闭</el-button>
+        </span>
       </template>
-    </el-table-column>
-  </el-table>
-  <div style="margin-top: 20px;">
-    <el-button type="danger" @click="deleteAllHistory" :disabled="history.length === 0">Delete All</el-button>
+    </el-dialog>
   </div>
 
-  <!-- 详情弹窗 -->
-  <el-dialog v-model="dialogVisible" title="校对结果详情" width="60%">
-    <pre style="white-space: pre-wrap; word-wrap: break-word;">{{ detailContent }}</pre>
-    <template #footer>
-      <span class="dialog-footer">
-        <el-button @click="dialogVisible = false">关闭</el-button>
-      </span>
-    </template>
-  </el-dialog>
 </template>
 
 <script setup lang='ts'>
@@ -113,4 +116,14 @@ onMounted(() => {
 })
 </script>
 
-<style></style>
+<style>
+.table-container {
+  padding: 20px
+}
+
+.table {
+  border: 1px solid rgb(235, 233, 233);
+  border-radius: 8px;
+  width: 100%
+}
+</style>

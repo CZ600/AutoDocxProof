@@ -212,14 +212,14 @@ export const registerIpcHandlers = () => {
           // 确保返回的数据是可克隆的
           try {
             const result = {
-              result: JSON.parse(JSON.stringify(proofResult)),
+              proofResult: JSON.parse(JSON.stringify(proofResult)),
               token_usage: token_usage
             }
             return result
           } catch (error) {
             console.error('序列化校对结果时出错:', error)
             return {
-              result: null,
+              proofResult: null,
               token_usage: token_usage
             }
           }
@@ -239,14 +239,14 @@ export const registerIpcHandlers = () => {
           // 确保返回的数据是可克隆的
           try {
             const result = {
-              result: JSON.parse(JSON.stringify(proofResult)),
+              proofResult: JSON.parse(JSON.stringify(proofResult)),
               token_usage: token_usage
             }
             return result
           } catch (error) {
             console.error('序列化校对结果时出错:', error)
             return {
-              result: null,
+              proofResult: null,
               token_usage: token_usage
             }
           }
@@ -266,14 +266,14 @@ export const registerIpcHandlers = () => {
           // 确保返回的数据是可克隆的
           try {
             const result = {
-              result: JSON.parse(JSON.stringify(proofResult)),
+              proofResult: JSON.parse(JSON.stringify(proofResult)),
               token_usage: token_usage
             }
             return result
           } catch (error) {
             console.error('序列化校对结果时出错:', error)
             return {
-              result: null,
+              proofResult: null,
               token_usage: token_usage
             }
           }
@@ -281,8 +281,8 @@ export const registerIpcHandlers = () => {
       } catch (error) {
         console.error('处理文档校对请求时出错:', error)
         return {
-          isSuccess: false,
-          message: `处理文档校对请求时出错: ${error.message}`
+          proofResult: null,
+          token_usage: 0
         }
       }
     }

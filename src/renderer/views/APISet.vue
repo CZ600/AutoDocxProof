@@ -15,13 +15,20 @@
                     <!-- API选择区域 -->
                     <el-card class="setting-card" shadow="hover">
                         <template #header>
-                            <div class="card-header">
+                            <div class=" card-header">
                                 <el-icon>
                                     <Connection />
                                 </el-icon>
                                 <span>API选择</span>
+
                             </div>
                         </template>
+                        <p class="section-description">
+                            <el-icon>
+                                <InfoFilled />
+                            </el-icon>
+                            兼容支持openai规范的接口,对话模型和embedding模型都在这里添加
+                        </p>
                         <el-form :model="selectform" label-width="auto">
                             <el-form-item label="当前API:" class="form-item-enhanced">
                                 <el-select v-model="selectform.id" placeholder="请选择您的API" class="api-select">
@@ -42,9 +49,7 @@
                             </el-form-item>
                             <div class="button-group">
                                 <el-button type="primary" :icon="Plus" @click="dialogVisible = true" class="btn-add">
-                                    <el-icon>
-                                        <Plus />
-                                    </el-icon>
+
                                     添加新API
                                 </el-button>
                                 <el-button :icon="Connection" @click="testAPI()" class="btn-test">
@@ -121,6 +126,7 @@
                                     <Odometer />
                                 </el-icon>
                                 <span>并发设置</span>
+
                             </div>
                         </template>
                         <div class="setting-section">
@@ -151,8 +157,7 @@
                                 </el-icon>
                                 限制每分钟的请求频率，默认不限制。如果使用的接口有相关的限制，请根据接口提供商的要求自行开启
                             </p>
-                            <el-button :type="openTimeLimit ? 'success' : 'primary'"
-                                :icon="openTimeLimit ? 'CircleCheck' : 'Timer'" @click="setOpenTimeLimit"
+                            <el-button :type="openTimeLimit ? 'success' : 'primary'" @click="setOpenTimeLimit"
                                 class="toggle-btn">
                                 {{ openTimeLimit ? "已开启限制" : "开启限制" }}
                             </el-button>
@@ -573,7 +578,7 @@ onMounted(async () => {
 /* 主容器 */
 .api-settings-container {
     padding: 20px;
-    background-color: var(--el-bg-color-page);
+
     min-height: 100vh;
 }
 
@@ -658,7 +663,8 @@ onMounted(async () => {
     justify-content: space-between;
     align-items: center;
     width: 100%;
-    padding: 8px 0;
+    padding: 0px 0;
+    margin: 2px;
 }
 
 .api-option-info {
@@ -758,8 +764,9 @@ onMounted(async () => {
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    margin-bottom: 20px;
-    padding: 12px;
+    margin-bottom: 15px;
+    margin-top: 0px;
+    padding: 8px;
     background-color: var(--el-fill-color-light);
     border-radius: 8px;
     font-size: 14px;
