@@ -76,29 +76,34 @@ export default interface ElectronApi {
     content: string
   }
   // api设置和管理（接入数据库）
-  APISettings: (URL: string, Key: string, modelName: string) => {}
-  getAPISettings: () => {
+  APISettings: (URL: string, Key: string, modelName: string) => Promise<string>
+  getAPISettings: () => Promise<{
     URL: string
     Key: string
     modelName: string
-  }
-  deleteOneAPI: (id: number) => {
+    parallel?: number
+    TimeLimit?: number | null
+  }>
+  deleteOneAPI: (id: number) => Promise<{
     isSuccess: boolean
-  }
-  getALLAPISettings: () => {
-    id: number
-    URL: string
-    Key: string
-    modelName: string
-    created_at: string
-  }[]
+  }>
+  getALLAPISettings: () => Promise<
+    {
+      id: number
+      URL: string
+      Key: string
+      modelName: string
+      created_at: string
+    }[]
+  >
   testAPI: (url: string, key: string, modelName: string) => boolean
-  selectAPISetting: (url: string, key: string, modelName: string) => boolean
-  getAPISettings: () => {
-    URL: string
-    Key: string
-    modelName: string
-  }
+  selectAPISetting: (
+    url: string,
+    key: string,
+    modelName: string,
+    parallel?: number,
+    TimeLimit?: number | null
+  ) => boolean
 
   // 文档处理接口
   processDocx: (
@@ -106,8 +111,12 @@ export default interface ElectronApi {
     filePath: string,
     repositoryNameList?: string[],
     embeddingConfig?: apiSettings,
+    setTimeLimit?: number,
     parallelSet?: number
-  ) => Promise<ProofreadingCorrection[]> // 进行了更新
+  ) => Promise<{
+    proofResult: ProofreadingCorrection[]
+    token_usage: number
+  }> // 进行了更新
   exportCorrectedDocx: (config: any) => Promise<boolean>
 
   // 提示词处理接口

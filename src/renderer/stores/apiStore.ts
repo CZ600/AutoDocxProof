@@ -9,6 +9,8 @@ interface ApiSettings {
   name: string
   time: string
   parallel: number
+  TimeLimit: number | null
+  total_tokens: number
 }
 
 // 默认值作为常量，便于维护
@@ -18,7 +20,9 @@ const defaultApiSettings: ApiSettings = {
   key: '',
   name: '',
   time: '',
-  parallel: 30
+  parallel: 30,
+  TimeLimit: null,
+  total_tokens: 0
 }
 
 export const useApiStore = defineStore(
@@ -39,11 +43,26 @@ export const useApiStore = defineStore(
       selectedApi.parallel = parallelSet
     }
 
+    function setTimeLimit(TimeLimit: number | null) {
+      selectedApi.TimeLimit = TimeLimit
+    }
+
+    function setTotalTokens(total_tokens: number) {
+      selectedApi.total_tokens = total_tokens
+    }
+
+    function addTotalTokens(new_tokens: number) {
+      selectedApi.total_tokens += new_tokens
+    }
+
     return {
       selectedApi,
       setSelectedApi,
       clearSelectedApi,
-      setParallel
+      setParallel,
+      setTimeLimit,
+      setTotalTokens,
+      addTotalTokens
     }
   },
   {

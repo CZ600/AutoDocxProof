@@ -26,12 +26,16 @@ export interface apiSettings {
   apiURL: string
   apiKey: string
   modelName: string
+  parallel?: number
+  TimeLimit?: number | null
 }
 
 let api_info: apiSettings = {
   apiURL: '',
   apiKey: '',
-  modelName: ''
+  modelName: '',
+  parallel: 30,
+  TimeLimit: null
 }
 
 // 全局embedding_api变量已移除，由Pinia store管理
@@ -136,11 +140,13 @@ export const registerIpcHandlers = () => {
     return result
   })
 
-  ipcMain.handle('selectAPISetting', async (event, URL, Key, modelName) => {
+  ipcMain.handle('selectAPISetting', async (event, URL, Key, modelName, parallel = 30, TimeLimit = null) => {
     api_info.apiKey = Key
     api_info.apiURL = URL
     api_info.modelName = modelName
-    console.log('Selected API:', URL, Key, modelName)
+    api_info.parallel = parallel
+    api_info.TimeLimit = TimeLimit
+    console.log('Selected API:', URL, Key, modelName, parallel, TimeLimit)
     return true
   })
 
@@ -148,7 +154,9 @@ export const registerIpcHandlers = () => {
     return {
       URL: api_info.apiURL,
       Key: api_info.apiKey,
-      modelName: api_info.modelName
+      modelName: api_info.modelName,
+      parallel: api_info.parallel || 30,
+      TimeLimit: api_info.TimeLimit
     }
   })
 
@@ -162,6 +170,7 @@ export const registerIpcHandlers = () => {
       filePath,
       repositoryNameList?: string[],
       embeddingConfig?: apiSettings,
+      setTimeLimit?: number,
       parallelSet: number = 30
     ) => {
       try {
@@ -172,6 +181,7 @@ export const registerIpcHandlers = () => {
         console.info('Processing settings:', Model, filePath)
         console.info('embedding settings:', repositoryNameList, embeddingConfig)
         console.info('the parallel set is:', parallelSet)
+        console.info('the time limit of process is:', setTimeLimit)
 
         if (!Model || !filePath) {
           return {
@@ -188,7 +198,7 @@ export const registerIpcHandlers = () => {
         }
         if (Model === 'wordError') {
           console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
-          const res = await proofreadDocument(
+          const { proofResult, token_usage } = await proofreadDocument(
             filePath,
             'sentence',
             api_info.apiKey,
@@ -196,18 +206,26 @@ export const registerIpcHandlers = () => {
             api_info.apiURL,
             repositoryNameList,
             embeddingConfig,
-            parallelSet
+            parallelSet,
+            setTimeLimit
           )
           // 确保返回的数据是可克隆的
           try {
-            return JSON.parse(JSON.stringify(res))
+            const result = {
+              result: JSON.parse(JSON.stringify(proofResult)),
+              token_usage: token_usage
+            }
+            return result
           } catch (error) {
             console.error('序列化校对结果时出错:', error)
-            return []
+            return {
+              result: null,
+              token_usage: token_usage
+            }
           }
         } else if (Model === 'ComprehensiveError') {
           console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
-          const res = await proofreadDocument(
+          const { proofResult, token_usage } = await proofreadDocument(
             filePath,
             'section',
             api_info.apiKey,
@@ -215,18 +233,26 @@ export const registerIpcHandlers = () => {
             api_info.apiURL,
             repositoryNameList,
             embeddingConfig,
-            parallelSet
+            parallelSet,
+            setTimeLimit
           )
           // 确保返回的数据是可克隆的
           try {
-            return JSON.parse(JSON.stringify(res))
+            const result = {
+              result: JSON.parse(JSON.stringify(proofResult)),
+              token_usage: token_usage
+            }
+            return result
           } catch (error) {
             console.error('序列化校对结果时出错:', error)
-            return []
+            return {
+              result: null,
+              token_usage: token_usage
+            }
           }
         } else if (Model === 'polish') {
           console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
-          const res = await proofreadDocument(
+          const { proofResult, token_usage } = await proofreadDocument(
             filePath,
             'full',
             api_info.apiKey,
@@ -234,14 +260,22 @@ export const registerIpcHandlers = () => {
             api_info.apiURL,
             repositoryNameList,
             embeddingConfig,
-            parallelSet
+            parallelSet,
+            setTimeLimit
           )
           // 确保返回的数据是可克隆的
           try {
-            return JSON.parse(JSON.stringify(res))
+            const result = {
+              result: JSON.parse(JSON.stringify(proofResult)),
+              token_usage: token_usage
+            }
+            return result
           } catch (error) {
             console.error('序列化校对结果时出错:', error)
-            return []
+            return {
+              result: null,
+              token_usage: token_usage
+            }
           }
         }
       } catch (error) {

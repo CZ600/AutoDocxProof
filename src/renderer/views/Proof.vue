@@ -90,7 +90,7 @@
                                         {{ formatCorrectionType(item.type) }}
                                     </span>
                                     <span class="correction-count">{{ index + 1 }}/{{ proofreadingResults.length
-                                        }}</span>
+                                    }}</span>
                                 </div>
                             </template>
 
@@ -188,6 +188,10 @@ const apiSettingsStore = useApiStore()
 const embeddingStore = useEmbeddingStore()
 // 选择使用计算属性computed双向绑定store，避免手动watch同步
 const fileName = computed(() => fileStore.fileName)
+// 访问频率限制 - 只有当 TimeLimit 存在且大于 0 时才使用
+const timeLimit = apiSettingsStore.selectedApi.TimeLimit && apiSettingsStore.selectedApi.TimeLimit > 0
+    ? apiSettingsStore.selectedApi.TimeLimit
+    : undefined
 
 const form = ref({
     model: fileStore.proofModel,
@@ -527,6 +531,7 @@ const onSubmit = async () => {
         error.value = '';
         proofreadingResults.value = [];
         let results;
+        let token_usage = 0
         if (selectRepository.value.length > 0) {
             // 确保传递的参数是可序列化的
             const params = {
@@ -538,13 +543,35 @@ const onSubmit = async () => {
             // 确保传递可序列化的纯对象
             const { apiURL, apiKey, modelName } = embeddingStore.getAPIConfig;
             console.log("embedding settings:", { apiURL, apiKey, modelName })
-            results = await electronAPI.processDocx(params.model, params.filePath, params.repositoryNameList, { apiURL, apiKey, modelName }, apiSettingsStore.selectedApi.parallel);
+            console.log("parallel set:", apiSettingsStore.selectedApi.parallel)
+            console.log("timelimit set is:", timeLimit)
+            preResult = await electronAPI.processDocx(
+                params.model,
+                params.filePath,
+                params.repositoryNameList,
+                { apiURL, apiKey, modelName },
+                timeLimit,
+                apiSettingsStore.selectedApi.parallel,
+            );
+            results = preResult.proofResult
+            token_usage += preResult.token_usage
         } else {
             const params = {
                 model: form.value.model,
                 filePath: form.value.filePath
             };
-            results = await electronAPI.processDocx(params.model, params.filePath, undefined, undefined, apiSettingsStore.selectedApi.parallel);
+            console.log("parallel set is:", apiSettingsStore.selectedApi.parallel)
+            console.log("timelimit set is:", timeLimit)
+            preResult = await electronAPI.processDocx(
+                params.model,
+                params.filePath,
+                undefined,
+                undefined,
+                timeLimit,
+                apiSettingsStore.selectedApi.parallel,
+            );
+            results = preResult.proofResult
+            token_usage += preResult.token_usage
         }
 
         if (results.message === "Please select an API setting!") {
@@ -578,6 +605,17 @@ const onSubmit = async () => {
         if (finalResults.length > 0) {
             activeNames.value = [0];
         }
+
+        apiSettingsStore.addTotalTokens(token_usage)  // 将本次使用的token加入到总的token消耗量中
+
+        ElMessage(
+            {
+                message: "处理成功,本次任务消耗token: ${token_usage}",
+                type: success,
+                duration: 1000
+
+            }
+        )
     } catch (err) {
         error.value = `校对处理失败: ${err.message}`
         console.error('校对处理异常:', err)

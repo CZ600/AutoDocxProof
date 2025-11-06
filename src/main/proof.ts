@@ -60,18 +60,65 @@ let defaultPrompt = `
 `
 
 const ragText =
-  '以下内容是校对的参考内容，请结合这些文字进行校对工作（如果是双语内容，则对翻译校对），校对规则遵循之前讲述的要求'
+  '以下内容是校对的参考内容，请结合这些文字进行校对工作（如果是双语内容，则以校对内容的语言类型为准），校对规则遵循之前讲述的要求'
 
-// ====== 并发控制工具函数（保留原逻辑） ======
-async function runWithConcurrencyLimit<T, R>(
+// ====== 并发控制工具函数 ======
+/**
+ * 一个简单的延时函数
+ * @param ms 延时的毫秒数
+ */
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+/**
+ * 带有并发数和速率限制的异步任务控制器
+ *
+ * @param items 要处理的元素数组
+ * @param maxConcurrency 最大并发数
+ * @param processor 处理单个元素的异步函数
+ * @param options 可选配置项
+ * @param options.requestsPerMinute 每分钟最大请求数，用于速率限制
+ * @returns 返回一个包含所有成功处理结果的 Promise
+ */
+export async function runWithLimits<T, R>(
   items: T[],
   maxConcurrency: number,
-  processor: (item: T) => Promise<R>
+  processor: (item: T) => Promise<R>,
+  options?: {
+    requestsPerMinute?: number
+  }
 ): Promise<R[]> {
   const results: (R | undefined)[] = new Array(items.length)
   const executing: Promise<void>[] = []
 
+  // --- 新增逻辑: 速率限制初始化 ---
+  const { requestsPerMinute } = options || {}
+  const hasRateLimit = typeof requestsPerMinute === 'number' && requestsPerMinute > 0
+
+  // 计算两次请求之间的最小时间间隔（毫秒）
+  const minInterval = hasRateLimit ? (60 * 1000) / requestsPerMinute! : 0
+  let lastRequestTime = 0 // 记录上一个任务开始的时间戳
+  // --- 新增逻辑结束 ---
+
   for (let i = 0; i < items.length; i++) {
+    // --- 核心逻辑整合 ---
+    // 1. 首先，等待并发池出现空位（如果已满）
+    if (executing.length >= maxConcurrency) {
+      await Promise.race(executing)
+    }
+
+    // 2. 其次，等待满足速率限制的时间间隔
+    if (hasRateLimit) {
+      const now = Date.now()
+      const elapsedTime = now - lastRequestTime
+      if (elapsedTime < minInterval) {
+        const delayTime = minInterval - elapsedTime
+        await delay(delayTime)
+      }
+      // 更新"上一次请求时间"为当前（补足延迟后）的时间
+      lastRequestTime = Date.now()
+    }
+    // --- 整合结束 ---
+
     const execute = async () => {
       try {
         results[i] = await processor(items[i])
@@ -86,17 +133,11 @@ async function runWithConcurrencyLimit<T, R>(
       if (index !== -1) executing.splice(index, 1)
     })
     executing.push(promise)
-
-    if (executing.length >= maxConcurrency) {
-      await Promise.race(executing)
-    }
   }
 
   await Promise.all(executing)
   return results.filter((r): r is R => r !== undefined)
 }
-
-const MAX_CONCURRENCY = 30
 
 // ====== 导出 Prompt 管理 ======
 export async function getDefaultPrompt(): Promise<string> {
@@ -190,7 +231,10 @@ async function summarizeDocumentTheme(
   apiKey: string,
   modelName: string,
   apiURL: string
-): Promise<string> {
+): Promise<{
+  result: string
+  total_tokens: number
+}> {
   const systemPrompt = '你是一个专业的文档分析专家。请根据提供的文档目录结构，总结文档的整体框架和主题。'
   const userPrompt = `文档标题: ${docStructure.title}\n\n文档目录结构:\n${docStructure.sections.map((s, i) => `${i + 1}. ${s.title}`).join('\n')}\n\n请总结这份文档的主要主题和整体框架：`
 
@@ -198,7 +242,10 @@ async function summarizeDocumentTheme(
     return await OpenaiGen(systemPrompt, userPrompt, apiKey, modelName, apiURL)
   } catch (error) {
     console.error('总结文档主题时出错:', error)
-    return '文档主题分析失败'
+    return {
+      result: 'error',
+      total_tokens: null
+    }
   }
 }
 
@@ -330,20 +377,32 @@ async function proofreadTextWithRAG(
   repositoryNameList?: string[],
   fileName?: string,
   embeddingConfig?: ApiSettings
-): Promise<ProofreadingCorrection[]> {
+): Promise<{ result: ProofreadingCorrection[]; use_tokens: number }> {
   try {
     let systemPrompt = systemContext
     if (repositoryNameList === undefined) {
       console.log('use normal proof without rag:')
       console.log('proof content:', text)
-      const result = await OpenaiGen(systemPrompt, `需要校对的内容:\n${text}`, apiKey, modelName, apiURL)
-      return parseCorrections(result)
+      const { result, total_tokens } = await OpenaiGen(
+        systemPrompt,
+        `需要校对的内容:\n${text}`,
+        apiKey,
+        modelName,
+        apiURL
+      )
+      return { result: parseCorrections(result), use_tokens: total_tokens }
     } else if (repositoryNameList.length === 0) {
       if (repositoryNameList === undefined) {
         console.log('use normal proof without rag:')
         console.log('proof content:', text)
-        const result = await OpenaiGen(systemPrompt, `需要校对的内容:\n${text}`, apiKey, modelName, apiURL)
-        return parseCorrections(result)
+        const { result, total_tokens } = await OpenaiGen(
+          systemPrompt,
+          `需要校对的内容:\n${text}`,
+          apiKey,
+          modelName,
+          apiURL
+        )
+        return { result: parseCorrections(result), use_tokens: total_tokens }
       } else if (repositoryNameList.length > 0 && fileName) {
         const embApiKey = embeddingConfig?.apiKey || apiKey
         const embApiURL = embeddingConfig?.apiURL || apiURL
@@ -369,8 +428,14 @@ async function proofreadTextWithRAG(
           systemPrompt += ragContext
         }
 
-        const result = await OpenaiGen(systemPrompt, `需要校对的内容:\n${text}`, apiKey, modelName, apiURL)
-        return parseCorrections(result, ragChunks)
+        const { result, total_tokens } = await OpenaiGen(
+          systemPrompt,
+          `需要校对的内容:\n${text}`,
+          apiKey,
+          modelName,
+          apiURL
+        )
+        return { result: parseCorrections(result, ragChunks), use_tokens: total_tokens }
       } else {
         console.log("the proof mode don't catch any preload,please check!")
         throw error("the proof mode don't catch any preload,please check!")
@@ -378,7 +443,7 @@ async function proofreadTextWithRAG(
     }
   } catch (error) {
     console.error('校对文本失败:', error)
-    return []
+    return { result: [], use_tokens: 0 }
   }
 }
 
@@ -391,20 +456,30 @@ export async function proofreadDocument(
   apiURL: string,
   repositoryNameList?: string[],
   embeddingConfig?: ApiSettings,
-  parallelSet:number = 30  // 并发限制
-): Promise<ProofreadingCorrection[]> {
+  parallelSet: number = 30, // 并发限制
+  setTimeLimit?: number // 每分钟最高发射频率
+): Promise<{ proofResult: ProofreadingCorrection[]; token_usage: number }> {
   console.log('process mode is:', mode)
   console.log('process api is:', apiURL, modelName)
+  let total_tokens = 0 // calculate the usage of tokens
+  const option = setTimeLimit // set the limit of request per minute
+    ? {
+        requestsPerMinute: setTimeLimit
+      }
+    : undefined
 
   try {
     const fileName = path.basename(documentPath)
 
     if (mode === 'full') {
-      const result = await mammoth.extractRawText({ path: documentPath }) // get full text
-      const text = result.value.trim() // trim
-      if (!text) return []
-
-      return await proofreadTextWithRAG(
+      const fullText = await mammoth.extractRawText({ path: documentPath }) // get full text
+      const text = fullText.value.trim() // trim
+      if (!text)
+        return {
+          proofResult: null,
+          token_usage: 0
+        }
+      const { result, use_tokens } = await proofreadTextWithRAG(
         text,
         defaultPrompt,
         apiKey,
@@ -414,35 +489,52 @@ export async function proofreadDocument(
         fileName,
         embeddingConfig
       )
+      total_tokens += use_tokens
+
+      return { proofResult: result, token_usage: total_tokens }
     }
 
     const docStructure = await parseWordDocument(documentPath)
     const documentTheme = await summarizeDocumentTheme(docStructure, apiKey, modelName, apiURL)
     const nonEmptySections = docStructure.sections.filter(sec => sec.content.trim().length > 0)
-    if (nonEmptySections.length === 0) return []
+    if (nonEmptySections.length === 0)
+      return {
+        proofResult: null,
+        token_usage: 0
+      }
 
     let allCorrections: ProofreadingCorrection[] = []
 
     if (mode === 'section') {
-      const sectionResults = await runWithConcurrencyLimit(nonEmptySections, parallelSet, async section => {
-        const systemContext = `${defaultPrompt}
+      const sectionResults = await runWithLimits(
+        nonEmptySections,
+        parallelSet,
+        async section => {
+          const systemContext = `${defaultPrompt}
 文档标题: ${docStructure.title}
 文档主题: ${documentTheme}
 当前章节标题: ${section.title}`
-        return proofreadTextWithRAG(
-          section.content,
-          systemContext,
-          apiKey,
-          modelName,
-          apiURL,
-          repositoryNameList,
-          fileName,
-          embeddingConfig
-        )
+          return proofreadTextWithRAG(
+            section.content,
+            systemContext,
+            apiKey,
+            modelName,
+            apiURL,
+            repositoryNameList,
+            fileName,
+            embeddingConfig
+          )
+        },
+        option
+      )
+      let resultList: ProofreadingCorrection[][] = []
+      sectionResults.forEach(item => {
+        total_tokens += item.use_tokens
+        resultList.push(item.result)
       })
-      allCorrections = sectionResults.flat()
+      allCorrections = resultList.flat() // 展开二维数组，获取最后的结果数组
     } else if (mode === 'sentence') {
-      const sentenceTasks: (() => Promise<ProofreadingCorrection[]>)[] = []
+      const sentenceTasks: (() => Promise<{ result: ProofreadingCorrection[]; use_tokens: number }>)[] = []
       for (const section of nonEmptySections) {
         const sentences = splitSentences(section.content)
         const validSentences = sentences.filter(s => s.trim().length > 0)
@@ -469,8 +561,13 @@ export async function proofreadDocument(
       }
 
       if (sentenceTasks.length > 0) {
-        const sentenceResults = await runWithConcurrencyLimit(sentenceTasks, parallelSet, task => task())
-        allCorrections = sentenceResults.flat()
+        const sentenceResults = await runWithLimits(sentenceTasks, parallelSet, task => task(), option)
+        let resultList: ProofreadingCorrection[][] = []
+        sentenceResults.forEach(Items => {
+          total_tokens += Items.use_tokens
+          resultList.push(Items.result)
+        })
+        allCorrections = resultList.flat()
       }
     }
 
@@ -484,7 +581,7 @@ export async function proofreadDocument(
     }))
 
     console.log('校对结果:', serializableCorrections)
-    return serializableCorrections
+    return { proofResult: serializableCorrections, token_usage: total_tokens }
   } catch (error) {
     console.error('文档校对过程中出现错误:', error)
     throw error

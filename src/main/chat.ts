@@ -108,7 +108,7 @@ export async function OpenaiGen(
   apiKey: string,
   modelName: string,
   apiURL: string
-): Promise<string> {
+): Promise<{ result: string; total_tokens: number }> {
   if (!apiKey) {
     throw new Error('API key is missing. Please provide a valid API key.')
   }
@@ -127,7 +127,10 @@ export async function OpenaiGen(
       ]
     })
 
-    return chatCompletion.choices[0].message.content ?? ''
+    const { prompt_tokens, completion_tokens, total_tokens } = chatCompletion.usage!
+    const result = chatCompletion.choices[0].message.content ?? ''
+
+    return { result, total_tokens }
   } catch (error) {
     console.error('An error occurred while calling the OpenAI-compatible API:', error)
     if (error instanceof Error) {

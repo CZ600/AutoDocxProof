@@ -28,21 +28,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectDocxFile: () => ipcRenderer.invoke('select-docx-file'),
   // 可选：如果需要主进程读取文件内容
   readDocxFile: (filePath: string) => ipcRenderer.invoke('read-docx-file', filePath),
-  APISettings: (url: string, key: string, modelName: string) => ipcRenderer.invoke('set-api', url, key, modelName),
+  APISettings: (url: string, key: string, modelName: string) =>
+    ipcRenderer.invoke('set-api', url, key, modelName),
   getALLAPISettings: () => ipcRenderer.invoke('get-all-api-settings', {}),
   deleteOneAPI: (id: number) => ipcRenderer.invoke('delete-one-api-setting', id),
   testAPI: (url: string, key: string, modelName: string) => ipcRenderer.invoke('test-api', url, key, modelName),
-  selectAPISetting: (url: string, key: string, modelName: string) =>
-    ipcRenderer.invoke('selectAPISetting', url, key, modelName),
+  selectAPISetting: (url: string, key: string, modelName: string, parallel?: number, TimeLimit?: number | null) =>
+    ipcRenderer.invoke('selectAPISetting', url, key, modelName, parallel, TimeLimit),
   getAPISettings: () => ipcRenderer.invoke('get-api-settings', {}),
   // 文档校对处理函数
-  processDocx: (model: string, filePath: string, repositoryNameList?: string[], embeddingConfig?: apiSettings, parallelSet?:number) => {
+  processDocx: (
+    model: string,
+    filePath: string,
+    repositoryNameList?: string[],
+    embeddingConfig?: apiSettings,
+    setTimeLimit?: number,
+    parallelSet?: number
+  ) => {
     // 确保传递的参数是可序列化的
     const serializableParams = {
       model,
       filePath,
       repositoryNameList: repositoryNameList ? [...repositoryNameList] : undefined,
       embeddingConfig: embeddingConfig ? { ...embeddingConfig } : undefined,
+      setTimeLimit: setTimeLimit || undefined,
       parallelSet: parallelSet || 30
     }
 
@@ -52,6 +61,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       serializableParams.filePath,
       serializableParams.repositoryNameList,
       serializableParams.embeddingConfig,
+      serializableParams.setTimeLimit,
       serializableParams.parallelSet
     )
   },
