@@ -809,19 +809,21 @@ onMounted(async () => {
 <style scoped>
 .app-container {
     height: 100vh;
-    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+
 }
 
 .error-alert {
-    margin: 15px;
+    margin: 20px;
     border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .action-bar {
-    padding: 15px;
+    padding: 20px 24px;
     height: auto !important;
-    border-bottom: 1px solid #ebeef5;
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid #e4e7ed;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
 .header-content {
@@ -836,8 +838,8 @@ onMounted(async () => {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 15px;
-    padding: 10px 0;
+    gap: 12px;
+    padding: 8px 0 16px 0;
     justify-content: center;
 }
 
@@ -849,16 +851,27 @@ onMounted(async () => {
 
 .button-group {
     display: flex;
-    gap: 15px;
+    gap: 12px;
     justify-content: center;
     align-items: center;
     flex-wrap: wrap;
-    margin: 10px 0;
+    margin: 8px 0 4px 0;
 }
 
 .action-button {
     min-width: 120px;
     border-radius: 8px;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.action-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.action-button:active {
+    transform: translateY(0);
 }
 
 .dictionary-button {
@@ -868,6 +881,11 @@ onMounted(async () => {
 .mode-select {
     width: 220px;
     border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.mode-select:hover .el-input__wrapper {
+    box-shadow: 0 0 0 1px var(--el-color-primary) inset;
 }
 
 .main-content {
@@ -876,7 +894,7 @@ onMounted(async () => {
 }
 
 .preview-area {
-    padding: 0;
+    padding: 20px;
     overflow: hidden;
     width: 70%;
 }
@@ -884,124 +902,168 @@ onMounted(async () => {
 .preview-container {
     height: 100%;
     overflow: auto;
-    border: 1px solid #dcdfe6;
-    border-radius: 0px;
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-    padding: 20px;
-    margin: 0px;
+    border: 1px solid #e4e7ed;
+    border-radius: 8px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.03);
+    padding: 32px;
+    transition: box-shadow 0.2s ease;
+}
+
+.preview-container:hover {
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .proofreading-sidebar {
     width: 30%;
-    border-left: 1px solid #ebeef5;
+    border-left: 1px solid #e4e7ed;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
 }
 
 .sidebar-header {
-    padding: 15px;
-    border-bottom: 1px solid #ebeef5;
+    padding: 20px;
+    border-bottom: 1px solid #e4e7ed;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .apply-all-button {
     width: 100%;
     border-radius: 8px;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.apply-all-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
 }
 
 .results-container {
     flex: 1;
-    padding: 15px;
+    padding: 16px;
     overflow-y: auto;
 }
 
 .correction-item {
-    margin-bottom: 15px;
-    border-radius: 8px;
+    margin-bottom: 12px;
+    border-radius: 10px;
     overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    border: 1px solid #ebeef5;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    border: 1px solid #e4e7ed;
+    transition: all 0.2s ease;
+}
+
+.correction-item:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border-color: #c0c4cc;
 }
 
 .correction-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 15px;
+    padding: 14px 18px;
 }
 
 .correction-type {
     display: inline-block;
-    padding: 4px 10px;
-    border-radius: 4px;
+    padding: 5px 12px;
+    border-radius: 6px;
     font-size: 12px;
-    font-weight: bold;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .correction-count {
     font-size: 12px;
     color: #909399;
+    font-weight: 500;
 }
 
 .correction-content {
-    padding: 15px;
-    border-top: 1px solid #ebeef5;
+    padding: 18px;
+    border-top: 1px solid #e4e7ed;
 }
 
 .correction-content>div {
-    margin-bottom: 12px;
-    line-height: 1.6;
+    margin-bottom: 14px;
+    line-height: 1.7;
+    color: #606266;
 }
 
 .correction-content strong {
-    color: #606266;
+    color: #303133;
     min-width: 50px;
     display: inline-block;
+    font-weight: 600;
 }
 
 .actions {
-    margin-top: 15px;
+    margin-top: 16px;
     text-align: right;
+    padding-top: 12px;
+    border-top: 1px dashed #e4e7ed;
+}
+
+.actions .el-button {
+    transition: all 0.2s ease;
+    border-radius: 6px;
+}
+
+.actions .el-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .no-results {
-    padding: 20px;
+    padding: 40px 20px;
     text-align: center;
     color: #909399;
 }
 
-/* 根据校对类型设置颜色 */
+.no-results .el-empty {
+    margin: 0 auto;
+}
+
+/* 根据校对类型设置颜色 - 简约现代风格 */
 .type-typo,
 .type-错别字,
 .type-worderror {
-    background-color: rgba(245, 108, 108, 0.15);
-    color: #f56c6c;
+    background-color: rgba(245, 108, 108, 0.12);
+    color: #e36262;
+    border: 1px solid rgba(245, 108, 108, 0.2);
 }
 
 .type-punctuation,
 .type-标点 {
-    background-color: rgba(230, 162, 60, 0.15);
-    color: #e6a23c;
+    background-color: rgba(230, 162, 60, 0.12);
+    color: #d89020;
+    border: 1px solid rgba(230, 162, 60, 0.2);
 }
 
 .type-grammar,
 .type-语法 {
-    background-color: rgba(64, 158, 255, 0.15);
-    color: #409eff;
+    background-color: rgba(64, 158, 255, 0.12);
+    color: #3a8ee6;
+    border: 1px solid rgba(64, 158, 255, 0.2);
 }
 
 .type-consistency,
 .type-一致性 {
-    background-color: rgba(144, 147, 152, 0.15);
-    color: #909399;
+    background-color: rgba(144, 147, 152, 0.12);
+    color: #828282;
+    border: 1px solid rgba(144, 147, 152, 0.2);
 }
 
 .type-comprehensiveerror,
 .type-综合错误,
 .type-polish,
 .type-润色建议 {
-    background-color: rgba(103, 194, 58, 0.15);
-    color: #67c23a;
+    background-color: rgba(103, 194, 58, 0.12);
+    color: #5baa3a;
+    border: 1px solid rgba(103, 194, 58, 0.2);
 }
 
 @media (max-width: 992px) {
@@ -1029,31 +1091,34 @@ onMounted(async () => {
 <style>
 /* 全局高亮样式 - 必须放在非scoped样式中 */
 .highlight-correction {
-    background-color: rgba(255, 223, 0, 0.6) !important;
-    border-bottom: 2px dashed #ff9800 !important;
+    background-color: rgba(255, 214, 102, 0.5) !important;
+    border-bottom: 2px solid #ffb300 !important;
     cursor: pointer !important;
-    padding: 0 2px !important;
-    border-radius: 2px !important;
+    padding: 1px 3px !important;
+    border-radius: 3px !important;
     transition: all 0.2s ease !important;
+    box-shadow: 0 1px 3px rgba(255, 179, 0, 0.2) !important;
 }
 
 .highlight-correction:hover {
-    box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.3) !important;
-    background-color: rgba(255, 200, 0, 0.7) !important;
+    box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.25) !important;
+    background-color: rgba(255, 214, 102, 0.7) !important;
+    transform: translateY(-1px) !important;
 }
 </style>
 
 <style scoped>
 /* 参考内容样式 */
 .reference-content {
-    padding: 8px 0;
+    padding: 12px 4px;
 }
 
 .reference-content h4 {
-    margin: 0 0 12px 0;
+    margin: 0 0 14px 0;
     color: #303133;
     font-size: 14px;
     font-weight: 600;
+    text-align: center;
 }
 
 .reference-list {
@@ -1064,12 +1129,18 @@ onMounted(async () => {
 .reference-item {
     display: flex;
     align-items: flex-start;
-    margin-bottom: 12px;
-    padding: 8px 12px;
+    margin-bottom: 10px;
+    padding: 10px 14px;
     background: #f8f9fa;
-    border-radius: 6px;
+    border-radius: 8px;
     border-left: 3px solid #409eff;
-    line-height: 1.5;
+    line-height: 1.6;
+    transition: all 0.2s ease;
+}
+
+.reference-item:hover {
+    background: #f0f2f5;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
 .reference-item:last-child {
@@ -1079,8 +1150,8 @@ onMounted(async () => {
 .reference-index {
     color: #409eff;
     font-weight: 600;
-    margin-right: 8px;
-    min-width: 20px;
+    margin-right: 10px;
+    min-width: 22px;
     flex-shrink: 0;
 }
 
@@ -1091,22 +1162,28 @@ onMounted(async () => {
 }
 
 /* 滚动条样式 */
-.reference-list::-webkit-scrollbar {
-    width: 6px;
+.reference-list::-webkit-scrollbar,
+.preview-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
 }
 
-.reference-list::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
+.reference-list::-webkit-scrollbar-track,
+.preview-container::-webkit-scrollbar-track {
+    background: #f5f5f5;
+    border-radius: 4px;
 }
 
-.reference-list::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 3px;
+.reference-list::-webkit-scrollbar-thumb,
+.preview-container::-webkit-scrollbar-thumb {
+    background: #d0d0d0;
+    border-radius: 4px;
+    transition: background 0.2s;
 }
 
-.reference-list::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
+.reference-list::-webkit-scrollbar-thumb:hover,
+.preview-container::-webkit-scrollbar-thumb:hover {
+    background: #b0b0b0;
 }
 </style>
 
@@ -1114,7 +1191,8 @@ onMounted(async () => {
 /* 全局弹窗样式 */
 .reference-popover {
     max-width: 500px;
-    text-align: center;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
 .reference-popover .el-popover__title {
@@ -1122,5 +1200,6 @@ onMounted(async () => {
     color: #303133;
     font-weight: 600;
     text-align: center;
+    font-size: 15px;
 }
 </style>
