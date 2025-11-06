@@ -59,6 +59,23 @@ let defaultPrompt = `
 如果没有任何错误，请返回空数组[]。只返回JSON数组，不要添加其他说明文字。
 `
 
+const realDefaultPrompt = `你是一个专业的中文文本校对专家。请仔细检查文本中的错别字、标点错误和语法问题。
+要求：
+1. 只校对错别字、标点错误、语法错误
+2. 保持原文意思不变
+3. 不要进行风格改写或内容扩展
+4. 按照指定的JSON格式返回结果
+请校对用户提供的文本，找出其中的错别字、标点错误和语法问题，并按照以下JSON格式返回：
+[
+  {
+    "original": "原文错误内容（只截取原文错误的词组，不要多写，不超过15字！）",
+    "suggested": "建议修改内容（基于原文的修改后的内容）",
+    "reason": "错误原因的简短说明",
+    "type": "错误类型(Typo/Punctuation/Grammar/Consistency)"
+  }
+]
+如果没有任何错误，请返回空数组[]。只返回JSON数组，不要添加其他说明文字。`
+
 const ragText =
   '以下内容是校对的参考内容，请结合这些文字进行校对工作（如果是双语内容，则以校对内容的语言类型为准），校对规则遵循之前讲述的要求'
 
@@ -141,7 +158,7 @@ export async function runWithLimits<T, R>(
 
 // ====== 导出 Prompt 管理 ======
 export async function getDefaultPrompt(): Promise<string> {
-  return defaultPrompt
+  return realDefaultPrompt
 }
 
 export async function setNewPrompt(newPrompt: string): Promise<boolean> {

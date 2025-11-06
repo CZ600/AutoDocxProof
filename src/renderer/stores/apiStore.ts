@@ -11,6 +11,7 @@ interface ApiSettings {
   parallel: number
   TimeLimit: number | null
   total_tokens: number
+  customPrompt: string | null
 }
 
 // 默认值作为常量，便于维护
@@ -22,7 +23,8 @@ const defaultApiSettings: ApiSettings = {
   time: '',
   parallel: 30,
   TimeLimit: null,
-  total_tokens: 0
+  total_tokens: 0,
+  customPrompt: null
 }
 
 export const useApiStore = defineStore(
@@ -55,6 +57,10 @@ export const useApiStore = defineStore(
       selectedApi.total_tokens += new_tokens
     }
 
+    function setCustomPrompt(prompt: string | null) {
+      selectedApi.customPrompt = prompt
+    }
+
     return {
       selectedApi,
       setSelectedApi,
@@ -62,7 +68,8 @@ export const useApiStore = defineStore(
       setParallel,
       setTimeLimit,
       setTotalTokens,
-      addTotalTokens
+      addTotalTokens,
+      setCustomPrompt
     }
   },
   {

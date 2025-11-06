@@ -120,7 +120,7 @@ export default interface ElectronApi {
   exportCorrectedDocx: (config: any) => Promise<boolean>
 
   // 提示词处理接口
-  getDefaultPrompt: () => string
+  getDefaultPrompt: () => Promise<string>
   setNewPrompt: (newPrompt: string) => Promise<boolean>
 
   // 历史记录接口

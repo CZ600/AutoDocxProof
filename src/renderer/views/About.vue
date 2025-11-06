@@ -126,25 +126,6 @@
                     <el-code-block lang="bash">npm run start</el-code-block>
                 </el-card>
             </el-tab-pane>
-
-            <el-tab-pane label="项目结构" name="structure">
-                <el-card>
-                    <h2>📦 项目结构</h2>
-                    <div class="structure-container">
-                        <el-tree :data="structureData" :props="defaultProps" default-expand-all show-line
-                            class="structure-tree">
-                            <template #default="{ node, data }">
-                                <div class="tree-node">
-                                    <span class="file-icon">{{ data.icon }}</span>
-                                    <span class="file-name">{{ node.label }}</span>
-                                    <span v-if="data.description" class="file-description">{{ data.description }}</span>
-                                </div>
-                            </template>
-                        </el-tree>
-                    </div>
-                </el-card>
-            </el-tab-pane>
-
             <el-tab-pane label="使用指南" name="guide">
                 <el-card>
                     <h2>🎯 使用指南</h2>
@@ -199,8 +180,8 @@
                     </ul>
 
                     <h2>📖 版本情况</h2>
-                    <p>当前版本：v1.1.0</p>
-                    <p>v1.1.0 版本的 .exe 包已经发布，可以在本项目页面上下载</p>
+                    <p>当前版本：v1.1.3</p>
+                    <p>本软件会持续更新，最新版本可以在本项目页面上下载</p>
                     <el-link href="https://github.com/CZ600/AutoDocxProofread" target="_blank" type="primary">
                         项目地址：https://github.com/CZ600/AutoDocxProofread
                     </el-link>

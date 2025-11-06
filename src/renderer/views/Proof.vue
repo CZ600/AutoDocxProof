@@ -90,7 +90,7 @@
                                         {{ formatCorrectionType(item.type) }}
                                     </span>
                                     <span class="correction-count">{{ index + 1 }}/{{ proofreadingResults.length
-                                        }}</span>
+                                    }}</span>
                                 </div>
                             </template>
 
@@ -820,10 +820,10 @@ onMounted(async () => {
 }
 
 .action-bar {
-    padding: 20px 24px;
+    padding-bottom: 15px;
     height: auto !important;
     border-bottom: 1px solid #e4e7ed;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+
 }
 
 .header-content {
@@ -902,29 +902,21 @@ onMounted(async () => {
 .preview-container {
     height: 100%;
     overflow: auto;
-    border: 1px solid #e4e7ed;
     border-radius: 8px;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.03);
-    padding: 32px;
     transition: box-shadow 0.2s ease;
-}
-
-.preview-container:hover {
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .proofreading-sidebar {
     width: 30%;
-    border-left: 1px solid #e4e7ed;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
 }
 
 .sidebar-header {
-    padding: 20px;
-    border-bottom: 1px solid #e4e7ed;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    padding-top: 15px;
+    padding-left: 18px;
+    padding-right: 18px;
 }
 
 .apply-all-button {
@@ -990,11 +982,11 @@ onMounted(async () => {
 .correction-content>div {
     margin-bottom: 14px;
     line-height: 1.7;
-    color: #606266;
+    /* color: #606266; */
 }
 
 .correction-content strong {
-    color: #303133;
+    /* color: #303133; */
     min-width: 50px;
     display: inline-block;
     font-weight: 600;
