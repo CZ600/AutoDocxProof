@@ -25,6 +25,7 @@ const routes = [
     path: '/work',
     name: 'Work',
     component: Work,
+    redirect: '/work/proof',
     children: [
       {
         path: 'api',
