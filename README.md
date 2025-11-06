@@ -187,13 +187,6 @@ npm run start
 2. 增强用户界面交互体验
 3. 优化.docx文件的处理算法
 
-## 📖 版本情况
-
-当前版本：v1.1.0
-
-v1.1.0版本的.exe包已经发布，可以在本项目页面上下载
-项目地址：https://github.com/CZ600/AutoDocxProofread
-
 ## 📄 许可证
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
