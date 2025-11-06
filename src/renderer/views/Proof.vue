@@ -66,7 +66,7 @@
         <el-container class="main-content">
             <!-- 文档预览区域 -->
             <el-main class="preview-area">
-                <div ref="previewContainer" class="preview-container">
+                <div ref="previewContainer" class="preview-container" :class="{ 'dark-mode': isDark }">
                     <el-empty v-if="!fileName" description="选择一个 DOCX 文件进行预览" :image-size="80" />
                 </div>
             </el-main>
@@ -170,8 +170,11 @@ import { useEmbeddingStore } from "../stores/embeddingStore"
 import { useApiStore } from "../stores/apiStore"
 import { files } from 'jszip'
 import { HomeFilled, Monitor, InfoFilled, Setting, Clock, Collection } from '@element-plus/icons-vue'
+import { useDark } from '@vueuse/core'
 // 从 Electron 获取 API
 const electronAPI = window.electronAPI
+// 使用与 App.vue 相同的 useDark 状态
+const isDark = useDark()
 // 状态变量
 const previewContainer = ref(null)
 // const fileName = ref('')
@@ -181,7 +184,6 @@ const processing = ref(false)
 const exporting = ref(false) // 新增导出状态
 // const proofreadingResults = ref([]) // 存储校对结果
 const activeNames = ref([]) // 折叠面板展开项
-const isDark = ref(false) // 添加缺失的 isDark 属性
 // 从Pinia store中获取数据
 const fileStore = fileInfoStore()
 const apiSettingsStore = useApiStore()
@@ -906,6 +908,48 @@ onMounted(async () => {
     transition: box-shadow 0.2s ease;
 }
 
+/* 夜间模式样式 - 作用于预览容器及其所有子元素 */
+.preview-container.dark-mode {
+    background-color: #1a1a1a !important;
+    color: #e0e0e0 !important;
+}
+
+/* 深度选择器 - 影响 docx-preview 渲染的内部内容 */
+.preview-container.dark-mode :deep(*) {
+    background-color: transparent !important;
+    color: #e0e0e0 !important;
+    border-color: #404040 !important;
+}
+
+.preview-container.dark-mode :deep(p),
+.preview-container.dark-mode :deep(span),
+.preview-container.dark-mode :deep(div),
+.preview-container.dark-mode :deep(h1),
+.preview-container.dark-mode :deep(h2),
+.preview-container.dark-mode :deep(h3),
+.preview-container.dark-mode :deep(h4),
+.preview-container.dark-mode :deep(h5),
+.preview-container.dark-mode :deep(h6),
+.preview-container.dark-mode :deep(li),
+.preview-container.dark-mode :deep(td),
+.preview-container.dark-mode :deep(th) {
+    color: #e0e0e0 !important;
+    background-color: transparent !important;
+}
+
+/* 夜间模式下的滚动条 */
+.preview-container.dark-mode::-webkit-scrollbar-track {
+    background: #2a2a2a !important;
+}
+
+.preview-container.dark-mode::-webkit-scrollbar-thumb {
+    background: #505050 !important;
+}
+
+.preview-container.dark-mode::-webkit-scrollbar-thumb:hover {
+    background: #606060 !important;
+}
+
 .proofreading-sidebar {
     width: 30%;
     overflow-y: auto;
@@ -1095,6 +1139,19 @@ onMounted(async () => {
 .highlight-correction:hover {
     box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.25) !important;
     background-color: rgba(255, 214, 102, 0.7) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* 夜间模式下的高亮样式 */
+.preview-container.dark-mode .highlight-correction {
+    background-color: rgba(255, 193, 7, 0.4) !important;
+    border-bottom: 2px solid #ffc107 !important;
+    box-shadow: 0 1px 3px rgba(255, 193, 7, 0.15) !important;
+}
+
+.preview-container.dark-mode .highlight-correction:hover {
+    box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.3) !important;
+    background-color: rgba(255, 193, 7, 0.6) !important;
     transform: translateY(-1px) !important;
 }
 </style>
