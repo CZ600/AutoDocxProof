@@ -127,6 +127,12 @@ export async function OpenaiGen(
       ]
     })
 
+    // 添加健壮性检查
+    if (!chatCompletion || !chatCompletion.choices || !Array.isArray(chatCompletion.choices) || chatCompletion.choices.length === 0) {
+      console.error('Invalid API response:', chatCompletion)
+      throw new Error('API返回了无效的响应格式，choices字段缺失或为空')
+    }
+
     const result = chatCompletion.choices[0]?.message?.content ?? ''
     const total_tokens = chatCompletion.usage?.total_tokens ?? 0
 
@@ -153,6 +159,12 @@ export async function testAPI(apiURL: string, apiKey: string, modelName: string)
       model: modelName,
       messages: [{ role: 'user', content: '你好' }]
     })
+
+    // 检查响应有效性
+    if (!chatCompletion || !chatCompletion.choices || !Array.isArray(chatCompletion.choices) || chatCompletion.choices.length === 0) {
+      console.error('API test failed - invalid response:', chatCompletion)
+      return false
+    }
 
     console.log('the result of connet test:', chatCompletion.choices[0].message.content)
 
@@ -209,6 +221,11 @@ export async function getEmbedding(text: string | string[], modelName: string, a
       model: modelName,
       input: text
     })
+
+    // 检查响应有效性
+    if (!response || !response.data || !Array.isArray(response.data) || response.data.length === 0) {
+      throw new Error('嵌入API返回了无效的响应格式，data字段缺失或为空')
+    }
 
     // 返回embedding结果
     if (typeof text === 'string') {

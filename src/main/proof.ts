@@ -268,6 +268,7 @@ async function summarizeDocumentTheme(
 
 // ====== 校对结果解析 ======
 function parseCorrections(result: string, ragChunks?: string[]): ProofreadingCorrection[] {
+  // 首先尝试直接解析
   try {
     const parsed = JSON.parse(result)
     if (Array.isArray(parsed)) {
@@ -281,14 +282,135 @@ function parseCorrections(result: string, ragChunks?: string[]): ProofreadingCor
       console.warn('cannot analyze the proofreading data from LLM')
       return []
     }
-  } catch {
-    console.warn('解析校对结果失败，尝试提取文本:', result)
-    return extractCorrectionsFromText(result)
+  } catch (error) {
+    console.warn('直接解析JSON失败，尝试清理和提取:', error)
+    return extractCorrectionsFromText(result, ragChunks)
   }
 }
 
-function extractCorrectionsFromText(text: string): ProofreadingCorrection[] {
-  return []
+function extractCorrectionsFromText(text: string, ragChunks?: string[]): ProofreadingCorrection[] {
+  try {
+    // 1. 清理可能的代码块标记
+    let cleanedText = text.trim()
+
+    // 移除代码块标记（```json, ```, 或者其他语言标记）
+    cleanedText = cleanedText.replace(/^```[\w]*\n?/g, '')
+    cleanedText = cleanedText.replace(/\n?```$/g, '')
+
+    // 移除可能的 "json" 标记
+    cleanedText = cleanedText.replace(/^json\s*/i, '')
+
+    // 移除可能的解释性文字（如 "以下是JSON:", "返回结果:" 等）
+    cleanedText = cleanedText.replace(/^.*?以下.*?[::：]\s*/, '')
+    cleanedText = cleanedText.replace(/^.*?返回.*?[::：]\s*/, '')
+
+    // 提取JSON数组（寻找第一个 [ 和最后一个 ]）
+    const firstBracket = cleanedText.indexOf('[')
+    const lastBracket = cleanedText.lastIndexOf(']')
+
+    if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+      const jsonString = cleanedText.substring(firstBracket, lastBracket + 1)
+      console.log('提取到的JSON字符串:', jsonString)
+
+      const parsed = JSON.parse(jsonString)
+      if (Array.isArray(parsed)) {
+        const corrections = parsed.map(item => {
+          // 验证每个字段的存在性
+          if (item.original && item.suggested && item.reason) {
+            if (ragChunks) {
+              return { ...item, References: [...ragChunks] }
+            }
+            return item
+          }
+          return null
+        }).filter((item): item is ProofreadingCorrection => item !== null)
+
+        if (corrections.length > 0) {
+          console.log(`成功解析出 ${corrections.length} 个校对结果`)
+          return corrections
+        }
+      }
+    }
+
+    // 2. 尝试解析单个JSON对象
+    try {
+      const singleObject = JSON.parse(cleanedText)
+      if (singleObject && typeof singleObject === 'object' && !Array.isArray(singleObject)) {
+        if (singleObject.original && singleObject.suggested && singleObject.reason) {
+          console.log('解析到单个校对结果')
+          return ragChunks ? [{ ...singleObject, References: [...ragChunks] }] : [singleObject]
+        }
+      }
+    } catch (e) {
+      // 单对象解析失败，继续
+    }
+
+    // 3. 如果以上都失败，尝试从文本中提取信息
+    console.warn('JSON解析完全失败，尝试从文本中手动提取')
+    return parseCorrectionsFromPlainText(text, ragChunks)
+
+  } catch (error) {
+    console.error('所有解析方法都失败:', error)
+    console.error('原始文本:', text)
+    return []
+  }
+}
+
+function parseCorrectionsFromPlainText(text: string, ragChunks?: string[]): ProofreadingCorrection[] {
+  const corrections: ProofreadingCorrection[] = []
+  const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0)
+
+  console.log('尝试从纯文本中提取校对结果，共', lines.length, '行')
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+
+    // 查找包含 "original" 的行
+    if (/original|原文|原内容/.test(line)) {
+      const correction: Partial<ProofreadingCorrection> = {}
+
+      // 提取 original 值
+      const originalMatch = line.match(/["'""“”]([^""“”]+)["'""“”]/)
+      if (originalMatch) {
+        correction.original = originalMatch[1].trim()
+      }
+
+      // 在后续行中查找 suggested
+      if (i + 1 < lines.length) {
+        const suggestedLine = lines[i + 1]
+        const suggestedMatch = suggestedLine.match(/["'""“”]([^""“”]+)["'""“”]/)
+        if (suggestedMatch) {
+          correction.suggested = suggestedMatch[1].trim()
+        }
+      }
+
+      // 在后续行中查找 reason
+      if (i + 2 < lines.length) {
+        const reasonLine = lines[i + 2]
+        const reasonMatch = reasonLine.match(/["'""“”]([^""“”]+)["'""“”]/)
+        if (reasonMatch) {
+          correction.reason = reasonMatch[1].trim()
+        }
+
+        // 查找 type
+        const typeMatch = reasonLine.match(/"type":\s*["']([^"']+)["']/)
+        if (typeMatch) {
+          correction.type = typeMatch[1]
+        }
+      }
+
+      // 如果找到了所有必需字段，添加到结果中
+      if (correction.original && correction.suggested && correction.reason) {
+        if (ragChunks) {
+          correction.References = [...ragChunks]
+        }
+        corrections.push(correction as ProofreadingCorrection)
+      }
+    }
+  }
+
+  console.log('从纯文本中提取到', corrections.length, '个校对结果')
+  return corrections
 }
 
 // ====== RAG 查询 ======
