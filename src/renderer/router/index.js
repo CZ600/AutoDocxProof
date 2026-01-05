@@ -5,11 +5,13 @@ import Work from '../views/Work.vue'
 import APISet from '../views/APISet.vue'
 import Proof from '../views/Proof.vue'
 import ProofSet from '../views/ProofSet.vue'
+import History from '../views/history.vue'
+import Knowledge from '../views/Dictionary.vue'
 const routes = [
   {
     path: '/',
     name: 'Home',
-    component: Home
+    redirect:"/work"
   },
   {
     path: '/about',
@@ -35,6 +37,16 @@ const routes = [
         path: 'set',
         name: 'Set',
         component: ProofSet
+      },
+      {
+        path: 'history',
+        name: 'History',
+        component: History
+      },
+      {
+        path: 'dictionary',
+        name: 'Knowledge',
+        component: Knowledge
       }
     ]
   }
