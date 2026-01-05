@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, session } from 'electron'
 import { dialog } from 'electron'
 import { DB } from './database'
 import { testAPI } from './chat'
@@ -30,12 +30,23 @@ export interface apiSettings {
   TimeLimit?: number | null
 }
 
+export interface ProxySettings {
+  enabled: boolean
+  port: number
+}
+
 let api_info: apiSettings = {
   apiURL: '',
   apiKey: '',
   modelName: '',
   parallel: 30,
   TimeLimit: null
+}
+
+// 全局代理设置
+let proxy_settings: ProxySettings = {
+  enabled: false,
+  port: 33210
 }
 
 // 全局embedding_api变量已移除，由Pinia store管理
@@ -550,6 +561,35 @@ export const registerIpcHandlers = () => {
 
   // 获取embedding模型信息 - 通过其他机制由前端Pinia store管理，不再需要此IPC处理
   // ipcMain.handle('getEmbeddingAPI', ...) 已移除
+
+  // 代理设置相关IPC
+  ipcMain.handle('setProxySettings', async (event, enabled: boolean, port: number) => {
+    try {
+      proxy_settings.enabled = enabled
+      proxy_settings.port = port
+
+      if (enabled) {
+        await session.defaultSession.setProxy({
+          proxyRules: `http=127.0.0.1:${port};https=127.0.0.1:${port}`,
+          proxyBypassRules: 'localhost,127.0.0.1'
+        })
+        console.log('Proxy enabled on port:', port)
+      } else {
+        await session.defaultSession.setProxy({})
+        console.log('Proxy disabled')
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error('Failed to set proxy:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('getProxySettings', async (event) => {
+    return proxy_settings
+  })
+
   // 调试用接口
   ipcMain.handle('getEnvPath', async event => {
     console.log(' env.LANCEDB_NATIVE_PATH:', env.LANCEDB_NATIVE_PATH)

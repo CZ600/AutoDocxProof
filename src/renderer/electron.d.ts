@@ -154,6 +154,16 @@ export default interface ElectronApi {
   getEmbeddingAPI: () => Promise<{ URL: string; Key: string; modelName: string }>
   setEmbeddingAPI: (apiKey: string, apiURL: string, modelName: string) => Promise<boolean>
   getEnvPath: () => Promise<string>
+
+  // 代理设置相关接口
+  setProxySettings: (enabled: boolean, port: number) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  getProxySettings: () => Promise<{
+    enabled: boolean
+    port: number
+  }>
 }
 
 declare global {

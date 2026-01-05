@@ -165,6 +165,46 @@
                                 class="custom-slider" />
                         </div>
                     </el-card>
+
+                     <!-- 代理设置区域 -->
+                    <el-card class="setting-card" shadow="hover">
+                        <template #header>
+                            <div class="card-header">
+                                <el-icon>
+                                    <Connection />
+                                </el-icon>
+                                <span>代理设置</span>
+                            </div>
+                        </template>
+                        <div class="setting-section">
+                            <p class="section-description">
+                                <el-icon>
+                                    <InfoFilled />
+                                </el-icon>
+                                配置HTTP代理用于网络请求。默认禁用，端口默认为33210
+                            </p>
+                            <el-form :model="proxyForm" label-width="auto">
+                                <el-form-item label="启用代理" class="form-item-enhanced">
+                                    <el-switch
+                                        v-model="proxyEnabled"
+                                        active-text="已启用"
+                                        inactive-text="已禁用"
+                                        @change="handleProxyToggle"
+                                    />
+                                </el-form-item>
+                                <el-form-item v-if="proxyEnabled" label="代理端口" class="form-item-enhanced">
+                                    <el-input-number
+                                        v-model="proxyPort"
+                                        :min="1"
+                                        :max="65535"
+                                        :step="1"
+                                        @change="handleProxyPortChange"
+                                    />
+                                </el-form-item>
+                            </el-form>
+                        </div>
+                    </el-card>
+                
                 </div>
             </el-tab-pane>
 
@@ -226,6 +266,7 @@ import {
     Delete, Warning, Setting, Connection, Plus, Cpu, Lock, Link,
     DataLine, QuestionFilled, Odometer, InfoFilled, Timer, CircleCheck
 } from '@element-plus/icons-vue'
+import { useProxyStore } from '../stores/proxyStore'
 import { reactive, ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useApiStore } from '../stores/apiStore'
@@ -242,6 +283,10 @@ const defaultPrompt = ref('')
 const newPrompt = ref('')
 const promptForm = reactive({
     prompt: ''
+})
+const proxyForm = reactive({
+    enabled: false,
+    port: 33210
 })
 const total_tokens = ref(0)
 const ParallelSet = ref(30) // 设置默认值为30而不是undefined
@@ -262,6 +307,11 @@ const selectform = ref(
 )
 
 const apiSettingsStore = useApiStore()
+
+// Proxy settings
+const proxyStore = useProxyStore()
+const proxyEnabled = ref(false)
+const proxyPort = ref(33210)
 
 // 重置缓存中token使用量的数据
 const ResetZero = () => {
@@ -518,6 +568,28 @@ const testAPI = async () => {
     }
 }
 
+// Proxy相关方法
+const handleProxyToggle = async () => {
+  const success = await proxyStore.setProxySettings(proxyEnabled.value, proxyPort.value)
+  if (success) {
+    ElMessage.success(proxyEnabled.value ? '代理已启用' : '代理已禁用')
+  } else {
+    ElMessage.error('代理设置失败')
+    proxyEnabled.value = !proxyEnabled.value // 回滚
+  }
+}
+
+const handleProxyPortChange = async () => {
+  if (proxyEnabled.value) {
+    const success = await proxyStore.setProxySettings(proxyEnabled.value, proxyPort.value)
+    if (success) {
+      ElMessage.success(`代理端口已更新: ${proxyPort.value}`)
+    } else {
+      ElMessage.error('代理端口设置失败')
+    }
+  }
+}
+
 async function initForm() {
     await getALLAPISettings()
 }
@@ -571,6 +643,18 @@ onMounted(async () => {
     await initForm()
     await initSelect()
     await initPrompt()
+
+    // 初始化代理设置
+    if (proxyStore.proxySettings.enabled) {
+      proxyStore.setProxySettings(
+        proxyStore.proxySettings.enabled,
+        proxyStore.proxySettings.port
+      ).then(success => {
+        if (success) {
+          console.log('Proxy settings restored on startup')
+        }
+      })
+    }
 })
 </script>
 

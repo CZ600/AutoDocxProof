@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import Home from '../views/Home.vue'
 import About from '../views/About.vue'
 import Work from '../views/Work.vue'
 import APISet from '../views/APISet.vue'

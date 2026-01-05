@@ -140,7 +140,7 @@ getEnv()
 .logo-text {
   font-size: 1.2rem;
   font-weight: bold;
-  color: #2e7d32;
+  color: #669efc;
 }
 
 .nav-menu {

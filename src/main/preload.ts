@@ -108,5 +108,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setEmbeddingAPI: (apiKey: string, apiURL: string, modelName: string) =>
     ipcRenderer.invoke('setEmbeddingAPI', apiKey, apiURL, modelName),
   getEmbeddingAPI: () => ipcRenderer.invoke('getEmbeddingAPI'),
-  getEnvPath: () => ipcRenderer.invoke('getEnvPath') // 调试用，检验打包后的
+  getEnvPath: () => ipcRenderer.invoke('getEnvPath'), // 调试用，检验打包后的
+  // 代理设置相关API
+  setProxySettings: (enabled: boolean, port: number) => ipcRenderer.invoke('setProxySettings', enabled, port),
+  getProxySettings: () => ipcRenderer.invoke('getProxySettings')
 })
