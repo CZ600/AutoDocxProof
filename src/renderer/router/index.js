@@ -5,16 +5,11 @@ import Work from '../views/Work.vue'
 import APISet from '../views/APISet.vue'
 import Proof from '../views/Proof.vue'
 import ProofSet from '../views/ProofSet.vue'
-import History from '../views/history.vue'
-import Logs from '../views/logs.vue'
-import Dictionary from '../views/Dictionary.vue'
-import OutputWord from '../views/OutputWord.vue'
-import path from 'path'
 const routes = [
   {
     path: '/',
     name: 'Home',
-    redirect: '/work/proof'
+    component: Home
   },
   {
     path: '/about',
@@ -25,7 +20,6 @@ const routes = [
     path: '/work',
     name: 'Work',
     component: Work,
-    redirect: '/work/proof',
     children: [
       {
         path: 'api',
@@ -41,26 +35,6 @@ const routes = [
         path: 'set',
         name: 'Set',
         component: ProofSet
-      },
-      {
-        path: 'history',
-        name: 'History',
-        component: History
-      },
-      {
-        path: 'logs',
-        name: 'Logs',
-        component: Logs
-      },
-      {
-        path: 'dictionary',
-        name: 'Dictionary',
-        component: Dictionary
-      },
-      {
-        path: 'ouputWord',
-        name: 'OutputWord',
-        component: OutputWord
       }
     ]
   }

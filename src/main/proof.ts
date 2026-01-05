@@ -47,7 +47,7 @@ let defaultPrompt = `
 2. 保持原文意思不变
 3. 不要进行风格改写或内容扩展
 4. 按照指定的JSON格式返回结果
-请校对用户提供的文本，找出其中的错别字、标点错误和语法问题，并按照以下JSON格式返回：
+请校对用户提供的文本，找出其中的错别字、标点错误和语法问题，并按照以下JSON格式(JSON format)返回：
 [
   {
     "original": "原文错误内容（只截取原文错误的词组，不要多写，不超过15字！）",
@@ -56,7 +56,7 @@ let defaultPrompt = `
     "type": "错误类型(Typo/Punctuation/Grammar/Consistency)"
   }
 ]
-如果没有任何错误，请返回空数组[]。只返回JSON数组，不要添加其他说明文字。
+如果没有任何错误，请返回空数组[]。只返回JSON数组，不要添加其他任何说明文字。
 `
 
 const realDefaultPrompt = `你是一个专业的中文文本校对专家。请仔细检查文本中的错别字、标点错误和语法问题。
@@ -65,7 +65,7 @@ const realDefaultPrompt = `你是一个专业的中文文本校对专家。请�
 2. 保持原文意思不变
 3. 不要进行风格改写或内容扩展
 4. 按照指定的JSON格式返回结果
-请校对用户提供的文本，找出其中的错别字、标点错误和语法问题，并按照以下JSON格式返回：
+请校对用户提供的文本，找出其中的错别字、标点错误和语法问题，并按照以下JSON格式(JSON format)返回：
 [
   {
     "original": "原文错误内容（只截取原文错误的词组，不要多写，不超过15字！）",
@@ -74,7 +74,7 @@ const realDefaultPrompt = `你是一个专业的中文文本校对专家。请�
     "type": "错误类型(Typo/Punctuation/Grammar/Consistency)"
   }
 ]
-如果没有任何错误，请返回空数组[]。只返回JSON数组，不要添加其他说明文字。`
+如果没有任何错误，请返回空数组[]。只返回JSON数组，不要添加其他任何说明文字。`
 
 const ragText =
   '以下内容是校对的参考内容，请结合这些文字进行校对工作（如果是双语内容，则以校对内容的语言类型为准），校对规则遵循之前讲述的要求'
@@ -314,16 +314,18 @@ function extractCorrectionsFromText(text: string, ragChunks?: string[]): Proofre
 
       const parsed = JSON.parse(jsonString)
       if (Array.isArray(parsed)) {
-        const corrections = parsed.map(item => {
-          // 验证每个字段的存在性
-          if (item.original && item.suggested && item.reason) {
-            if (ragChunks) {
-              return { ...item, References: [...ragChunks] }
+        const corrections = parsed
+          .map(item => {
+            // 验证每个字段的存在性
+            if (item.original && item.suggested && item.reason) {
+              if (ragChunks) {
+                return { ...item, References: [...ragChunks] }
+              }
+              return item
             }
-            return item
-          }
-          return null
-        }).filter((item): item is ProofreadingCorrection => item !== null)
+            return null
+          })
+          .filter((item): item is ProofreadingCorrection => item !== null)
 
         if (corrections.length > 0) {
           console.log(`成功解析出 ${corrections.length} 个校对结果`)
@@ -348,7 +350,6 @@ function extractCorrectionsFromText(text: string, ragChunks?: string[]): Proofre
     // 3. 如果以上都失败，尝试从文本中提取信息
     console.warn('JSON解析完全失败，尝试从文本中手动提取')
     return parseCorrectionsFromPlainText(text, ragChunks)
-
   } catch (error) {
     console.error('所有解析方法都失败:', error)
     console.error('原始文本:', text)
@@ -358,7 +359,10 @@ function extractCorrectionsFromText(text: string, ragChunks?: string[]): Proofre
 
 function parseCorrectionsFromPlainText(text: string, ragChunks?: string[]): ProofreadingCorrection[] {
   const corrections: ProofreadingCorrection[] = []
-  const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0)
+  const lines = text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
 
   console.log('尝试从纯文本中提取校对结果，共', lines.length, '行')
 

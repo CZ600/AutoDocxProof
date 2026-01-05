@@ -180,18 +180,6 @@
                                     <DataLine />
                                 </el-icon>
                                 <span>当前提示词</span>
-                                <el-tag v-if="isUsingCustomPrompt" type="success" size="small" class="custom-tag">
-                                    <el-icon>
-                                        <CircleCheck />
-                                    </el-icon>
-                                    自定义提示词
-                                </el-tag>
-                                <el-tag v-else type="info" size="small" class="custom-tag">
-                                    <el-icon>
-                                        <InfoFilled />
-                                    </el-icon>
-                                    默认提示词
-                                </el-tag>
                             </div>
                         </template>
                         <div class="prompt-content-wrapper">
@@ -255,8 +243,6 @@ const newPrompt = ref('')
 const promptForm = reactive({
     prompt: ''
 })
-// 标记是否使用了自定义提示词
-const isUsingCustomPrompt = ref(false)
 const total_tokens = ref(0)
 const ParallelSet = ref(30) // 设置默认值为30而不是undefined
 const TimeLimit = ref(null as number | null)
@@ -453,64 +439,24 @@ const apiSettings = reactive([])
 const updatePrompt = async () => {
     const result = await electronAPI.setNewPrompt(newPrompt.value)
     if (result) {
-        // 保存到 Pinia store
-        apiSettingsStore.setCustomPrompt(newPrompt.value)
         defaultPrompt.value = newPrompt.value
-        isUsingCustomPrompt.value = true
-        ElMessage.success('修改成功，已自动同步到后端')
-        newPrompt.value = ''
-    } else {
-        ElMessage.error('修改失败')
     }
+    ElMessage.success('修改成功')
+    newPrompt.value = ''
 }
 
 const backTodefault = async () => {
-    // 重新从后端获取系统默认提示词，确保恢复到真正的系统默认
-    theDefaultPrompt.value = await electronAPI.getDefaultPrompt()
-
     const result = await electronAPI.setNewPrompt(theDefaultPrompt.value)
     if (result) {
-        // 清除 Pinia store 中的自定义提示词，使用 null 而不是空字符串
-        apiSettingsStore.setCustomPrompt(null)
+        defaultPrompt.value = theDefaultPrompt.value
         newPrompt.value = ''
-        isUsingCustomPrompt.value = false
-
-        // 重新初始化提示词状态以确保UI正确更新
-        await initPrompt()
-
-        ElMessage.success('已恢复为默认设置')
-    } else {
-        ElMessage.error('恢复失败')
+        ElMessage.success('恢复为默认设置')
     }
 }
 
 const initPrompt = async () => {
-    // 获取默认提示词
     theDefaultPrompt.value = await electronAPI.getDefaultPrompt()
-
-    // 检查是否有保存的自定义提示词
-    if (apiSettingsStore.selectedApi.customPrompt) {
-        // 使用自定义提示词并同步到后端
-        const customPrompt = apiSettingsStore.selectedApi.customPrompt
-        const result = await electronAPI.setNewPrompt(customPrompt)
-        if (result) {
-            defaultPrompt.value = customPrompt
-            isUsingCustomPrompt.value = true
-            console.log('已从持久化存储中恢复自定义提示词:', customPrompt)
-        } else {
-            // 同步失败，使用默认提示词
-            defaultPrompt.value = theDefaultPrompt.value
-            isUsingCustomPrompt.value = false
-            apiSettingsStore.setCustomPrompt(null)
-        }
-    } else {
-        // 没有自定义提示词，使用默认提示词
-        const result = await electronAPI.setNewPrompt(theDefaultPrompt.value)
-        if (result) {
-            defaultPrompt.value = theDefaultPrompt.value
-            isUsingCustomPrompt.value = false
-        }
-    }
+    defaultPrompt.value = await electronAPI.getDefaultPrompt()
 }
 
 // API相关方法
@@ -608,11 +554,9 @@ const initSelect = async () => {
         selectform.value.TimeLimit = null
         TimeLimit.value = null
 
-        // 同步到 Pinia store（保留已有的 customPrompt）
-        const existingCustomPrompt = apiSettingsStore.selectedApi.customPrompt
+        // 同步到 Pinia store
         apiSettingsStore.setSelectedApi({
-            ...selectform.value,
-            customPrompt: existingCustomPrompt
+            ...selectform.value
         })
         console.log('从 electronAPI 初始化数据:', res)
     } else {
@@ -703,14 +647,6 @@ onMounted(async () => {
     font-weight: 600;
     font-size: 15px;
     color: var(--el-text-color-primary);
-}
-
-.card-header .custom-tag {
-    margin-left: 8px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-weight: 500;
 }
 
 /* 表单增强 */

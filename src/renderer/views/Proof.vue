@@ -66,7 +66,7 @@
         <el-container class="main-content">
             <!-- 文档预览区域 -->
             <el-main class="preview-area">
-                <div ref="previewContainer" class="preview-container" :class="{ 'dark-mode': isDark }">
+                <div ref="previewContainer" class="preview-container">
                     <el-empty v-if="!fileName" description="选择一个 DOCX 文件进行预览" :image-size="80" />
                 </div>
             </el-main>
@@ -90,7 +90,7 @@
                                         {{ formatCorrectionType(item.type) }}
                                     </span>
                                     <span class="correction-count">{{ index + 1 }}/{{ proofreadingResults.length
-                                    }}</span>
+                                        }}</span>
                                 </div>
                             </template>
 
@@ -170,11 +170,8 @@ import { useEmbeddingStore } from "../stores/embeddingStore"
 import { useApiStore } from "../stores/apiStore"
 import { files } from 'jszip'
 import { HomeFilled, Monitor, InfoFilled, Setting, Clock, Collection } from '@element-plus/icons-vue'
-import { useDark } from '@vueuse/core'
 // 从 Electron 获取 API
 const electronAPI = window.electronAPI
-// 使用与 App.vue 相同的 useDark 状态
-const isDark = useDark()
 // 状态变量
 const previewContainer = ref(null)
 // const fileName = ref('')
@@ -184,6 +181,7 @@ const processing = ref(false)
 const exporting = ref(false) // 新增导出状态
 // const proofreadingResults = ref([]) // 存储校对结果
 const activeNames = ref([]) // 折叠面板展开项
+const isDark = ref(false) // 添加缺失的 isDark 属性
 // 从Pinia store中获取数据
 const fileStore = fileInfoStore()
 const apiSettingsStore = useApiStore()
@@ -811,21 +809,20 @@ onMounted(async () => {
 <style scoped>
 .app-container {
     height: 100vh;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 
 .error-alert {
-    margin: 20px;
+    margin: 15px;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .action-bar {
-    padding-bottom: 15px;
+    padding: 20px 24px;
     height: auto !important;
     border-bottom: 1px solid #e4e7ed;
-
+    background-color: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
 .header-content {
@@ -896,7 +893,7 @@ onMounted(async () => {
 }
 
 .preview-area {
-    padding: 20px;
+    padding: 0;
     overflow: hidden;
     width: 70%;
 }
@@ -904,63 +901,33 @@ onMounted(async () => {
 .preview-container {
     height: 100%;
     overflow: auto;
+    border: 1px solid #e4e7ed;
     border-radius: 8px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.03);
+    padding: 32px;
+    margin: 0;
+    background-color: #fff;
     transition: box-shadow 0.2s ease;
 }
 
-/* 夜间模式样式 - 作用于预览容器及其所有子元素 */
-.preview-container.dark-mode {
-    background-color: #1a1a1a !important;
-    color: #e0e0e0 !important;
-}
-
-/* 深度选择器 - 影响 docx-preview 渲染的内部内容 */
-.preview-container.dark-mode :deep(*) {
-    background-color: transparent !important;
-    color: #e0e0e0 !important;
-    border-color: #404040 !important;
-}
-
-.preview-container.dark-mode :deep(p),
-.preview-container.dark-mode :deep(span),
-.preview-container.dark-mode :deep(div),
-.preview-container.dark-mode :deep(h1),
-.preview-container.dark-mode :deep(h2),
-.preview-container.dark-mode :deep(h3),
-.preview-container.dark-mode :deep(h4),
-.preview-container.dark-mode :deep(h5),
-.preview-container.dark-mode :deep(h6),
-.preview-container.dark-mode :deep(li),
-.preview-container.dark-mode :deep(td),
-.preview-container.dark-mode :deep(th) {
-    color: #e0e0e0 !important;
-    background-color: transparent !important;
-}
-
-/* 夜间模式下的滚动条 */
-.preview-container.dark-mode::-webkit-scrollbar-track {
-    background: #2a2a2a !important;
-}
-
-.preview-container.dark-mode::-webkit-scrollbar-thumb {
-    background: #505050 !important;
-}
-
-.preview-container.dark-mode::-webkit-scrollbar-thumb:hover {
-    background: #606060 !important;
+.preview-container:hover {
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .proofreading-sidebar {
     width: 30%;
+    border-left: 1px solid #e4e7ed;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+    background-color: #fafbfc;
 }
 
 .sidebar-header {
-    padding-top: 15px;
-    padding-left: 18px;
-    padding-right: 18px;
+    padding: 20px;
+    border-bottom: 1px solid #e4e7ed;
+    background-color: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .apply-all-button {
@@ -987,6 +954,7 @@ onMounted(async () => {
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     border: 1px solid #e4e7ed;
+    background-color: #fff;
     transition: all 0.2s ease;
 }
 
@@ -1000,6 +968,7 @@ onMounted(async () => {
     justify-content: space-between;
     align-items: center;
     padding: 14px 18px;
+    background-color: #fff;
 }
 
 .correction-type {
@@ -1021,16 +990,17 @@ onMounted(async () => {
 .correction-content {
     padding: 18px;
     border-top: 1px solid #e4e7ed;
+    background-color: #fafbfc;
 }
 
 .correction-content>div {
     margin-bottom: 14px;
     line-height: 1.7;
-    /* color: #606266; */
+    color: #606266;
 }
 
 .correction-content strong {
-    /* color: #303133; */
+    color: #303133;
     min-width: 50px;
     display: inline-block;
     font-weight: 600;
@@ -1054,13 +1024,9 @@ onMounted(async () => {
 }
 
 .no-results {
-    padding: 40px 20px;
+    padding: 20px;
     text-align: center;
     color: #909399;
-}
-
-.no-results .el-empty {
-    margin: 0 auto;
 }
 
 /* 根据校对类型设置颜色 - 简约现代风格 */
@@ -1141,19 +1107,6 @@ onMounted(async () => {
     background-color: rgba(255, 214, 102, 0.7) !important;
     transform: translateY(-1px) !important;
 }
-
-/* 夜间模式下的高亮样式 */
-.preview-container.dark-mode .highlight-correction {
-    background-color: rgba(255, 193, 7, 0.4) !important;
-    border-bottom: 2px solid #ffc107 !important;
-    box-shadow: 0 1px 3px rgba(255, 193, 7, 0.15) !important;
-}
-
-.preview-container.dark-mode .highlight-correction:hover {
-    box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.3) !important;
-    background-color: rgba(255, 193, 7, 0.6) !important;
-    transform: translateY(-1px) !important;
-}
 </style>
 
 <style scoped>
@@ -1211,28 +1164,22 @@ onMounted(async () => {
 }
 
 /* 滚动条样式 */
-.reference-list::-webkit-scrollbar,
-.preview-container::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+.reference-list::-webkit-scrollbar {
+    width: 6px;
 }
 
-.reference-list::-webkit-scrollbar-track,
-.preview-container::-webkit-scrollbar-track {
-    background: #f5f5f5;
-    border-radius: 4px;
+.reference-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
 }
 
-.reference-list::-webkit-scrollbar-thumb,
-.preview-container::-webkit-scrollbar-thumb {
-    background: #d0d0d0;
-    border-radius: 4px;
-    transition: background 0.2s;
+.reference-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
 }
 
-.reference-list::-webkit-scrollbar-thumb:hover,
-.preview-container::-webkit-scrollbar-thumb:hover {
-    background: #b0b0b0;
+.reference-list::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
 }
 </style>
 
@@ -1240,8 +1187,7 @@ onMounted(async () => {
 /* 全局弹窗样式 */
 .reference-popover {
     max-width: 500px;
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    text-align: center;
 }
 
 .reference-popover .el-popover__title {
@@ -1249,6 +1195,5 @@ onMounted(async () => {
     color: #303133;
     font-weight: 600;
     text-align: center;
-    font-size: 15px;
 }
 </style>
