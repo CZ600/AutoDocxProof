@@ -10,251 +10,62 @@
                         {{ AlertTitle }}
                     </el-alert>
 
+                    <!-- API选择组件 -->
+                    <ApiSelector
+                        :selectform="selectform"
+                        :apiSettings="apiSettings"
+                        @add-api="dialogVisible = true"
+                        @delete-api="deleteItem"
+                        @test-api="testAPI"
+                    />
 
+                    <!-- 添加API对话框组件 -->
+                    <AddApiDialog
+                        v-model:visible="dialogVisible"
+                        @submit="onSubmit"
+                        @reset="resetForm"
+                    />
 
-                    <!-- API选择区域 -->
-                    <el-card class="setting-card" shadow="hover">
-                        <template #header>
-                            <div class=" card-header">
-                                <el-icon>
-                                    <Connection />
-                                </el-icon>
-                                <span>API选择</span>
+                    <!-- Token统计组件 -->
+                    <TokenStatistics
+                        :total-tokens="total_tokens"
+                        @reset-tokens="ResetZero"
+                    />
 
-                            </div>
-                        </template>
-                        <p class="section-description">
-                            <el-icon>
-                                <InfoFilled />
-                            </el-icon>
-                            兼容支持openai规范的接口,对话模型和embedding模型都在这里添加
-                        </p>
-                        <el-form :model="selectform" label-width="auto">
-                            <el-form-item label="当前API:" class="form-item-enhanced">
-                                <el-select v-model="selectform.id" placeholder="请选择您的API" class="api-select">
-                                    <el-option v-for="item in apiSettings" :key="item.id" :label="item.modelName"
-                                        :value="item.id" id="api-item">
-                                        <div class="api-option">
-                                            <div class="api-option-info">
-                                                <el-icon>
-                                                    <Cpu />
-                                                </el-icon>
-                                                <span>{{ item.modelName }}</span>
-                                            </div>
-                                            <el-button type="danger" :icon="Delete" size="small" circle
-                                                @click.stop="deleteItem(item.id)" />
-                                        </div>
-                                    </el-option>
-                                </el-select>
-                            </el-form-item>
-                            <div class="button-group">
-                                <el-button type="primary" :icon="Plus" @click="dialogVisible = true" class="btn-add">
+                    <!-- 并发设置组件 -->
+                    <ConcurrencySettings
+                        v-model:parallel-value="ParallelSet"
+                    />
 
-                                    添加新API
-                                </el-button>
-                                <el-button :icon="Connection" @click="testAPI()" class="btn-test">
-                                    测试连通性
-                                </el-button>
-                            </div>
+                    <!-- 频率限制设置组件 -->
+                    <RateLimitSettings
+                        :open-time-limit="openTimeLimit"
+                        :time-limit="TimeLimit"
+                        @toggle-limit="setOpenTimeLimit"
+                        @update:time-limit="TimeLimit = $event"
+                    />
 
-                            <el-dialog v-model="dialogVisible" title="添加新API" width="500px" class="api-dialog">
-                                <template #header>
-                                    <div class="dialog-header">
-                                        <el-icon>
-                                            <Plus />
-                                        </el-icon>
-                                        <span>添加新API</span>
-                                    </div>
-                                </template>
-                                <el-form :model="newForm" label-position="top" class="dialog-form">
-                                    <el-form-item label="API URL:" class="form-item">
-                                        <el-input v-model="newForm.URL" placeholder="请输入API地址" :prefix-icon="Link" />
-                                    </el-form-item>
-                                    <el-form-item label="API KEY:" class="form-item">
-                                        <el-input v-model="newForm.key" show-password placeholder="请输入API密钥"
-                                            :prefix-icon="Lock" />
-                                    </el-form-item>
-                                    <el-form-item label="模型名称:" class="form-item">
-                                        <el-input v-model="newForm.name" placeholder="请输入模型名称" :prefix-icon="Cpu" />
-                                    </el-form-item>
-                                </el-form>
-                                <template #footer>
-                                    <span class="dialog-footer">
-                                        <el-button @click="resetForm()">重置</el-button>
-                                        <el-button @click="dialogVisible = false">取消</el-button>
-                                        <el-button type="primary" @click="onSubmit">保存</el-button>
-                                    </span>
-                                </template>
-                            </el-dialog>
-                        </el-form>
-                    </el-card>
-
-                    <!-- Token统计区域 -->
-                    <el-card class="setting-card token-card" shadow="hover">
-                        <template #header>
-                            <div class="card-header">
-                                <el-icon>
-                                    <DataLine />
-                                </el-icon>
-                                <span>使用统计</span>
-                            </div>
-                        </template>
-                        <div class="token-stats">
-                            <el-statistic :value="total_tokens" class="statistic">
-                                <template #title>
-                                    <div class="statistic-title">
-                                        <span>累计Token使用量</span>
-                                        <el-tooltip effect="dark" content="数据存放于缓存中，清空缓存则清零重置" placement="top">
-                                            <el-icon class="tooltip-icon">
-                                                <QuestionFilled />
-                                            </el-icon>
-                                        </el-tooltip>
-                                    </div>
-                                </template>
-                            </el-statistic>
-                            <el-button type="danger" :icon="Delete" @click="ResetZero" class="btn-reset">
-                                清空统计
-                            </el-button>
-                        </div>
-                    </el-card>
-
-                    <!-- 并发设置区域 -->
-                    <el-card class="setting-card" shadow="hover">
-                        <template #header>
-                            <div class="card-header">
-                                <el-icon>
-                                    <Odometer />
-                                </el-icon>
-                                <span>并发设置</span>
-
-                            </div>
-                        </template>
-                        <div class="setting-section">
-                            <p class="section-description">
-                                <el-icon>
-                                    <InfoFilled />
-                                </el-icon>
-                                设置最大并发限制，具体数值取决于接口提供者的限制，更高的并发可以提高处理速度
-                            </p>
-                            <el-slider v-model="ParallelSet" show-input :min="1" :max="100" class="custom-slider" />
-                        </div>
-                    </el-card>
-
-                    <!-- 频率限制区域 -->
-                    <el-card class="setting-card" shadow="hover">
-                        <template #header>
-                            <div class="card-header">
-                                <el-icon>
-                                    <Timer />
-                                </el-icon>
-                                <span>请求频率限制</span>
-                            </div>
-                        </template>
-                        <div class="setting-section">
-                            <p class="section-description">
-                                <el-icon>
-                                    <InfoFilled />
-                                </el-icon>
-                                限制每分钟的请求频率，默认不限制。如果使用的接口有相关的限制，请根据接口提供商的要求自行开启
-                            </p>
-                            <el-button :type="openTimeLimit ? 'success' : 'primary'" @click="setOpenTimeLimit"
-                                class="toggle-btn">
-                                {{ openTimeLimit ? "已开启限制" : "开启限制" }}
-                            </el-button>
-                            <el-slider v-if="openTimeLimit" v-model="TimeLimit" show-input :min="1"
-                                class="custom-slider" />
-                        </div>
-                    </el-card>
-
-                     <!-- 代理设置区域 -->
-                    <el-card class="setting-card" shadow="hover">
-                        <template #header>
-                            <div class="card-header">
-                                <el-icon>
-                                    <Connection />
-                                </el-icon>
-                                <span>代理设置</span>
-                            </div>
-                        </template>
-                        <div class="setting-section">
-                            <p class="section-description">
-                                <el-icon>
-                                    <InfoFilled />
-                                </el-icon>
-                                配置HTTP代理用于网络请求。默认禁用，端口默认为33210
-                            </p>
-                            <el-form :model="proxyForm" label-width="auto">
-                                <el-form-item label="启用代理" class="form-item-enhanced">
-                                    <el-switch
-                                        v-model="proxyEnabled"
-                                        active-text="已启用"
-                                        inactive-text="已禁用"
-                                        @change="handleProxyToggle"
-                                    />
-                                </el-form-item>
-                                <el-form-item v-if="proxyEnabled" label="代理端口" class="form-item-enhanced">
-                                    <el-input-number
-                                        v-model="proxyPort"
-                                        :min="1"
-                                        :max="65535"
-                                        :step="1"
-                                        @change="handleProxyPortChange"
-                                    />
-                                </el-form-item>
-                            </el-form>
-                        </div>
-                    </el-card>
-                
+                    <!-- 代理设置组件 -->
+                    <ProxySettings
+                        v-model:proxy-enabled="proxyEnabled"
+                        v-model:proxy-port="proxyPort"
+                    />
                 </div>
             </el-tab-pane>
 
             <el-tab-pane label="提示词设置" name="prompt">
                 <div class="tab-content">
-                    <!-- 头部标题区域 -->
+                    <!-- 当前提示词展示组件 -->
+                    <PromptDisplay
+                        :prompt-content="defaultPrompt"
+                    />
 
-                    <!-- 当前提示词展示 -->
-                    <el-card class="setting-card prompt-display-card" shadow="hover">
-                        <template #header>
-                            <div class="card-header">
-                                <el-icon>
-                                    <DataLine />
-                                </el-icon>
-                                <span>当前提示词</span>
-                            </div>
-                        </template>
-                        <div class="prompt-content-wrapper">
-                            <div class="prompt-label">当前使用的提示词：</div>
-                            <el-text class="prompt-content">
-                                {{ defaultPrompt }}
-                            </el-text>
-                        </div>
-                    </el-card>
-
-                    <!-- 编辑提示词 -->
-                    <el-card class="setting-card" shadow="hover">
-                        <template #header>
-                            <div class="card-header">
-                                <el-icon>
-                                    <DataLine />
-                                </el-icon>
-                                <span>编辑提示词</span>
-                            </div>
-                        </template>
-                        <el-form :model="promptForm" label-position="top" class="prompt-form">
-                            <el-form-item label="新提示词" class="form-item">
-                                <el-input v-model="newPrompt" type="textarea" :rows="6" placeholder="请输入新的提示词"
-                                    class="prompt-textarea" />
-                            </el-form-item>
-                            <div class="button-group">
-                                <el-button @click="updatePrompt()" type="primary" :icon="DataLine" class="btn-save">
-                                    修改提示词
-                                </el-button>
-                                <el-button @click="backTodefault()" type="default" :icon="Warning" class="btn-reset">
-                                    恢复默认设置
-                                </el-button>
-                            </div>
-                        </el-form>
-                    </el-card>
+                    <!-- 编辑提示词组件 -->
+                    <PromptEditor
+                        v-model:new-prompt="newPrompt"
+                        @update-prompt="updatePrompt"
+                        @reset-prompt="backTodefault"
+                    />
                 </div>
             </el-tab-pane>
         </el-tabs>
@@ -262,10 +73,14 @@
 </template>
 
 <script setup lang='ts'>
-import {
-    Delete, Warning, Setting, Connection, Plus, Cpu, Lock, Link,
-    DataLine, QuestionFilled, Odometer, InfoFilled, Timer, CircleCheck
-} from '@element-plus/icons-vue'
+import ApiSelector from '../components/api/ApiSelector.vue'
+import AddApiDialog from '../components/api/AddApiDialog.vue'
+import TokenStatistics from '../components/api/TokenStatistics.vue'
+import ConcurrencySettings from '../components/api/ConcurrencySettings.vue'
+import RateLimitSettings from '../components/api/RateLimitSettings.vue'
+import ProxySettings from '../components/api/ProxySettings.vue'
+import PromptDisplay from '../components/prompt/PromptDisplay.vue'
+import PromptEditor from '../components/prompt/PromptEditor.vue'
 import { useProxyStore } from '../stores/proxyStore'
 import { reactive, ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -281,13 +96,6 @@ const openTimeLimit = ref(false)
 const theDefaultPrompt = ref('')
 const defaultPrompt = ref('')
 const newPrompt = ref('')
-const promptForm = reactive({
-    prompt: ''
-})
-const proxyForm = reactive({
-    enabled: false,
-    port: 33210
-})
 const total_tokens = ref(0)
 const ParallelSet = ref(30) // 设置默认值为30而不是undefined
 const TimeLimit = ref(null as number | null)
@@ -476,11 +284,6 @@ const setOpenTimeLimit = async () => {
         }
     }
 }
-const newForm = reactive({
-    URL: '',
-    key: '',
-    name: ''
-})
 
 // 定义一个由form对象组成的响应式数组
 const apiSettings = reactive([])
@@ -510,22 +313,21 @@ const initPrompt = async () => {
 }
 
 // API相关方法
-const onSubmit = async () => {
-    console.log('newform:', newForm)
-    const res = await electronAPI.APISettings(newForm.URL, newForm.key, newForm.name)
+const onSubmit = async (data: { URL: string; key: string; name: string }) => {
+    console.log('newform:', data)
+    const res = await electronAPI.APISettings(data.URL, data.key, data.name)
     console.log('res', res)
     if (res === 'success') {
         await getALLAPISettings()
         ElMessage.success('API设置成功')
+        dialogVisible.value = false
     } else {
         ElMessage.error('API设置失败')
     }
 }
 
 const resetForm = () => {
-    newForm.URL = ''
-    newForm.key = ''
-    newForm.name = ''
+    // 重置逻辑已移到 AddApiDialog 组件中
 }
 
 const deleteItem = async (id: number) => {
@@ -569,26 +371,27 @@ const testAPI = async () => {
 }
 
 // Proxy相关方法
-const handleProxyToggle = async () => {
-  const success = await proxyStore.setProxySettings(proxyEnabled.value, proxyPort.value)
+// Watch proxy settings changes
+watch(proxyEnabled, async (newValue) => {
+  const success = await proxyStore.setProxySettings(newValue, proxyPort.value)
   if (success) {
-    ElMessage.success(proxyEnabled.value ? '代理已启用' : '代理已禁用')
+    ElMessage.success(newValue ? '代理已启用' : '代理已禁用')
   } else {
     ElMessage.error('代理设置失败')
-    proxyEnabled.value = !proxyEnabled.value // 回滚
+    proxyEnabled.value = !newValue // 回滚
   }
-}
+})
 
-const handleProxyPortChange = async () => {
+watch(proxyPort, async (newValue) => {
   if (proxyEnabled.value) {
-    const success = await proxyStore.setProxySettings(proxyEnabled.value, proxyPort.value)
+    const success = await proxyStore.setProxySettings(proxyEnabled.value, newValue)
     if (success) {
-      ElMessage.success(`代理端口已更新: ${proxyPort.value}`)
+      ElMessage.success(`代理端口已更新: ${newValue}`)
     } else {
       ElMessage.error('代理端口设置失败')
     }
   }
-}
+})
 
 async function initForm() {
     await getALLAPISettings()
@@ -662,7 +465,6 @@ onMounted(async () => {
 /* 主容器 */
 .api-settings-container {
     padding: 20px;
-
     min-height: 100vh;
 }
 
@@ -675,267 +477,6 @@ onMounted(async () => {
 .tab-content {
     padding: 30px;
     background-color: var(--el-bg-color);
-}
-
-/* 头部标题区域 */
-.header-section {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    margin-bottom: 30px;
-    padding: 25px;
-    background-color: var(--el-bg-color-overlay);
-    border: 1px solid var(--el-border-color);
-    border-radius: 8px;
-}
-
-.header-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 60px;
-    height: 60px;
-    background-color: var(--el-color-primary-light-8);
-    border-radius: 8px;
-}
-
-.header-text h2 {
-    margin: 0 0 8px 0;
-    font-size: 24px;
-    font-weight: 600;
-    color: var(--el-text-color-primary);
-}
-
-.header-text p {
-    margin: 0;
-    font-size: 14px;
-    color: var(--el-text-color-secondary);
-}
-
-/* 卡片样式 */
-.setting-card {
-    margin-bottom: 24px;
-    border-radius: 8px;
-    transition: all 0.2s ease;
-    border: 1px solid var(--el-border-color);
-}
-
-.setting-card:hover {
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-}
-
-.card-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 600;
-    font-size: 15px;
-    color: var(--el-text-color-primary);
-}
-
-/* 表单增强 */
-.form-item-enhanced {
-    margin-bottom: 20px;
-}
-
-.api-select {
-    width: 100%;
-}
-
-.api-option {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    padding: 0px 0;
-    margin: 2px;
-}
-
-.api-option-info {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 14px;
-}
-
-/* 按钮组 */
-.button-group {
-    display: flex;
-    gap: 12px;
-    margin-top: 24px;
-    flex-wrap: wrap;
-}
-
-.btn-add {
-    flex: 1;
-    min-width: 140px;
-}
-
-.btn-test {
-    min-width: 120px;
-}
-
-/* 对话框样式 */
-.api-dialog {
-    border-radius: 12px;
-}
-
-.dialog-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 600;
-    font-size: 18px;
-}
-
-.dialog-form {
-    padding: 20px 0;
-}
-
-.form-item {
-    margin-bottom: 20px;
-}
-
-.dialog-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-}
-
-/* Token统计区域 */
-.token-card {
-    background-color: var(--el-bg-color-overlay);
-    border: 1px solid var(--el-border-color);
-}
-
-.token-stats {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 20px;
-}
-
-.statistic {
-    flex: 1;
-}
-
-.statistic-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.tooltip-icon {
-    cursor: help;
-    color: var(--el-text-color-secondary);
-    transition: color 0.2s;
-}
-
-.tooltip-icon:hover {
-    color: var(--el-color-primary);
-}
-
-.btn-reset {
-    white-space: nowrap;
-}
-
-/* 设置区域 */
-.setting-section {
-    padding: 10px 0;
-}
-
-.section-description {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    margin-bottom: 15px;
-    margin-top: 0px;
-    padding: 8px;
-    background-color: var(--el-fill-color-light);
-    border-radius: 8px;
-    font-size: 14px;
-    line-height: 1.6;
-}
-
-.section-description .el-icon {
-    color: var(--el-color-primary);
-    margin-top: 2px;
-    flex-shrink: 0;
-}
-
-/* 滑块样式 */
-.custom-slider {
-    margin: 20px 0;
-    padding: 10px;
-}
-
-.custom-slider .el-slider__runway {
-    height: 6px;
-    border-radius: 3px;
-}
-
-.custom-slider .el-slider__bar {
-    height: 6px;
-    border-radius: 3px;
-    background-color: var(--el-color-primary);
-}
-
-.custom-slider .el-slider__button {
-    width: 16px;
-    height: 16px;
-    background-color: var(--el-color-primary);
-    border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-/* 切换按钮 */
-.toggle-btn {
-    min-width: 140px;
-    margin-bottom: 20px;
-    font-weight: 500;
-}
-
-/* 提示词相关 */
-.prompt-display-card .prompt-content-wrapper {
-    padding: 10px 0;
-}
-
-.prompt-label {
-    font-weight: 600;
-    margin-bottom: 12px;
-    font-size: 14px;
-    color: var(--el-text-color-primary);
-}
-
-.prompt-content {
-    display: block;
-    padding: 15px;
-    background-color: var(--el-fill-color-light);
-    border-radius: 6px;
-    white-space: pre-wrap;
-    word-break: break-all;
-    font-size: 13px;
-    line-height: 1.8;
-    max-height: 200px;
-    overflow-y: auto;
-    border: 1px solid var(--el-border-color);
-}
-
-.prompt-form {
-    padding: 10px 0;
-}
-
-.prompt-textarea {
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-}
-
-.btn-save {
-    flex: 1;
-    min-width: 140px;
-}
-
-.btn-reset {
-    min-width: 140px;
 }
 
 /* 动画效果 */
@@ -964,55 +505,5 @@ onMounted(async () => {
     .tab-content {
         padding: 15px;
     }
-
-    .header-section {
-        padding: 15px;
-        flex-direction: column;
-        text-align: center;
-    }
-
-    .header-icon {
-        width: 50px;
-        height: 50px;
-    }
-
-    .header-text h2 {
-        font-size: 20px;
-    }
-
-    .button-group {
-        flex-direction: column;
-    }
-
-    .btn-add,
-    .btn-test,
-    .btn-save,
-    .btn-reset {
-        width: 100%;
-    }
-
-    .token-stats {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-}
-
-/* 滚动条样式 */
-.prompt-content::-webkit-scrollbar {
-    width: 6px;
-}
-
-.prompt-content::-webkit-scrollbar-track {
-    background: var(--el-fill-color-light);
-    border-radius: 3px;
-}
-
-.prompt-content::-webkit-scrollbar-thumb {
-    background: var(--el-border-color);
-    border-radius: 3px;
-}
-
-.prompt-content::-webkit-scrollbar-thumb:hover {
-    background: var(--el-text-color-secondary);
 }
 </style>

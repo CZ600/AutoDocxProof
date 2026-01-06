@@ -12,6 +12,12 @@ interface ApiSettings {
   TimeLimit?: number
 }
 
+interface TokenUsage {
+  totalTokens: number
+  requestCount: number
+  lastResetTime: string
+}
+
 // 默认值作为常量，便于维护
 const defaultApiSettings: ApiSettings = {
   id: null,
@@ -23,11 +29,19 @@ const defaultApiSettings: ApiSettings = {
   TimeLimit: undefined
 }
 
+// 默认 token 使用统计
+const defaultTokenUsage: TokenUsage = {
+  totalTokens: 0,
+  requestCount: 0,
+  lastResetTime: new Date().toISOString()
+}
+
 export const useApiStore = defineStore(
   'apiSettings',
   () => {
     // 使用默认值初始化
     const selectedApi = reactive<ApiSettings>({ ...defaultApiSettings })
+    const tokenUsage = reactive<TokenUsage>({ ...defaultTokenUsage })
 
     function setSelectedApi(api: Partial<ApiSettings>) {
       Object.assign(selectedApi, api)
@@ -45,19 +59,56 @@ export const useApiStore = defineStore(
       selectedApi.TimeLimit = TimeLimit
     }
 
+    // Token 相关方法
+    /**
+     * 添加 token 使用量
+     * @param tokens - 本次使用的 token 数量
+     */
+    function addTotalTokens(tokens: number) {
+      tokenUsage.totalTokens += tokens
+      tokenUsage.requestCount += 1
+    }
+
+    /**
+     * 重置 token 统计
+     */
+    function resetTokenUsage() {
+      Object.assign(tokenUsage, defaultTokenUsage)
+      tokenUsage.lastResetTime = new Date().toISOString()
+    }
+
+    /**
+     * 获取 token 使用统计
+     */
+    function getTokenUsage(): TokenUsage {
+      return { ...tokenUsage }
+    }
+
+    /**
+     * 设置 token 使用量（用于从存储恢复）
+     */
+    function setTokenUsage(usage: Partial<TokenUsage>) {
+      Object.assign(tokenUsage, usage)
+    }
+
     return {
       selectedApi,
+      tokenUsage,
       setSelectedApi,
       clearSelectedApi,
       setParallel,
-      setTimeLimit
+      setTimeLimit,
+      addTotalTokens,
+      resetTokenUsage,
+      getTokenUsage,
+      setTokenUsage
     }
   },
   {
     persist: {
       key: 'apiSettings',
       storage: localStorage,
-      pick: ['selectedApi'] // 明确指定需要持久化的路径
+      pick: ['selectedApi', 'tokenUsage'] // 持久化 token 使用统计
     }
   }
 )

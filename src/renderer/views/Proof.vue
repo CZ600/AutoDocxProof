@@ -170,6 +170,8 @@ import { useEmbeddingStore } from "../stores/embeddingStore"
 import { useApiStore } from "../stores/apiStore"
 import { files } from 'jszip'
 import { HomeFilled, Monitor, InfoFilled, Setting, Clock, Collection } from '@element-plus/icons-vue'
+import { useDark } from '@vueuse/core'
+import VueScrollTo from 'vue-scrollto'
 // 从 Electron 获取 API
 const electronAPI = window.electronAPI
 // 状态变量
@@ -181,7 +183,8 @@ const processing = ref(false)
 const exporting = ref(false) // 新增导出状态
 // const proofreadingResults = ref([]) // 存储校对结果
 const activeNames = ref([]) // 折叠面板展开项
-const isDark = ref(false) // 添加缺失的 isDark 属性
+// 使用 useDark 获取全局暗黑模式状态
+const isDark = useDark()
 // 从Pinia store中获取数据
 const fileStore = fileInfoStore()
 const apiSettingsStore = useApiStore()
@@ -806,6 +809,268 @@ onMounted(async () => {
 })
 </script>
 
+<style>
+/* 暗黑模式样式 */
+html.dark .action-bar {
+    background-color: #1d1e1f;
+    border-bottom-color: #2c2e30;
+}
+
+html.dark .file-info {
+    color: #e4e7ed;
+}
+
+html.dark .preview-container {
+    background-color: #1d1e1f;
+    border-color: #2c2e30;
+}
+
+html.dark .proofreading-sidebar {
+    background-color: #141414;
+    border-left-color: #2c2e30;
+}
+
+html.dark .sidebar-header {
+    background-color: #1d1e1f;
+    border-bottom-color: #2c2e30;
+}
+
+html.dark .correction-item {
+    background-color: #1d1e1f;
+    border-color: #2c2e30;
+}
+
+html.dark .correction-item:hover {
+    border-color: #4c4d4f;
+}
+
+html.dark .correction-header {
+    background-color: #1d1e1f;
+}
+
+html.dark .correction-content {
+    background-color: #141414;
+    border-top-color: #2c2e30;
+}
+
+html.dark .correction-content>div {
+    color: #e4e7ed;
+}
+
+html.dark .correction-content strong {
+    color: #f2f3f5;
+}
+
+html.dark .actions {
+    border-top-color: #2c2e30;
+}
+
+html.dark .reference-item {
+    background: #1d1e1f;
+    border-left-color: #409eff;
+}
+
+html.dark .reference-item:hover {
+    background: #252627;
+}
+
+html.dark .reference-text {
+    color: #e4e7ed;
+}
+
+html.dark .reference-content h4 {
+    color: #f2f3f5;
+}
+
+/* 文档预览区域暗黑模式样式 */
+html.dark .preview-container {
+    background-color: #1d1e1f;
+}
+
+/* docx-preview 生成的文档结构样式覆盖 */
+html.dark .preview-container section.docx {
+    background-color: #1d1e1f;
+}
+
+html.dark .preview-container .docx-wrapper {
+    background-color: #1d1e1f;
+    padding: 0;
+}
+
+/* 段落和文字样式 */
+html.dark .preview-container p,
+html.dark .preview-container span,
+html.dark .preview-container div,
+html.dark .preview-container li,
+html.dark .preview-container td,
+html.dark .preview-container th {
+    color: #e4e7ed !important;
+}
+
+/* 标题样式 */
+html.dark .preview-container h1,
+html.dark .preview-container h2,
+html.dark .preview-container h3,
+html.dark .preview-container h4,
+html.dark .preview-container h5,
+html.dark .preview-container h6 {
+    color: #f2f3f5 !important;
+}
+
+/* 表格样式 */
+html.dark .preview-container table {
+    background-color: #1d1e1f !important;
+}
+
+html.dark .preview-container td,
+html.dark .preview-container th {
+    border-color: #2c2e30 !important;
+    background-color: transparent !important;
+}
+
+html.dark .preview-container tr {
+    background-color: transparent !important;
+}
+
+/* 列表样式 */
+html.dark .preview-container ul,
+html.dark .preview-container ol {
+    color: #e4e7ed;
+}
+
+/* 代码块样式 */
+html.dark .preview-container pre,
+html.dark .preview-container code {
+    background-color: #141414 !important;
+    color: #e4e7ed !important;
+}
+
+/* 链接样式 */
+html.dark .preview-container a {
+    color: #75c777 !important;
+}
+
+/* 引用样式 */
+html.dark .preview-container blockquote {
+    border-left-color: #4c4d4f !important;
+    background-color: #141414 !important;
+    color: #e4e7ed !important;
+}
+
+/* 图片容器 */
+html.dark .preview-container img {
+    filter: brightness(0.9) contrast(1.1);
+}
+
+/* 分隔线 */
+html.dark .preview-container hr {
+    border-color: #2c2e30 !important;
+}
+
+/* 全局高亮样式 - 必须放在非scoped样式中 */
+.highlight-correction {
+    background-color: rgba(255, 214, 102, 0.5) !important;
+    border-bottom: 2px solid #ffb300 !important;
+    cursor: pointer !important;
+    padding: 1px 3px !important;
+    border-radius: 3px !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 1px 3px rgba(255, 179, 0, 0.2) !important;
+}
+
+.highlight-correction:hover {
+    box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.25) !important;
+    background-color: rgba(255, 214, 102, 0.7) !important;
+    transform: translateY(-1px) !important;
+}
+</style>
+
+<style scoped>
+/* 参考内容样式 */
+.reference-content {
+    padding: 12px 4px;
+}
+
+.reference-content h4 {
+    margin: 0 0 14px 0;
+    color: #303133;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.reference-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.reference-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    padding: 10px 14px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 3px solid #409eff;
+    line-height: 1.6;
+    transition: all 0.2s ease;
+}
+
+.reference-item:hover {
+    background: #f0f2f5;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.reference-item:last-child {
+    margin-bottom: 0;
+}
+
+.reference-index {
+    color: #409eff;
+    font-weight: 600;
+    margin-right: 10px;
+    min-width: 22px;
+    flex-shrink: 0;
+}
+
+.reference-text {
+    color: #606266;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+/* 滚动条样式 */
+.reference-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.reference-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.reference-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.reference-list::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+/* 全局弹窗样式 */
+.reference-popover {
+    max-width: 500px;
+    text-align: center;
+}
+
+.reference-popover .el-popover__title {
+    margin-bottom: 12px;
+    color: #303133;
+    font-weight: 600;
+    text-align: center;
+}
+</style>
+
 <style scoped>
 .app-container {
     height: 100vh;
@@ -1088,112 +1353,6 @@ onMounted(async () => {
         flex-direction: column;
     }
 }
-</style>
 
-<style>
-/* 全局高亮样式 - 必须放在非scoped样式中 */
-.highlight-correction {
-    background-color: rgba(255, 214, 102, 0.5) !important;
-    border-bottom: 2px solid #ffb300 !important;
-    cursor: pointer !important;
-    padding: 1px 3px !important;
-    border-radius: 3px !important;
-    transition: all 0.2s ease !important;
-    box-shadow: 0 1px 3px rgba(255, 179, 0, 0.2) !important;
-}
 
-.highlight-correction:hover {
-    box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.25) !important;
-    background-color: rgba(255, 214, 102, 0.7) !important;
-    transform: translateY(-1px) !important;
-}
-</style>
-
-<style scoped>
-/* 参考内容样式 */
-.reference-content {
-    padding: 12px 4px;
-}
-
-.reference-content h4 {
-    margin: 0 0 14px 0;
-    color: #303133;
-    font-size: 14px;
-    font-weight: 600;
-    text-align: center;
-}
-
-.reference-list {
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.reference-item {
-    display: flex;
-    align-items: flex-start;
-    margin-bottom: 10px;
-    padding: 10px 14px;
-    background: #f8f9fa;
-    border-radius: 8px;
-    border-left: 3px solid #409eff;
-    line-height: 1.6;
-    transition: all 0.2s ease;
-}
-
-.reference-item:hover {
-    background: #f0f2f5;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-}
-
-.reference-item:last-child {
-    margin-bottom: 0;
-}
-
-.reference-index {
-    color: #409eff;
-    font-weight: 600;
-    margin-right: 10px;
-    min-width: 22px;
-    flex-shrink: 0;
-}
-
-.reference-text {
-    color: #606266;
-    word-break: break-word;
-    white-space: pre-wrap;
-}
-
-/* 滚动条样式 */
-.reference-list::-webkit-scrollbar {
-    width: 6px;
-}
-
-.reference-list::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-}
-
-.reference-list::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 3px;
-}
-
-.reference-list::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
-</style>
-
-<style>
-/* 全局弹窗样式 */
-.reference-popover {
-    max-width: 500px;
-    text-align: center;
-}
-
-.reference-popover .el-popover__title {
-    margin-bottom: 12px;
-    color: #303133;
-    font-weight: 600;
-    text-align: center;
-}
 </style>
