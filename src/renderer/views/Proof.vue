@@ -83,7 +83,8 @@
                 <div class="results-container" v-if="proofreadingResults.length > 0">
                     <el-collapse v-model="activeNames">
                         <el-collapse-item v-for="(item, index) in proofreadingResults" :key="index" :name="index"
-                            :class="`correction-item type-${item.type.toLowerCase()}`">
+                            :id="`error-item-${index}`"
+                            :class="`correction-item type-${item.type.toLowerCase()}`" >
                             <template #title>
                                 <div class="correction-header">
                                     <span class="correction-type" :class="`type-${item.type.toLowerCase()}`">
@@ -171,7 +172,7 @@ import { useApiStore } from "../stores/apiStore"
 import { files } from 'jszip'
 import { HomeFilled, Monitor, InfoFilled, Setting, Clock, Collection } from '@element-plus/icons-vue'
 import { useDark } from '@vueuse/core'
-import VueScrollTo from 'vue-scrollto'
+import { scrollTo } from 'vue-scrollto'
 // 从 Electron 获取 API
 const electronAPI = window.electronAPI
 // 状态变量
@@ -462,9 +463,19 @@ const highlightCorrections = () => {
                         r.original.trim() === originalText
                     );
                     if (index !== -1) {
+                        // 展开对应的折叠面板
                         activeNames.value = [index];
-                        const resultEl = document.querySelector(`.correction-item[name="${index}"]`);
-                        resultEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                        // 使用 vue-scrollto 滚动到对应位置
+                        nextTick(() => {
+                            scrollTo(`#error-item-${index}`, {
+                                container: '.results-container',
+                                duration: 500,
+                                offset: -350,  // 向上偏移80px，避免被header遮挡
+                                easing: 'ease-in-out',
+                                force: true
+                            })
+                        })
                     }
                 });
 
@@ -598,6 +609,7 @@ const onSubmit = async () => {
 
             }
         )
+        
         // 确保结果是数组格式
         const finalResults = Array.isArray(results) ? results : [];
         proofreadingResults.value = finalResults.map((item, index) => ({

@@ -5,13 +5,13 @@
       <!-- Logo区域 -->
       <div class="logo">
         <img src="./assets/logo.png" alt="Logo" class="logo-img" />
-        <span class="logo-text">智能校对</span>
+        <span class="logo-text" >智能校对</span>
       </div>
 
       <!-- 导航菜单 -->
       <el-menu mode="horizontal" :default-active="currentPath" @select="handleSelect" class="nav-menu"
         :background-color="isDark ? '#1d1e1f' : '#FFFFFF'" :text-color="isDark ? '#ffffff' : '#333'"
-        :active-text-color="isDark ? '#75c777' : '#2e7d32'" :ellipsis="false">
+        :active-text-color="isDark ? '#669efc' : '#669efc'" :ellipsis="false">
         <el-menu-item index="/work/proof" class="navbutton">
           <el-icon>
             <HomeFilled />
@@ -159,7 +159,7 @@ getEnv()
 }
 
 :deep(.el-menu--horizontal > .el-menu-item.is-active) {
-  border-bottom: 3px solid #2e7d32;
+  border-bottom: 3px solid #669efc;
 }
 
 .router-view-container {
