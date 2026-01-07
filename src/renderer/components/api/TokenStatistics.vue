@@ -30,17 +30,13 @@
 
 <script setup lang='ts'>
 import { Delete, DataLine, QuestionFilled } from '@element-plus/icons-vue'
+import { useToken } from '../../composables/useToken'
 
-defineProps<{
-    totalTokens: number
-}>()
-
-const emit = defineEmits<{
-    'reset-tokens': []
-}>()
+// 直接使用 composable，无需 props 和 events
+const { totalTokens, resetTokens } = useToken()
 
 const handleReset = () => {
-    emit('reset-tokens')
+    resetTokens()
 }
 </script>
 

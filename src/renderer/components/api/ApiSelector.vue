@@ -14,9 +14,9 @@
             </el-icon>
             兼容支持openai规范的接口,对话模型和embedding模型都在这里添加
         </p>
-        <el-form :model="selectform" label-width="auto">
+        <el-form :model="selectedApi" label-width="auto">
             <el-form-item label="当前API:" class="form-item-enhanced">
-                <el-select v-model="selectform.id" placeholder="请选择您的API" class="api-select">
+                <el-select v-model="selectedApi.id" placeholder="请选择您的API" class="api-select">
                     <el-option v-for="item in apiSettings" :key="item.id" :label="item.modelName"
                         :value="item.id" id="api-item">
                         <div class="api-option">
@@ -46,32 +46,14 @@
 
 <script setup lang='ts'>
 import { Delete, Connection, Plus, Cpu, InfoFilled } from '@element-plus/icons-vue'
-import { reactive, ref } from 'vue'
+import { useApiSettings } from '../../composables/useApiSettings'
 
-interface ApiSetting {
-    id: number
-    apiURL: string
-    apiKey: string
-    modelName: string
-}
+// 直接使用 composable
+const { selectedApi, apiSettings, deleteApi, testApi } = useApiSettings()
 
-interface SelectForm {
-    id: number | null
-    URL: string
-    key: string
-    name: string
-}
-
-const props = defineProps<{
-    selectform: SelectForm
-    apiSettings: ApiSetting[]
-}>()
-
+// 用于控制添加对话框的显示
 const emit = defineEmits<{
-    'update:selectform': [value: SelectForm]
     'add-api': []
-    'delete-api': [id: number]
-    'test-api': []
 }>()
 
 const handleAdd = () => {
@@ -79,11 +61,11 @@ const handleAdd = () => {
 }
 
 const handleDelete = (id: number) => {
-    emit('delete-api', id)
+    deleteApi(id)
 }
 
 const handleTest = () => {
-    emit('test-api')
+    testApi()
 }
 </script>
 

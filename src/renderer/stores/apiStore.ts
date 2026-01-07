@@ -9,7 +9,14 @@ interface ApiSettings {
   name: string
   time: string
   parallel: number
-  TimeLimit?: number
+  TimeLimit: number | null
+}
+
+interface ApiSettingItem {
+  id: number
+  apiURL: string
+  apiKey: string
+  modelName: string
 }
 
 interface TokenUsage {
@@ -43,6 +50,9 @@ export const useApiStore = defineStore(
     const selectedApi = reactive<ApiSettings>({ ...defaultApiSettings })
     const tokenUsage = reactive<TokenUsage>({ ...defaultTokenUsage })
 
+    // API 设置列表
+    const apiSettings = reactive<ApiSettingItem[]>([])
+
     function setSelectedApi(api: Partial<ApiSettings>) {
       Object.assign(selectedApi, api)
     }
@@ -59,6 +69,28 @@ export const useApiStore = defineStore(
       selectedApi.TimeLimit = TimeLimit
     }
 
+    // API 设置列表相关方法
+    function setApiSettings(settings: ApiSettingItem[]) {
+      apiSettings.splice(0, apiSettings.length)
+      settings.forEach(item => apiSettings.push(item))
+    }
+
+    function addApiSetting(setting: ApiSettingItem) {
+      const index = apiSettings.findIndex(s => s.id === setting.id)
+      if (index !== -1) {
+        apiSettings[index] = setting
+      } else {
+        apiSettings.push(setting)
+      }
+    }
+
+    function removeApiSetting(id: number) {
+      const index = apiSettings.findIndex(s => s.id === id)
+      if (index !== -1) {
+        apiSettings.splice(index, 1)
+      }
+    }
+
     // Token 相关方法
     /**
      * 添加 token 使用量
@@ -73,7 +105,7 @@ export const useApiStore = defineStore(
      * 重置 token 统计
      */
     function resetTokenUsage() {
-      Object.assign(tokenUsage, defaultTokenUsage)
+      Object.assign(tokenUsage, defaultTokenUsage) // 重置整个tokenUsage对象的参数
       tokenUsage.lastResetTime = new Date().toISOString()
     }
 
@@ -94,10 +126,14 @@ export const useApiStore = defineStore(
     return {
       selectedApi,
       tokenUsage,
+      apiSettings,
       setSelectedApi,
       clearSelectedApi,
       setParallel,
       setTimeLimit,
+      setApiSettings,
+      addApiSetting,
+      removeApiSetting,
       addTotalTokens,
       resetTokenUsage,
       getTokenUsage,

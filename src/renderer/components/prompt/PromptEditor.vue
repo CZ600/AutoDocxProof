@@ -8,11 +8,10 @@
                 <span>编辑提示词</span>
             </div>
         </template>
-        <el-form :model="promptForm" label-position="top" class="prompt-form">
+        <el-form label-position="top" class="prompt-form">
             <el-form-item label="新提示词" class="form-item">
                 <el-input
-                    :model-value="newPrompt"
-                    @update:model-value="handlePromptChange"
+                    v-model="newPrompt"
                     type="textarea"
                     :rows="6"
                     placeholder="请输入新的提示词"
@@ -33,32 +32,17 @@
 
 <script setup lang='ts'>
 import { DataLine, Warning } from '@element-plus/icons-vue'
-import { reactive } from 'vue'
+import { usePrompt } from '../../composables/usePrompt'
 
-const promptForm = reactive({
-    prompt: ''
-})
-
-defineProps<{
-    newPrompt: string
-}>()
-
-const emit = defineEmits<{
-    'update:newPrompt': [value: string]
-    'update-prompt': []
-    'reset-prompt': []
-}>()
-
-const handlePromptChange = (value: string) => {
-    emit('update:newPrompt', value)
-}
+// 直接使用 composable
+const { newPrompt, updatePrompt, resetToDefault } = usePrompt()
 
 const handleUpdate = () => {
-    emit('update-prompt')
+    updatePrompt()
 }
 
 const handleReset = () => {
-    emit('reset-prompt')
+    resetToDefault()
 }
 </script>
 

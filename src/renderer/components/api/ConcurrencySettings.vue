@@ -29,17 +29,14 @@
 
 <script setup lang='ts'>
 import { Odometer, InfoFilled } from '@element-plus/icons-vue'
+import { useApiSettings } from '../../composables/useApiSettings'
+import { onMounted } from 'vue'
 
-defineProps<{
-    parallelValue: number
-}>()
-
-const emit = defineEmits<{
-    'update:parallelValue': [value: number]
-}>()
+// 直接使用 composable
+const { parallelValue, updateParallel } = useApiSettings()
 
 const handleParallelChange = (value: number) => {
-    emit('update:parallelValue', value)
+    updateParallel(value)
 }
 </script>
 

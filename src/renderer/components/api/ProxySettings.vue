@@ -15,7 +15,7 @@
                 </el-icon>
                 配置HTTP代理用于网络请求。默认禁用，端口默认为33210
             </p>
-            <el-form :model="proxyForm" label-width="auto">
+            <el-form label-width="auto">
                 <el-form-item label="启用代理" class="form-item-enhanced">
                     <el-switch
                         :model-value="proxyEnabled"
@@ -40,29 +40,17 @@
 
 <script setup lang='ts'>
 import { Connection, InfoFilled } from '@element-plus/icons-vue'
-import { reactive } from 'vue'
+import { useProxy } from '../../composables/useProxy'
 
-const proxyForm = reactive({
-    enabled: false,
-    port: 33210
-})
-
-defineProps<{
-    proxyEnabled: boolean
-    proxyPort: number
-}>()
-
-const emit = defineEmits<{
-    'update:proxyEnabled': [value: boolean]
-    'update:proxyPort': [value: number]
-}>()
+// 直接使用 composable
+const { proxyEnabled, proxyPort, setProxyEnabled, setProxyPort } = useProxy()
 
 const handleProxyToggle = (value: boolean) => {
-    emit('update:proxyEnabled', value)
+    setProxyEnabled(value)
 }
 
 const handleProxyPortChange = (value: number) => {
-    emit('update:proxyPort', value)
+    setProxyPort(value)
 }
 </script>
 

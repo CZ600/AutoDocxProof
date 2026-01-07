@@ -84,10 +84,10 @@
                     <el-collapse v-model="activeNames">
                         <el-collapse-item v-for="(item, index) in proofreadingResults" :key="index" :name="index"
                             :id="`error-item-${index}`"
-                            :class="`correction-item type-${item.type.toLowerCase()}`" >
+                            :class="`correction-item type-${(item.type || '').toLowerCase()}`" >
                             <template #title>
                                 <div class="correction-header">
-                                    <span class="correction-type" :class="`type-${item.type.toLowerCase()}`">
+                                    <span class="correction-type" :class="`type-${(item.type || '').toLowerCase()}`">
                                         {{ formatCorrectionType(item.type) }}
                                     </span>
                                     <span class="correction-count">{{ index + 1 }}/{{ proofreadingResults.length
@@ -97,13 +97,13 @@
 
                             <div class="correction-content">
                                 <div class="original">
-                                    <strong>原文:</strong> {{ item.original }}
+                                    <strong>原文:</strong> {{ item.original || '无数据' }}
                                 </div>
                                 <div class="suggested">
-                                    <strong>建议:</strong> {{ item.suggested }}
+                                    <strong>建议:</strong> {{ item.suggested || '无数据' }}
                                 </div>
                                 <div class="reason">
-                                    <strong>原因:</strong> {{ item.reason }}
+                                    <strong>原因:</strong> {{ item.reason || '无数据' }}
                                 </div>
                                 <div class="actions">
                                     <el-button type="primary" size="small" @click="applyCorrection(index)"
@@ -382,8 +382,10 @@ const highlightCorrections = () => {
     const existingHighlights = container.querySelectorAll('.highlight-correction');
     existingHighlights.forEach(el => {
         const parent = el.parentNode;
-        while (el.firstChild) parent.insertBefore(el.firstChild, el);
-        parent.removeChild(el);
+        if (parent) {  // 添加父节点存在性检查
+            while (el.firstChild) parent.insertBefore(el.firstChild, el);
+            parent.removeChild(el);
+        }
     });
 
     // 创建空格不敏感的匹配函数
@@ -454,11 +456,12 @@ const highlightCorrections = () => {
                     fragment.appendChild(document.createTextNode(text.substring(endIndex)));
                 }
 
-                // 替换原始节点
-                node.parentNode.replaceChild(fragment, node);
+                // 替换原始节点（添加父节点存在性检查）
+                if (node.parentNode) {
+                    node.parentNode.replaceChild(fragment, node);
 
-                // 绑定点击事件
-                highlightEl.addEventListener('click', () => {
+                    // 绑定点击事件
+                    highlightEl.addEventListener('click', () => {
                     const index = proofreadingResults.value.findIndex(r =>
                         r.original.trim() === originalText
                     );
@@ -480,6 +483,7 @@ const highlightCorrections = () => {
                 });
 
                 found = true; // 只处理第一个匹配
+                }
             }
         }
     });
@@ -612,6 +616,13 @@ const onSubmit = async () => {
         
         // 确保结果是数组格式
         const finalResults = Array.isArray(results) ? results : [];
+
+        // 调试：打印第一个结果的结构
+        console.log('校对结果数量:', finalResults.length);
+        if (finalResults.length > 0) {
+            console.log('第一个校对项的数据结构:', JSON.stringify(finalResults[0], null, 2));
+        }
+
         proofreadingResults.value = finalResults.map((item, index) => ({
             ...item,
             id: `correction-${index}`,
@@ -649,10 +660,14 @@ const onSubmit = async () => {
 const renderDocx = async (file) => {
     try {
         // 清空之前的预览内容
-        previewContainer.value.innerHTML = ''
+        if (previewContainer.value) {
+            previewContainer.value.innerHTML = ''
 
-        // 渲染 DOCX 文件
-        await renderAsync(file, previewContainer.value)
+            // 渲染 DOCX 文件
+            await renderAsync(file, previewContainer.value)
+        } else {
+            throw new Error('预览容器未初始化')
+        }
     } catch (err) {
         error.value = `文档渲染失败: ${err.message}`
         console.error('DOCX 渲染错误:', err)
@@ -1099,7 +1114,7 @@ html.dark .preview-container hr {
     height: auto !important;
     border-bottom: 1px solid #e4e7ed;
     background-color: #fff;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    /* box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05); */
 }
 
 .header-content {
@@ -1138,7 +1153,7 @@ html.dark .preview-container hr {
     min-width: 120px;
     border-radius: 8px;
     transition: all 0.2s ease;
-    border: 1px solid transparent;
+    /* border: 1px solid transparent; */
 }
 
 .action-button:hover {
@@ -1178,9 +1193,6 @@ html.dark .preview-container hr {
 .preview-container {
     height: 100%;
     overflow: auto;
-    border: 1px solid #e4e7ed;
-    border-radius: 8px;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.03);
     padding: 32px;
     margin: 0;
     background-color: #fff;

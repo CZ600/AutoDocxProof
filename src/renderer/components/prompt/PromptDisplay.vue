@@ -11,7 +11,7 @@
         <div class="prompt-content-wrapper">
             <div class="prompt-label">当前使用的提示词：</div>
             <el-text class="prompt-content">
-                {{ promptContent }}
+                {{ defaultPrompt }}
             </el-text>
         </div>
     </el-card>
@@ -19,10 +19,10 @@
 
 <script setup lang='ts'>
 import { DataLine } from '@element-plus/icons-vue'
+import { usePrompt } from '../../composables/usePrompt'
 
-defineProps<{
-    promptContent: string
-}>()
+// 直接使用 composable
+const { defaultPrompt } = usePrompt()
 </script>
 
 <style scoped>

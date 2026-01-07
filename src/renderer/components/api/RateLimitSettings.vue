@@ -36,23 +36,17 @@
 
 <script setup lang='ts'>
 import { Timer, InfoFilled } from '@element-plus/icons-vue'
+import { useApiSettings } from '../../composables/useApiSettings'
 
-defineProps<{
-    openTimeLimit: boolean
-    timeLimit: number | null
-}>()
-
-const emit = defineEmits<{
-    'toggle-limit': []
-    'update:timeLimit': [value: number | null]
-}>()
+// 直接使用 composable
+const { openTimeLimit, timeLimit, toggleTimeLimit, updateTimeLimit } = useApiSettings()
 
 const handleToggleLimit = () => {
-    emit('toggle-limit')
+    toggleTimeLimit()
 }
 
 const handleTimeLimitChange = (value: number) => {
-    emit('update:timeLimit', value)
+    updateTimeLimit(value)
 }
 </script>
 
