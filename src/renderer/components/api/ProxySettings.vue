@@ -17,21 +17,12 @@
             </p>
             <el-form label-width="auto">
                 <el-form-item label="启用代理" class="form-item-enhanced">
-                    <el-switch
-                        :model-value="proxyEnabled"
-                        @update:model-value="handleProxyToggle"
-                        active-text="已启用"
-                        inactive-text="已禁用"
-                    />
+                    <el-switch :model-value="proxyEnabled_" @update:model-value="handleProxyToggle" active-text="已启用"
+                        inactive-text="已禁用" />
                 </el-form-item>
-                <el-form-item v-if="proxyEnabled" label="代理端口" class="form-item-enhanced">
-                    <el-input-number
-                        :model-value="proxyPort"
-                        @update:model-value="handleProxyPortChange"
-                        :min="1"
-                        :max="65535"
-                        :step="1"
-                    />
+                <el-form-item v-if="proxyEnabled_" label="代理端口" class="form-item-enhanced">
+                    <el-input-number :model-value="proxyPort_" @update:model-value="handleProxyPortChange" :min="1"
+                        :max="65535" :step="1" />
                 </el-form-item>
             </el-form>
         </div>
@@ -41,16 +32,49 @@
 <script setup lang='ts'>
 import { Connection, InfoFilled } from '@element-plus/icons-vue'
 import { useProxy } from '../../composables/useProxy'
+import { error } from 'node:console'
+import { ElMessage } from 'element-plus'
 
 // 直接使用 composable
-const { proxyEnabled, proxyPort, setProxyEnabled, setProxyPort } = useProxy()
+const { proxyPort_, proxyEnabled_ } = useProxy()
 
 const handleProxyToggle = (value: boolean) => {
-    setProxyEnabled(value)
+    const rawValue = proxyEnabled_.value
+    try {
+        proxyEnabled_.value = value
+        if (rawValue != proxyEnabled_.value) {
+            console.log("代理状态修改成功！")
+            ElMessage.success("代理状态改变")
+        } else {
+            const error = "代理状态没有改变"
+            throw (error)
+        }
+
+    }
+    catch (error) {
+        console.log("代理状态修改失败", error)
+    }
 }
 
 const handleProxyPortChange = (value: number) => {
-    setProxyPort(value)
+    const rawValue = proxyPort_.value
+    if (rawValue === proxyPort_.value) {
+        console.log("提供的端口没有发生改变，不做变化")
+        return 0
+    }
+    try {
+        proxyPort_.value = value
+        if (rawValue != proxyPort_.value) {
+            console.log("端口修改成功，旧端口是${rawValue},新端口是${value}")
+            ElMessage.success("端口修改成功，旧端口是${rawValue},新端口是${value}")
+        } else {
+            const error = '端口修改失败'
+            throw (error)
+        }
+    } catch (error) {
+        console.log(error)
+        ElMessage.error(error)
+    }
 }
 </script>
 

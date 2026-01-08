@@ -69,7 +69,6 @@ const dialogVisible = ref(false)
 // 使用 composables
 const { showAlertSuccess, showAlertError, alertTitle, addApi, initialize: initApiSettings } = useApiSettings()
 const { initialize: initPrompt } = usePrompt()
-const { initialize: initProxy } = useProxy()
 
 /**
  * 添加新 API
@@ -87,7 +86,6 @@ const handleAddApi = async (data: { URL: string; key: string; name: string }) =>
 onMounted(async () => {
     await initApiSettings()
     await initPrompt()
-    initProxy()
 })
 </script>
 

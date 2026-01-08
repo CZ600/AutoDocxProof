@@ -1,7 +1,8 @@
 // composables/useProxy.ts
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useProxyStore } from '../stores/proxyStore'
 import { ElMessage } from 'element-plus'
+import { error } from 'node:console'
 
 /**
  * 代理设置管理
@@ -10,63 +11,46 @@ import { ElMessage } from 'element-plus'
 export function useProxy() {
     const proxyStore = useProxyStore()
 
-    // 代理状态
-    const proxyEnabled = ref(false)
-    const proxyPort = ref(33210)
+    // 使用计算属性获取和处理代理状态
+    const proxyEnabled_ = computed({
+        get: () => {
+            return proxyStore.proxySettings.enabled
 
-    /**
-     * 初始化 - 从 store 恢复设置
-     */
-    const initialize = () => {
-        if (proxyStore.proxySettings.enabled) {
-            proxyEnabled.value = proxyStore.proxySettings.enabled
-            proxyPort.value = proxyStore.proxySettings.port
+        },
+        set: (enabled: boolean) => {
+            proxyStore.setProxySettings(enabled, proxyPort_.value)
         }
-    }
+    })
 
-    /**
-     * 设置代理状态
-     */
-    const setProxyEnabled = async (enabled: boolean) => {
-        const success = await proxyStore.setProxySettings(enabled, proxyPort.value)
-        if (success) {
-            proxyEnabled.value = enabled
-            ElMessage.success(enabled ? '代理已启用' : '代理已禁用')
-        } else {
-            ElMessage.error('代理设置失败')
-            // 回滚
-            proxyEnabled.value = !enabled
+    const proxyPort_ = computed({
+        get: () => {
+            return proxyStore.proxySettings.port
+        },
+        set: (port: number) => {
+            proxyStore.setProxySettings(proxyEnabled_.value, port)
         }
-        return success
-    }
+    })
 
-    /**
-     * 设置代理端口
-     */
-    const setProxyPort = async (port: number) => {
-        if (proxyEnabled.value) {
-            const success = await proxyStore.setProxySettings(proxyEnabled.value, port)
-            if (success) {
-                proxyPort.value = port
-                ElMessage.success(`代理端口已更新: ${port}`)
-            } else {
-                ElMessage.error('代理端口设置失败')
-            }
-            return success
+    // 设置代理参数
+    const setProxyPort_ = (port: number) => {
+        try {
+            proxyPort_.value = port
+            ElMessage
         }
-        // 如果代理未启用，只更新本地值
-        proxyPort.value = port
-        return true
+        catch (err) {
+            console.log('set port error:', err)
+            ElMessage(
+                {
+                    type: 'error',
+                    message: "代理设置失败：${err}!"
+                }
+            )
+        }
     }
 
     return {
         // 状态
-        proxyEnabled,
-        proxyPort,
-
-        // 方法
-        initialize,
-        setProxyEnabled,
-        setProxyPort
+        proxyEnabled_,
+        proxyPort_,
     }
 }
