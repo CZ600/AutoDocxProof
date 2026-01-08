@@ -548,6 +548,61 @@ const onSubmit = async () => {
         processing.value = true;
         error.value = '';
         proofreadingResults.value = [];
+
+        // 在开始校对前，先同步 API 设置到主进程
+        let apiURL, apiKey, modelName, parallel, timeLimit
+
+        // 尝试从 selectedApi 获取
+        const currentApiSettings = apiSettingsStore.selectedApi
+        console.log('当前 API 设置:', currentApiSettings)
+
+        // 如果 selectedApi 中的 URL 或 key 为空，尝试从 apiSettings 列表中查找
+        if (currentApiSettings.id && (!currentApiSettings.URL || !currentApiSettings.key)) {
+            console.log('selectedApi 数据不完整，从 apiSettings 列表中查找')
+            const foundApi = apiSettingsStore.apiSettings.find(item => item.id === currentApiSettings.id)
+            if (foundApi) {
+                console.log('从 apiSettings 列表中找到 API:', foundApi)
+                apiURL = foundApi.apiURL
+                apiKey = foundApi.apiKey
+                modelName = foundApi.modelName
+            }
+        } else {
+            apiURL = currentApiSettings.URL
+            apiKey = currentApiSettings.key
+            modelName = currentApiSettings.name
+        }
+
+        // 使用 store 中的并发和频率限制设置
+        parallel = apiSettingsStore.selectedApi.parallel || 30
+        timeLimit = apiSettingsStore.selectedApi.TimeLimit
+
+        console.log('最终使用的 API 配置:')
+        console.log('  URL:', apiURL)
+        console.log('  key:', apiKey ? '***已设置***' : '未设置')
+        console.log('  modelName:', modelName)
+        console.log('  parallel:', parallel)
+        console.log('  timeLimit:', timeLimit)
+
+        if (!apiURL || !apiKey || !modelName) {
+            console.error('API 设置不完整')
+            ElMessage({
+                message: 'API 配置不完整，请重新在设置中选择 API',
+                type: 'error',
+                duration: 3000
+            });
+            processing.value = false;
+            return;
+        }
+
+        // 同步 API 设置到主进程
+        await electronAPI.selectAPISetting(
+            apiURL,
+            apiKey,
+            modelName,
+            parallel,
+            timeLimit
+        );
+
         let results;
         let token_usage = 0
         if (selectRepository.value.length > 0) {
@@ -600,6 +655,18 @@ const onSubmit = async () => {
                 timeLimit,
                 apiSettingsStore.selectedApi.parallel,
             );
+            console.log("校对结果和token消耗量：", preResult)
+            // 检查后端返回的错误消息
+            if ("message" in preResult) {
+                if (preResult.message === "Please select an API setting!") {
+                    ElMessage({
+                        message: '请先设置API密钥',
+                        type: 'error',
+                        duration: 1500
+                    });
+                    return;
+                }
+            }
             results = preResult.proofResult
             token_usage += preResult.token_usage
         }

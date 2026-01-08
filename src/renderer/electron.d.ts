@@ -90,8 +90,8 @@ export default interface ElectronApi {
   getALLAPISettings: () => Promise<
     {
       id: number
-      URL: string
-      Key: string
+      apiURL: string
+      apiKey: string
       modelName: string
       created_at: string
     }[]
