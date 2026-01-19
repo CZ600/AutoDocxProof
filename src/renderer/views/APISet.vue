@@ -47,7 +47,7 @@
 </template>
 
 <script setup lang='ts'>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import ApiSelector from '../components/api/ApiSelector.vue'
 import AddApiDialog from '../components/api/AddApiDialog.vue'
 import TokenStatistics from '../components/api/TokenStatistics.vue'
@@ -87,6 +87,7 @@ onMounted(async () => {
     await initApiSettings()
     await initPrompt()
 })
+
 </script>
 
 <style scoped>

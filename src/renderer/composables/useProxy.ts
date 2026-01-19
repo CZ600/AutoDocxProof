@@ -31,22 +31,6 @@ export function useProxy() {
         }
     })
 
-    // 设置代理参数
-    const setProxyPort_ = (port: number) => {
-        try {
-            proxyPort_.value = port
-            ElMessage
-        }
-        catch (err) {
-            console.log('set port error:', err)
-            ElMessage(
-                {
-                    type: 'error',
-                    message: "代理设置失败：${err}!"
-                }
-            )
-        }
-    }
 
     return {
         // 状态
