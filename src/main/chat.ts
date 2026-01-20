@@ -177,6 +177,23 @@ export async function testAPI(apiURL: string, apiKey: string, modelName: string)
 
 // test modelname:doubao-embedding-text-240715
 // test url: https://ark.cn-beijing.volces.com/api/v3/
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function shouldRetryEmbedding(error: any): boolean {
+  const status = error?.status ?? error?.response?.status
+  if (status && [500, 502, 503, 504].includes(status)) return true
+
+  const message = String(error?.message || '').toLowerCase()
+  if (message.includes('please retry later')) return true
+  if (message.includes('internal error')) return true
+  if (message.includes('econnreset')) return true
+  if (message.includes('timed out')) return true
+
+  return false
+}
+
 export async function getEmbedding(text: string | string[], modelName: string, apiKey_input: string, apiURL: string) {
   // 参数有效性检查
   if (!text || (Array.isArray(text) && text.length === 0)) {
@@ -216,40 +233,59 @@ export async function getEmbedding(text: string | string[], modelName: string, a
     baseURL: apiURL
   })
 
-  try {
-    const response = await openai.embeddings.create({
-      model: modelName,
-      input: text
-    })
+  const maxAttempts = 5
+  let lastError: any = null
 
-    // 检查响应有效性
-    if (!response || !response.data || !Array.isArray(response.data) || response.data.length === 0) {
-      throw new Error('嵌入API返回了无效的响应格式，data字段缺失或为空')
-    }
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const requestInput = Array.isArray(text) ? text : [text]
+      const response = await openai.embeddings.create({
+        model: modelName,
+        input: requestInput
+      })
 
-    // 返回embedding结果
-    if (typeof text === 'string') {
+      // 检查响应有效性
+      if (!response || !response.data || !Array.isArray(response.data) || response.data.length === 0) {
+        throw new Error('嵌入API返回了无效的响应格式，data字段缺失或为空')
+      }
+
+      // 返回embedding结果
+      if (typeof text === 'string') {
+        return response.data[0].embedding
+      }
+      if (Array.isArray(text)) {
+        return response.data.map(item => item.embedding)
+      }
+
       return response.data[0].embedding
-    }
-    if (Array.isArray(text)) {
-      return response.data.map(item => item.embedding)
-    }
+    } catch (error: any) {
+      lastError = error
+      if (attempt < maxAttempts && shouldRetryEmbedding(error)) {
+        const backoffMs = 500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 200)
+        console.warn(
+          `Embedding API failed (attempt ${attempt}/${maxAttempts}), retrying in ${backoffMs}ms:`,
+          error?.message || error
+        )
+        await sleep(backoffMs)
+        continue
+      }
 
-    return response.data[0].embedding
-  } catch (error: any) {
-    console.log('error getting embedding:', error)
+      console.log('error getting embedding:', error)
 
-    // 提供更详细的错误信息
-    if (error.status === 404) {
-      throw new Error(
-        `嵌入API调用失败，状态码404: 请检查API地址(${apiURL})和模型名称(${modelName})是否正确，该模型可能不支持嵌入功能`
-      )
-    } else if (error.status === 401) {
-      throw new Error(`嵌入API调用失败，认证错误: API密钥无效或权限不足`)
-    } else if (error.status === 400) {
-      throw new Error(`嵌入API调用失败，请求错误: ${error.message}`)
-    } else {
-      throw new Error(`嵌入API调用失败: ${error.message || '未知错误'}`)
+      // 提供更详细的错误信息
+      if (error.status === 404) {
+        throw new Error(
+          `嵌入API调用失败，状态码404: 请检查API地址(${apiURL})和模型名称(${modelName})是否正确，该模型可能不支持嵌入功能`
+        )
+      } else if (error.status === 401) {
+        throw new Error(`嵌入API调用失败，认证错误: API密钥无效或权限不足`)
+      } else if (error.status === 400) {
+        throw new Error(`嵌入API调用失败，请求错误: ${error.message}`)
+      } else {
+        throw new Error(`嵌入API调用失败: ${error.message || '未知错误'}`)
+      }
     }
   }
+
+  throw lastError
 }
