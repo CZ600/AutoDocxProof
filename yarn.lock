@@ -1364,10 +1364,10 @@
   dependencies:
     vue-demi "*"
 
-"@xmldom/xmldom@^0.8.6", "@xmldom/xmldom@^0.8.8":
-  version "0.8.10"
-  resolved "https://registry.npmjs.org/@xmldom/xmldom/-/xmldom-0.8.10.tgz"
-  integrity sha512-2WALfTl4xo2SkGCYRt6rDTFfk9R1czmBvUQy12gK2KuRKIpWEhcbbzy8EZXtz/jkRqHX8bFEc6FC1HjX4TUWYw==
+"@xmldom/xmldom@^0.8.11", "@xmldom/xmldom@^0.8.6", "@xmldom/xmldom@^0.8.8":
+  version "0.8.11"
+  resolved "https://registry.npmjs.org/@xmldom/xmldom/-/xmldom-0.8.11.tgz"
+  integrity sha512-cQzWCtO6C8TQiYl1ruKNn2U6Ao4o4WBBcbL61yJl84x+j5sOWWFU9X7DpND8XZG3daDppSsigMdfAIl2upQBRw==
 
 "@xmldom/xmldom@^0.9.8":
   version "0.9.8"
@@ -2765,6 +2765,14 @@ doctrine@^3.0.0:
   integrity sha512-yS+Q5i3hBf7GBkd4KG8a7eBNNWNGLTaEwwYWUijIYM7zrlYDM0BFXHjjPWlWZ1Rg7UaddZeIDmi9jF3HmqiQ2w==
   dependencies:
     esutils "^2.0.2"
+
+docx-edit@^0.1.0:
+  version "0.1.0"
+  resolved "https://registry.npmjs.org/docx-edit/-/docx-edit-0.1.0.tgz"
+  integrity sha512-JsZ/TrlpG0SwaiVL+V4hy0Ibympr1/vFBRdCv3ZEBYyCQ3DCyaRYfWAUvEYuQmh6l8wGK4Hm+6Tn+eHbEqqJjw==
+  dependencies:
+    "@xmldom/xmldom" "^0.8.11"
+    jszip "^3.10.1"
 
 docx-preview@^0.3.6:
   version "0.3.6"

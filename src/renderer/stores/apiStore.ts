@@ -65,7 +65,7 @@ export const useApiStore = defineStore(
       selectedApi.parallel = parallelSet
     }
 
-    function setTimeLimit(TimeLimit: number | null) {
+    function setTimeLimit(TimeLimit: number) {
       selectedApi.TimeLimit = TimeLimit
     }
 

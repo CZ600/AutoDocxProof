@@ -320,7 +320,7 @@ export const registerIpcHandlers = () => {
       const filePath = serializableConfig.originalFilePath
       const newPath = filePath.replace(/(\.\w+)$/, '_new$1') // 正则捕获“最后一个点+扩展名”
       const correctedText = serializableConfig.appliedCorrections.map((correction: Correction) => ({
-        origin: correction.original,
+        original: correction.original,
         suggested: correction.suggested
       }))
 

@@ -87,7 +87,6 @@ onMounted(async () => {
     await initApiSettings()
     await initPrompt()
 })
-
 </script>
 
 <style scoped>

@@ -20,9 +20,15 @@
 <script setup lang='ts'>
 import { DataLine } from '@element-plus/icons-vue'
 import { usePrompt } from '../../composables/usePrompt'
+import { onMounted } from 'vue'
 
-// 直接使用 composable
-const { defaultPrompt } = usePrompt()
+// 使用 composable
+const { defaultPrompt, initialize } = usePrompt()
+
+// 组件挂载时初始化提示词数据
+onMounted(async () => {
+    await initialize()
+})
 </script>
 
 <style scoped>

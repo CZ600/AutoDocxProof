@@ -373,126 +373,196 @@ const getALLHistory = async () => {
 
 
 
-// 替换原有的 highlightCorrections 函数
-const highlightCorrections = () => {
-    const container = previewContainer.value;  // 获取预览容器
-    if (!container || proofreadingResults.value.length === 0) return;
+const createWhitespaceInsensitiveMatcher = (searchText, flags = 'g') => {
+    const escapedText = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = escapedText.replace(/\s+/g, '\\s+');
+    return new RegExp(pattern, flags);
+};
 
-    // 清除所有现有高亮
+const clearHighlights = (container) => {
     const existingHighlights = container.querySelectorAll('.highlight-correction');
     existingHighlights.forEach(el => {
         const parent = el.parentNode;
-        if (parent) {  // 添加父节点存在性检查
-            while (el.firstChild) parent.insertBefore(el.firstChild, el);
-            parent.removeChild(el);
+        if (!parent) return;
+
+        while (el.firstChild) {
+            parent.insertBefore(el.firstChild, el);
         }
-    });
-
-    // 创建空格不敏感的匹配函数
-    const createWhitespaceInsensitiveMatcher = (searchText) => {
-        // 转义正则特殊字符
-        const escapedText = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        // 将连续空白替换为 \s+ 匹配任意空白序列
-        const pattern = escapedText.replace(/\s+/g, '\\s+');
-        return new RegExp(pattern, 'g');
-    };
-
-    // 按文档顺序处理校对项（确保高亮顺序正确）
-    const sortedResults = [...proofreadingResults.value].sort((a, b) =>
-        (a.startIndex || 0) - (b.startIndex || 0)
-    );
-
-    // 处理每个校对项
-    sortedResults.forEach(item => {
-        const originalText = item.original.trim();
-        if (!originalText) return;
-
-        // 创建空格不敏感的正则表达式
-        const regex = createWhitespaceInsensitiveMatcher(originalText);
-
-        // 创建文档范围用于精确查找
-        const range = document.createRange();
-        const walker = document.createTreeWalker(
-            container,
-            NodeFilter.SHOW_TEXT,
-            null,
-            false
-        );
-
-        let node;
-        let found = false;
-
-        while ((node = walker.nextNode()) && !found) {
-            const text = node.textContent;
-
-            // 重置正则状态
-            regex.lastIndex = 0;
-            const match = regex.exec(text);
-
-            if (match) {
-                const startIndex = match.index;
-                const matchedLength = match[0].length;
-                const endIndex = startIndex + matchedLength;
-
-                // 创建高亮元素
-                const highlightEl = document.createElement('span');
-                highlightEl.className = 'highlight-correction';
-                highlightEl.textContent = text.substring(startIndex, endIndex);
-                highlightEl.dataset.correctionId = item.id || Math.random().toString(36).slice(2);
-
-                // 创建文档片段
-                const fragment = document.createDocumentFragment();
-
-                // 处理前缀
-                if (startIndex > 0) {
-                    fragment.appendChild(document.createTextNode(text.substring(0, startIndex)));
-                }
-
-                // 添加高亮元素
-                fragment.appendChild(highlightEl);
-
-                // 处理后缀
-                if (endIndex < text.length) {
-                    fragment.appendChild(document.createTextNode(text.substring(endIndex)));
-                }
-
-                // 替换原始节点（添加父节点存在性检查）
-                if (node.parentNode) {
-                    node.parentNode.replaceChild(fragment, node);
-
-                    // 绑定点击事件
-                    highlightEl.addEventListener('click', () => {
-                    const index = proofreadingResults.value.findIndex(r =>
-                        r.original.trim() === originalText
-                    );
-                    if (index !== -1) {
-                        // 展开对应的折叠面板
-                        activeNames.value = [index];
-
-                        // 使用 vue-scrollto 滚动到对应位置
-                        nextTick(() => {
-                            scrollTo(`#error-item-${index}`, {
-                                container: '.results-container',
-                                duration: 500,
-                                offset: -350,  // 向上偏移80px，避免被header遮挡
-                                easing: 'ease-in-out',
-                                force: true
-                            })
-                        })
-                    }
-                });
-
-                found = true; // 只处理第一个匹配
-                }
-            }
-        }
+        parent.removeChild(el);
+        parent.normalize();
     });
 };
 
-const createWhitespaceInsensitiveMatcher = (searchText) => {
-    const escapedText = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const pattern = escapedText.replace(/\s+/g, '\\s+');
-    return new RegExp(pattern, 'g');
+const buildTextNodeMap = (container) => {
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    const segments = [];
+    let fullText = '';
+    let currentOffset = 0;
+    let node;
+
+    while ((node = walker.nextNode())) {
+        const text = node.textContent || '';
+        if (!text) continue;
+
+        segments.push({
+            node,
+            start: currentOffset,
+            end: currentOffset + text.length
+        });
+        fullText += text;
+        currentOffset += text.length;
+    }
+
+    return { fullText, segments };
+};
+
+const getDomPositionFromIndex = (segments, targetIndex, preferEnd = false) => {
+    if (segments.length === 0) return null;
+
+    if (targetIndex <= 0) {
+        return { node: segments[0].node, offset: 0 };
+    }
+
+    const lastSegment = segments[segments.length - 1];
+    if (targetIndex >= lastSegment.end) {
+        return {
+            node: lastSegment.node,
+            offset: lastSegment.node.textContent.length
+        };
+    }
+
+    for (const segment of segments) {
+        if (preferEnd) {
+            if (targetIndex >= segment.start && targetIndex <= segment.end) {
+                return {
+                    node: segment.node,
+                    offset: Math.min(targetIndex - segment.start, segment.node.textContent.length)
+                };
+            }
+        } else if (targetIndex >= segment.start && targetIndex < segment.end) {
+            return {
+                node: segment.node,
+                offset: targetIndex - segment.start
+            };
+        }
+    }
+
+    return null;
+};
+
+const rangesOverlap = (left, right) => !(left.end <= right.start || left.start >= right.end);
+
+const locateCorrectionsInPreview = (container, corrections) => {
+    const { fullText, segments } = buildTextNodeMap(container);
+    const occupiedRanges = [];
+    const matches = [];
+
+    corrections.forEach(({ item, index }) => {
+        const originalText = item.original?.trim();
+        if (!originalText) return;
+
+        const regex = createWhitespaceInsensitiveMatcher(originalText);
+        let match;
+
+        while ((match = regex.exec(fullText))) {
+            const start = match.index;
+            const end = start + match[0].length;
+            const range = { start, end };
+
+            if (!occupiedRanges.some(existing => rangesOverlap(existing, range))) {
+                occupiedRanges.push(range);
+                matches.push({
+                    index,
+                    item,
+                    start,
+                    end
+                });
+                break;
+            }
+
+            if (match[0].length === 0) {
+                regex.lastIndex += 1;
+            }
+        }
+    });
+
+    return { matches, segments };
+};
+
+const scrollToCorrectionItem = (index) => {
+    if (index === -1) return;
+
+    activeNames.value = [index];
+    nextTick(() => {
+        scrollTo(`#error-item-${index}`, {
+            container: '.results-container',
+            duration: 500,
+            offset: -350,
+            easing: 'ease-in-out',
+            force: true
+        });
+    });
+};
+
+const wrapPreviewRange = (container, match) => {
+    const { segments, start, end, item, index } = match;
+    const startPos = getDomPositionFromIndex(segments, start, false);
+    const endPos = getDomPositionFromIndex(segments, end, true);
+
+    if (!startPos || !endPos) return false;
+
+    const range = document.createRange();
+    range.setStart(startPos.node, startPos.offset);
+    range.setEnd(endPos.node, endPos.offset);
+
+    const highlightEl = document.createElement('span');
+    highlightEl.className = 'highlight-correction';
+    highlightEl.dataset.correctionId = item.id || `correction-${index}`;
+    highlightEl.addEventListener('click', () => scrollToCorrectionItem(index));
+
+    highlightEl.appendChild(range.extractContents());
+    range.insertNode(highlightEl);
+    return true;
+};
+
+const highlightCorrections = () => {
+    const container = previewContainer.value;
+    if (!container) return;
+
+    clearHighlights(container);
+
+    const pendingCorrections = proofreadingResults.value
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => !item.applied);
+    if (pendingCorrections.length === 0) return;
+
+    const { matches, segments } = locateCorrectionsInPreview(container, pendingCorrections);
+    matches
+        .map(match => ({ ...match, segments }))
+        .sort((a, b) => b.start - a.start)
+        .forEach(match => {
+            wrapPreviewRange(container, match);
+        });
+};
+
+const replaceCorrectionInPreview = (container, correction) => {
+    clearHighlights(container);
+
+    const { matches, segments } = locateCorrectionsInPreview(container, [{ item: correction, index: 0 }]);
+    const match = matches[0];
+    if (!match) return false;
+
+    const startPos = getDomPositionFromIndex(segments, match.start, false);
+    const endPos = getDomPositionFromIndex(segments, match.end, true);
+    if (!startPos || !endPos) return false;
+
+    const range = document.createRange();
+    range.setStart(startPos.node, startPos.offset);
+    range.setEnd(endPos.node, endPos.offset);
+    range.deleteContents();
+    range.insertNode(document.createTextNode(correction.suggested || ''));
+    container.normalize();
+    return true;
 };
 
 
@@ -502,15 +572,16 @@ const applyCorrection = (index) => {
     newResults[index] = { ...newResults[index], applied: true }
     proofreadingResults.value = newResults // 触发 setter
 
-    // 更新 DOM
     const container = previewContainer.value
     if (!container) return
-    let content = container.innerHTML
-    const regex = createWhitespaceInsensitiveMatcher(newResults[index].original.trim())
-    content = content.replace(regex, newResults[index].suggested)
-    container.innerHTML = content
+    const updated = replaceCorrectionInPreview(container, newResults[index])
+    highlightCorrections()
 
-    ElMessage.success('已应用修改')
+    if (updated) {
+        ElMessage.success('已应用修改')
+    } else {
+        ElMessage.warning('未能在预览中定位到该处文本，但导出仍会按原文尝试替换')
+    }
 }
 
 // 应用所有校对建议
@@ -520,14 +591,20 @@ const applyALLCorrection = () => {
 
     const container = previewContainer.value
     if (!container) return
-    let content = container.innerHTML
-    newResults.forEach(item => {
-        const regex = createWhitespaceInsensitiveMatcher(item.original.trim())
-        content = content.replace(regex, item.suggested)
-    })
-    container.innerHTML = content
+    clearHighlights(container)
+    let replacedCount = 0
 
-    ElMessage.success('已应用全部修改')
+    newResults.forEach(item => {
+        if (replaceCorrectionInPreview(container, item)) {
+            replacedCount += 1
+        }
+    })
+
+    if (replacedCount === newResults.length) {
+        ElMessage.success('已应用全部修改')
+    } else {
+        ElMessage.warning(`已应用 ${replacedCount}/${newResults.length} 处预览修改，其余将在导出时继续尝试替换`)
+    }
 }
 
 // 提交校对请求
