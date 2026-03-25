@@ -1,5 +1,6 @@
 import { ipcMain, session } from 'electron'
 import { dialog } from 'electron'
+import * as path from 'path'
 import { DB } from './database'
 import { testAPI } from './chat'
 import { proofreadDocument, getDefaultPrompt, setNewPrompt } from './proof'
@@ -311,21 +312,45 @@ export const registerIpcHandlers = () => {
     suggested: string
   }
 
-  // 导出修正后的DOCX文件
-  ipcMain.handle('exportCorrectedDocx', async (event, config) => {
+  interface ExportCorrectedDocxResult {
+    success: boolean
+    canceled: boolean
+    filePath?: string
+  }
+
+  // Export corrected DOCX file
+  ipcMain.handle('exportCorrectedDocx', async (event, config): Promise<ExportCorrectedDocxResult> => {
     try {
-      // 确保传递的数据是可克隆的
+      // Ensure IPC payload stays serializable.
       const serializableConfig = JSON.parse(JSON.stringify(config))
 
       const filePath = serializableConfig.originalFilePath
-      const newPath = filePath.replace(/(\.\w+)$/, '_new$1') // 正则捕获“最后一个点+扩展名”
+      const parsedPath = path.parse(filePath)
+      const defaultSavePath = path.join(parsedPath.dir, `${parsedPath.name}_new.docx`)
       const correctedText = serializableConfig.appliedCorrections.map((correction: Correction) => ({
         original: correction.original,
         suggested: correction.suggested
       }))
 
-      await replaceTextInDocx(filePath, newPath, correctedText)
-      return true
+      const saveResult = await dialog.showSaveDialog({
+        title: '\u5bfc\u51fa\u4fee\u6b63\u540e\u7684 DOCX \u6587\u4ef6',
+        defaultPath: defaultSavePath,
+        filters: [{ name: 'Word \u6587\u6863', extensions: ['docx'] }]
+      })
+
+      if (saveResult.canceled || !saveResult.filePath) {
+        return {
+          success: false,
+          canceled: true
+        }
+      }
+
+      await replaceTextInDocx(filePath, saveResult.filePath, correctedText)
+      return {
+        success: true,
+        canceled: false,
+        filePath: saveResult.filePath
+      }
     } catch (error) {
       console.error('output error:', error)
       throw error

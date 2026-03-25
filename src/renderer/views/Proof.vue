@@ -903,23 +903,27 @@ const exportToDocx = async () => {
                 }))
         };
 
-        // 调用 Electron API 导出
-        const success = await electronAPI.exportCorrectedDocx(exportConfig);
-        console.log("success:", success)
+        // Call Electron API to export the corrected file
+        const result = await electronAPI.exportCorrectedDocx(exportConfig);
+        console.log("export result:", result)
 
-        if (success) {
+        if (result?.canceled) {
+            return;
+        }
+
+        if (result?.success) {
             ElMessage({
-                message: '文件导出成功！',
+                message: `\u6587\u4ef6\u5bfc\u51fa\u6210\u529f\uff1a${result.filePath || ''}`,
                 type: 'success',
                 duration: 2000
             });
         } else {
-            throw new Error('导出过程未完成');
+            throw new Error('\u5bfc\u51fa\u8fc7\u7a0b\u672a\u5b8c\u6210');
         }
     } catch (err) {
         console.error('导出错误:', err);
         ElMessage({
-            message: `导出失败: ${err.message}`,
+            message: `\u5bfc\u51fa\u5931\u8d25: ${err.message}`,
             type: 'error',
             duration: 3000
         });

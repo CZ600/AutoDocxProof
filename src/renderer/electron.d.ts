@@ -64,6 +64,12 @@ export interface PDFGetChunksParams {
   repositoryName: string
 }
 
+export interface ExportCorrectedDocxResult {
+  success: boolean
+  canceled: boolean
+  filePath?: string
+}
+
 export default interface ElectronApi {
   // test
   message: (file: string) => void
@@ -117,7 +123,7 @@ export default interface ElectronApi {
     proofResult: ProofreadingCorrection[]
     token_usage: number
   }> // 进行了更新
-  exportCorrectedDocx: (config: any) => Promise<boolean>
+  exportCorrectedDocx: (config: any) => Promise<ExportCorrectedDocxResult>
 
   // 提示词处理接口
   getDefaultPrompt: () => Promise<string>
