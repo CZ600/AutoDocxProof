@@ -130,31 +130,6 @@ npm install
 npm run start
 ```
 
-## 📦 项目结构
-
-```
-.
-├── src/
-│   ├── main/              # 主进程代码
-│   │   ├── chat.ts        # AI 对话相关功能
-│   │   ├── database.ts    # 数据库操作
-│   │   ├── ipcHandlers.ts # IPC 通信处理
-│   │   ├── lancedb.ts     # 向量数据库操作
-│   │   ├── main.ts        # 主进程入口
-│   │   ├── pdfUtils.ts    # PDF文档处理
-│   │   ├── preload.ts     # 预加载脚本
-│   │   ├── proof.ts       # 文档校对核心逻辑
-│   │   └── wordProcess.ts # Word 文档处理
-│   └── renderer/          # 渲染进程代码
-│       ├── router/        # 路由配置
-│       ├── stores/        # Pinia存储目录
-│       ├── views/         # 页面组件
-│       ├── App.vue        # 根组件
-│       └── renderer.ts    # 渲染进程入口
-├── assets/                # 静态资源
-├── out/                   # 构建输出目录
-└── forge.config.ts        # Electron Forge 配置
-```
 
 ## 🎯 使用指南
 
