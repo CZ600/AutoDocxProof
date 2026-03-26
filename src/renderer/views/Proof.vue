@@ -86,7 +86,7 @@
                             :id="`error-item-${index}`"
                             :class="`correction-item type-${(item.type || '').toLowerCase()}`" >
                             <template #title>
-                                <div class="correction-header">
+                                <div class="correction-header" @click="scrollPreviewToCorrection(index)">
                                     <span class="correction-type" :class="`type-${(item.type || '').toLowerCase()}`">
                                         {{ formatCorrectionType(item.type) }}
                                     </span>
@@ -106,14 +106,14 @@
                                     <strong>原因:</strong> {{ item.reason || '无数据' }}
                                 </div>
                                 <div class="actions">
-                                    <el-button type="primary" size="small" @click="applyCorrection(index)"
+                                    <el-button type="primary" size="small" @click.stop="applyCorrection(index)"
                                         :disabled="item.applied">
                                         {{ item.applied ? '已应用' : '应用修改' }}
                                     </el-button>
                                     <el-popover placement="bottom-start" width="500px" trigger="click"
                                         popper-class="reference-popover">
                                         <template #reference>
-                                            <el-button type="primary" size="small" style="margin-left: 8px;">
+                                            <el-button type="primary" size="small" style="margin-left: 8px;" @click.stop>
                                                 查看参考
                                             </el-button>
                                         </template>
@@ -263,6 +263,7 @@ let closeProgressTimer = null
 let proofreadProgressUnsubscribe = null
 let floatingProgressDragState = null
 let floatingProgressDragged = false
+let previewFocusTimer = null
 // const proofreadingResults = ref([]) // 存储校对结果
 const activeNames = ref([]) // 折叠面板展开项
 // 使用 useDark 获取全局暗黑模式状态
@@ -316,6 +317,10 @@ const formatCorrectionType = (type) => {
         'polish': '润色建议'
     }
     return typeMap[type] || type
+}
+
+const normalizeCorrectionType = (type) => {
+    return (type || '').toString().trim().toLowerCase()
 }
 
 // 监听表单变化，自动保存到 store
@@ -753,6 +758,53 @@ const scrollToCorrectionItem = (index) => {
     });
 };
 
+const findHighlightElement = (correctionId) => {
+    const container = previewContainer.value;
+    if (!container || !correctionId) return null;
+
+    return container.querySelector(`.highlight-correction[data-correction-id="${correctionId}"]`);
+};
+
+const focusPreviewHighlight = (highlightEl) => {
+    if (!highlightEl) return;
+
+    if (previewFocusTimer) {
+        clearTimeout(previewFocusTimer);
+        previewFocusTimer = null;
+    }
+
+    highlightEl.classList.remove('highlight-correction-focused');
+    void highlightEl.offsetWidth;
+    highlightEl.classList.add('highlight-correction-focused');
+    previewFocusTimer = setTimeout(() => {
+        highlightEl.classList.remove('highlight-correction-focused');
+        previewFocusTimer = null;
+    }, 2800);
+};
+
+const scrollPreviewToCorrection = (index) => {
+    const container = previewContainer.value;
+    const correction = proofreadingResults.value[index];
+    if (!container || !correction) return false;
+
+    const correctionId = correction.id || `correction-${index}`;
+    const highlightEl = findHighlightElement(correctionId);
+    if (!highlightEl) return false;
+
+    const containerRect = container.getBoundingClientRect();
+    const highlightRect = highlightEl.getBoundingClientRect();
+    const offsetTop = highlightRect.top - containerRect.top + container.scrollTop;
+    const targetScrollTop = Math.max(offsetTop - container.clientHeight * 0.35, 0);
+
+    container.scrollTo({
+        top: targetScrollTop,
+        behavior: 'smooth'
+    });
+
+    focusPreviewHighlight(highlightEl);
+    return true;
+};
+
 const wrapPreviewRange = (container, match) => {
     const { segments, start, end, item, index } = match;
     const startPos = getDomPositionFromIndex(segments, start, false);
@@ -765,7 +817,8 @@ const wrapPreviewRange = (container, match) => {
     range.setEnd(endPos.node, endPos.offset);
 
     const highlightEl = document.createElement('span');
-    highlightEl.className = 'highlight-correction';
+    const correctionTypeClass = `highlight-type-${normalizeCorrectionType(item.type)}`;
+    highlightEl.className = `highlight-correction ${correctionTypeClass}`;
     highlightEl.dataset.correctionId = item.id || `correction-${index}`;
     highlightEl.addEventListener('click', () => scrollToCorrectionItem(index));
 
@@ -1271,6 +1324,10 @@ onMounted(async () => {
 onUnmounted(() => {
     clearFakeProgressTimer()
     clearCloseProgressTimer()
+    if (previewFocusTimer) {
+        clearTimeout(previewFocusTimer)
+        previewFocusTimer = null
+    }
     stopFloatingProgressDrag()
     if (proofreadProgressUnsubscribe) {
         proofreadProgressUnsubscribe()
@@ -1480,19 +1537,92 @@ html.dark .preview-container hr {
 
 /* 全局高亮样式 - 必须放在非scoped样式中 */
 .highlight-correction {
-    background-color: rgba(255, 214, 102, 0.5) !important;
-    border-bottom: 2px solid #ffb300 !important;
+    --highlight-bg: rgba(255, 214, 102, 0.5);
+    --highlight-bg-hover: rgba(255, 214, 102, 0.7);
+    --highlight-bg-focus: rgba(255, 214, 102, 0.92);
+    --highlight-border: #ffb300;
+    --highlight-ring: rgba(255, 179, 0, 0.28);
+    background-color: var(--highlight-bg) !important;
+    border-bottom: 2px solid var(--highlight-border) !important;
     cursor: pointer !important;
     padding: 1px 3px !important;
     border-radius: 3px !important;
     transition: all 0.2s ease !important;
-    box-shadow: 0 1px 3px rgba(255, 179, 0, 0.2) !important;
+    box-shadow: 0 1px 3px color-mix(in srgb, var(--highlight-border) 28%, transparent) !important;
 }
 
 .highlight-correction:hover {
-    box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.25) !important;
-    background-color: rgba(255, 214, 102, 0.7) !important;
+    box-shadow: 0 0 0 3px var(--highlight-ring) !important;
+    background-color: var(--highlight-bg-hover) !important;
     transform: translateY(-1px) !important;
+}
+
+.highlight-correction-focused {
+    background-color: var(--highlight-bg-focus) !important;
+    animation: correction-highlight-pulse 0.8s ease-in-out 3 !important;
+}
+
+.highlight-type-typo,
+.highlight-type-worderror,
+.highlight-type-错别字 {
+    --highlight-bg: rgba(245, 108, 108, 0.24);
+    --highlight-bg-hover: rgba(245, 108, 108, 0.34);
+    --highlight-bg-focus: rgba(245, 108, 108, 0.48);
+    --highlight-border: #e36262;
+    --highlight-ring: rgba(245, 108, 108, 0.32);
+}
+
+.highlight-type-punctuation,
+.highlight-type-标点 {
+    --highlight-bg: rgba(230, 162, 60, 0.24);
+    --highlight-bg-hover: rgba(230, 162, 60, 0.34);
+    --highlight-bg-focus: rgba(230, 162, 60, 0.48);
+    --highlight-border: #d89020;
+    --highlight-ring: rgba(230, 162, 60, 0.3);
+}
+
+.highlight-type-grammar,
+.highlight-type-语法 {
+    --highlight-bg: rgba(64, 158, 255, 0.24);
+    --highlight-bg-hover: rgba(64, 158, 255, 0.34);
+    --highlight-bg-focus: rgba(64, 158, 255, 0.48);
+    --highlight-border: #3a8ee6;
+    --highlight-ring: rgba(64, 158, 255, 0.32);
+}
+
+.highlight-type-consistency,
+.highlight-type-一致性 {
+    --highlight-bg: rgba(144, 147, 152, 0.24);
+    --highlight-bg-hover: rgba(144, 147, 152, 0.34);
+    --highlight-bg-focus: rgba(144, 147, 152, 0.48);
+    --highlight-border: #828282;
+    --highlight-ring: rgba(144, 147, 152, 0.3);
+}
+
+.highlight-type-comprehensiveerror,
+.highlight-type-polish,
+.highlight-type-综合错误,
+.highlight-type-润色建议 {
+    --highlight-bg: rgba(103, 194, 58, 0.24);
+    --highlight-bg-hover: rgba(103, 194, 58, 0.34);
+    --highlight-bg-focus: rgba(103, 194, 58, 0.48);
+    --highlight-border: #5baa3a;
+    --highlight-ring: rgba(103, 194, 58, 0.3);
+}
+
+@keyframes correction-highlight-pulse {
+    0% {
+        box-shadow: 0 0 0 0 var(--highlight-ring), 0 1px 3px color-mix(in srgb, var(--highlight-border) 28%, transparent);
+        transform: translateY(0);
+    }
+    50% {
+        box-shadow: 0 0 0 7px color-mix(in srgb, var(--highlight-border) 16%, transparent), 0 0 18px color-mix(in srgb, var(--highlight-border) 34%, transparent);
+        transform: translateY(-1px);
+    }
+    100% {
+        box-shadow: 0 0 0 0 var(--highlight-ring), 0 1px 3px color-mix(in srgb, var(--highlight-border) 28%, transparent);
+        transform: translateY(0);
+    }
 }
 
 .proof-progress-dialog .el-dialog {
