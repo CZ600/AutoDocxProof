@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readDocxFile: (filePath: string) => ipcRenderer.invoke('read-docx-file', filePath),
   APISettings: (url: string, key: string, modelName: string) =>
     ipcRenderer.invoke('set-api', url, key, modelName),
+  updateAPISetting: (id: number, url: string, key: string, modelName: string) =>
+    ipcRenderer.invoke('update-api', id, url, key, modelName),
   getALLAPISettings: () => ipcRenderer.invoke('get-all-api-settings', {}),
   deleteOneAPI: (id: number) => ipcRenderer.invoke('delete-one-api-setting', id),
   testAPI: (url: string, key: string, modelName: string) => ipcRenderer.invoke('test-api', url, key, modelName),

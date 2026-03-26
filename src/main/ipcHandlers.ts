@@ -124,6 +124,16 @@ export const registerIpcHandlers = () => {
     }
   })
   // 获取所有api设置
+  ipcMain.handle('update-api', async (event, id, URL, Key, modelName) => {
+    try {
+      console.log('update api setting:', id, URL, Key, modelName)
+      return await DB.updateAPISettingById(id, URL, Key, modelName)
+    } catch (error) {
+      console.error('update api setting failed:', error)
+      return false
+    }
+  })
+
   ipcMain.handle('get-all-api-settings', async event => {
     return await DB.getAllAPISettings()
   })

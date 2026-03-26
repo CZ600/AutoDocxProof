@@ -114,6 +114,23 @@ export class DB {
     }
   }
 
+  static async updateAPISettingById(id: number, apiURL: string, apiKey: string, modelName: string): Promise<boolean> {
+    const db = await DB.getInstance()
+    try {
+      const result = await db.run(
+        `UPDATE api_settings SET apiURL = ?, apiKey = ?, modelName = ? WHERE id = ?`,
+        apiURL,
+        apiKey,
+        modelName,
+        id
+      )
+      return result.changes > 0
+    } catch (error) {
+      console.error('更新 API 设置失败:', error)
+      throw error
+    }
+  }
+
   static async insertOneHistory(filePath: string, apiURL: string, modelName: string, result: string): Promise<number> {
     const db = await DB.getInstance()
     if (!filePath || !apiURL || !modelName || !result) {

@@ -1,312 +1,362 @@
-// composables/useApiSettings.ts
-import { ref, computed, watch } from 'vue'
-import { useApiStore } from '../stores/apiStore'
+import axios from 'axios'
+import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useApiStore } from '../stores/apiStore'
 
 interface ApiSettingItem {
-    id: number
-    apiURL: string
-    apiKey: string
-    modelName: string
+  id: number
+  apiURL: string
+  apiKey: string
+  modelName: string
 }
 
-// 后端返回的 API 设置项结构
 interface BackendApiItem {
-    id: number
-    apiURL: string
-    apiKey: string
-    modelName: string
-    created_at: string
+  id: number
+  apiURL: string
+  apiKey: string
+  modelName: string
+  created_at: string
 }
 
-/**
- * API 设置管理
- * 封装 API 选择、测试、添加、删除等操作
- */
+export interface ApiFormData {
+  id?: number
+  URL: string
+  key: string
+  name: string
+}
+
+interface ApiConnectionPayload {
+  url: string
+  key: string
+  modelName: string
+}
+
+const buildChatCompletionUrl = (url: string) => {
+  const normalized = url.trim().replace(/\/+$/, '')
+  if (normalized.endsWith('/chat/completions')) {
+    return normalized
+  }
+  return `${normalized}/chat/completions`
+}
+
+const normalizeApiPayload = (data: ApiFormData) => ({
+  id: data.id,
+  URL: data.URL.trim(),
+  key: data.key.trim(),
+  name: data.name.trim()
+})
+
+const maskApiKey = (key: string) => {
+  const trimmed = key.trim()
+  if (!trimmed) return ''
+  if (trimmed.length <= 8) {
+    return `${trimmed.slice(0, 2)}***${trimmed.slice(-2)}`
+  }
+  return `${trimmed.slice(0, 4)}***${trimmed.slice(-4)}`
+}
+
 export function useApiSettings() {
-    const electronAPI = window.electronAPI
-    const apiStore = useApiStore()  // 导入pinia存储对象
+  const electronAPI = window.electronAPI
+  const apiStore = useApiStore()
 
-    // 当前选中的 API 设置 - 直接使用 store 中的值，确保数据同步
-    const selectedApi = computed({
-        get: () => apiStore.selectedApi,
-        set: (value) => {
-            apiStore.setSelectedApi(value)
-        }
+  const selectedApi = computed({
+    get: () => apiStore.selectedApi,
+    set: value => {
+      apiStore.setSelectedApi(value)
+    }
+  })
+
+  const apiSettings = apiStore.apiSettings
+
+  const parallelValue = computed({
+    get: () => apiStore.selectedApi.parallel || 30,
+    set: (value: number) => {
+      apiStore.setParallel(value)
+    }
+  })
+
+  const openTimeLimit = computed({
+    get: () => apiStore.selectedApi.TimeLimit != null,
+    set: () => undefined
+  })
+
+  const timeLimit = computed({
+    get: () => apiStore.selectedApi.TimeLimit,
+    set: (value: number | null) => {
+      if (value !== null) {
+        apiStore.setTimeLimit(value)
+      }
+    }
+  })
+
+  const showAlertSuccess = ref(false)
+  const showAlertError = ref(false)
+  const alertTitle = ref('')
+
+  const fetchAllApiSettings = async () => {
+    try {
+      const res: BackendApiItem[] = await electronAPI.getALLAPISettings()
+      const transformed: ApiSettingItem[] = res.map(item => ({
+        id: item.id,
+        apiURL: item.apiURL,
+        apiKey: item.apiKey,
+        modelName: item.modelName
+      }))
+      apiStore.setApiSettings(transformed)
+    } catch (error) {
+      console.error('获取 API 设置失败:', error)
+    }
+  }
+
+  const selectApi = async (id: number | null) => {
+    if (id === null) {
+      apiStore.clearSelectedApi()
+      return
+    }
+
+    const selectedItem = apiStore.apiSettings.find((item: ApiSettingItem) => item.id === id)
+    if (!selectedItem) {
+      console.warn(`找不到 ID 为 ${id} 的 API 设置，已清空选择`)
+      apiStore.clearSelectedApi()
+      return
+    }
+
+    const currentSettings = apiStore.selectedApi
+    apiStore.setSelectedApi({
+      id,
+      URL: selectedItem.apiURL || '',
+      key: selectedItem.apiKey || '',
+      name: selectedItem.modelName || '',
+      time: currentSettings.time,
+      parallel: currentSettings.parallel || 30,
+      TimeLimit: currentSettings.TimeLimit
     })
 
-    // API 设置列表 - 直接返回 store 中的响应式数组，确保所有组件共享同一数据源
-    const apiSettings = apiStore.apiSettings
+    await syncApiSettingsToBackend()
+  }
 
-    // 并发数设置 - 直接使用 store 中的值
-    // 计算属性，获取store的值，并保持更新
-    const parallelValue = computed({  
-        get: () => apiStore.selectedApi.parallel || 30,
-        set: (value: number) => {
-            apiStore.setParallel(value)
-        }
-    })
+  const saveApi = async (data: ApiFormData) => {
+    const payload = normalizeApiPayload(data)
+    const isEdit = typeof payload.id === 'number'
 
-    // 频率限制设置 - 直接使用 store 中的值
-    const openTimeLimit = computed({
-        get: () => apiStore.selectedApi.TimeLimit !== null,
-        set: (value: boolean) => {
-            // 不直接设置，通过 toggleTimeLimit 方法
-        }
-    })
+    try {
+      const result = isEdit
+        ? await electronAPI.updateAPISetting(payload.id as number, payload.URL, payload.key, payload.name)
+        : await electronAPI.APISettings(payload.URL, payload.key, payload.name)
 
-    const timeLimit = computed({
-        get: () => apiStore.selectedApi.TimeLimit,
-        set: (value: number | null) => {
-            if (value !== null) {
-                apiStore.setTimeLimit(value)
-            }
-        }
-    })
+      const success = isEdit ? result === true : result === 'success'
 
-    // Alert 状态
-    const showAlertSuccess = ref(false)
-    const showAlertError = ref(false)
-    const alertTitle = ref('')
+      if (!success) {
+        ElMessage.error(isEdit ? 'API 配置更新失败' : 'API 配置保存失败')
+        return false
+      }
 
-    /**
-     * 获取所有 API 设置
-     */
-    const fetchAllApiSettings = async () => {
-        try {
-            const res: BackendApiItem[] = await electronAPI.getALLAPISettings()
-            console.log('从数据库获取的 API 设置原始数据:', res)
-            // 将后端数据转换为 store 需要的格式
-            const transformed: ApiSettingItem[] = res.map(item => ({
-                id: item.id,
-                apiURL: item.apiURL,
-                apiKey: item.apiKey,
-                modelName: item.modelName
-            }))
-            console.log('转换后的 API 设置:', transformed)
-            apiStore.setApiSettings(transformed)
-        } catch (error) {
-            console.error('获取 API 设置失败:', error)
-        }
-    }
+      await fetchAllApiSettings()
 
-    /**
-     * 选择 API
-     */
-    const selectApi = async (id: number | null) => {
-        if (id === null) {
-            // 清空选择
-            apiStore.clearSelectedApi()
-            return
-        }
-
-        // 查找对应的 API 设置
-        const selectedItem = apiStore.apiSettings.find((item: ApiSettingItem) => item.id === id)
-        if (selectedItem) {
-            // 保持当前的并发和频率限制设置
-            const currentSettings = apiStore.selectedApi
-
-            // 更新 API 信息，但保留并发和频率限制设置
-            apiStore.setSelectedApi({
-                id: id,
-                URL: selectedItem.apiURL || '',
-                key: selectedItem.apiKey || '',
-                name: selectedItem.modelName || '',
-                time: currentSettings.time,
-                parallel: currentSettings.parallel || 30,
-                TimeLimit: currentSettings.TimeLimit
-            })
-
-            // 同步到后端
-            await syncApiSettingsToBackend()
-        } else {
-            // 如果找不到对应的 API，清空选择（避免保存不完整的数据）
-            console.warn(`找不到 ID 为 ${id} 的 API 设置，清空选择`)
-            apiStore.clearSelectedApi()
-        }
-    }
-
-    /**
-     * 添加新的 API 设置
-     */
-    const addApi = async (data: { URL: string; key: string; name: string }) => {
-        try {
-            const res = await electronAPI.APISettings(data.URL, data.key, data.name)
-            if (res === 'success') {
-                await fetchAllApiSettings()
-                ElMessage.success('API设置成功')
-                return true
-            } else {
-                ElMessage.error('API设置失败')
-                return false
-            }
-        } catch (error) {
-            console.error('添加 API 失败:', error)
-            ElMessage.error('API设置失败')
-            return false
-        }
-    }
-
-    /**
-     * 删除 API 设置
-     */
-    const deleteApi = async (id: number) => {
-        try {
-            const res = await electronAPI.deleteOneAPI(id)
-            if (res) {
-                showAlertSuccess.value = true
-                alertTitle.value = '删除成功'
-                await fetchAllApiSettings()
-                return true
-            } else {
-                showAlertError.value = true
-                alertTitle.value = '删除失败'
-                return false
-            }
-        } catch (error) {
-            console.error('删除 API 失败:', error)
-            ElMessage.error('删除失败')
-            return false
-        }
-    }
-
-    /**
-     * 查找 API 设置
-     */
-    const findApiSetting = (id: number) => {
-        return apiStore.apiSettings.find(item => item.id === id)
-    }
-
-    /**
-     * 测试 API 连接
-     */
-    const testApi = async () => {
-        const currentSettings = apiStore.selectedApi
-        const url = currentSettings.URL
-        const key = currentSettings.key
-        const modelName = currentSettings.name
-
-        if (!url || !key || !modelName) {
-            ElMessage.warning('请先选择或添加一个 API 设置')
-            return false
-        }
-
-        try {
-            const res = await electronAPI.testAPI(url, key, modelName)
-            if (res) {
-                ElMessage.success('测试成功')
-                return true
-            } else {
-                ElMessage.error('测试失败')
-                return false
-            }
-        } catch (error) {
-            console.error('测试 API 失败:', error)
-            ElMessage.error('测试失败')
-            return false
-        }
-    }
-
-    /**
-     * 更新并发数设置
-     */
-    const updateParallel = async (value: number) => {
-        parallelValue.value = value
+      if (isEdit && apiStore.selectedApi.id === payload.id) {
+        apiStore.setSelectedApi({
+          URL: payload.URL,
+          key: payload.key,
+          name: payload.name
+        })
         await syncApiSettingsToBackend()
+      }
+
+      ElMessage.success(isEdit ? 'API 配置已更新' : 'API 配置已保存')
+      return true
+    } catch (error) {
+      console.error(isEdit ? '更新 API 失败:' : '保存 API 失败:', error)
+      ElMessage.error(isEdit ? 'API 配置更新失败' : 'API 配置保存失败')
+      return false
+    }
+  }
+
+  const addApi = async (data: ApiFormData) => saveApi(data)
+
+  const updateApi = async (data: ApiFormData) => {
+    if (typeof data.id !== 'number') {
+      ElMessage.error('缺少 API 记录 ID，无法更新')
+      return false
+    }
+    return saveApi(data)
+  }
+
+  const deleteApi = async (id: number) => {
+    try {
+      const res = await electronAPI.deleteOneAPI(id)
+      if (!res.isSuccess) {
+        showAlertError.value = true
+        alertTitle.value = '删除失败'
+        ElMessage.error('删除失败')
+        return false
+      }
+
+      showAlertSuccess.value = true
+      alertTitle.value = '删除成功'
+      await fetchAllApiSettings()
+
+      if (apiStore.selectedApi.id === id) {
+        const currentParallel = apiStore.selectedApi.parallel
+        apiStore.clearSelectedApi()
+        await electronAPI.selectAPISetting('', '', '', currentParallel, null)
+      }
+
+      return true
+    } catch (error) {
+      console.error('删除 API 失败:', error)
+      ElMessage.error('删除失败')
+      return false
+    }
+  }
+
+  const findApiSetting = (id: number) => {
+    return apiStore.apiSettings.find(item => item.id === id)
+  }
+
+  const testApiConnection = async ({ url, key, modelName }: ApiConnectionPayload) => {
+    const trimmedUrl = url.trim()
+    const trimmedKey = key.trim()
+    const trimmedModelName = modelName.trim()
+
+    if (!trimmedUrl || !trimmedKey || !trimmedModelName) {
+      ElMessage.warning('请先填写完整的 API 地址、密钥和模型名称')
+      return false
     }
 
-    /**
-     * 切换频率限制
-     */
-    const toggleTimeLimit = async () => {
-        const currentValue = apiStore.selectedApi.TimeLimit
-
-        if (currentValue === null) {
-            // 开启限制：设置默认值
-            const defaultValue = 10
-            timeLimit.value = defaultValue
-        } else {
-            // 关闭限制：设置为null
-            timeLimit.value = null
+    try {
+      const response = await axios.post(
+        buildChatCompletionUrl(trimmedUrl),
+        {
+          model: trimmedModelName,
+          messages: [{ role: 'user', content: '你好' }]
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${trimmedKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 15000
         }
+      )
 
-        await syncApiSettingsToBackend()
+      const message = response.data?.choices?.[0]?.message
+      if (response.status >= 200 && response.status < 300 && message) {
+        ElMessage.success('测试成功')
+        return true
+      }
+
+      ElMessage.error('测试失败：接口返回格式无效')
+      return false
+    } catch (error) {
+      const axiosError = error as {
+        response?: { data?: any }
+        message?: string
+      }
+      const detail =
+        axiosError.response?.data?.error?.message ||
+        axiosError.response?.data?.message ||
+        axiosError.message ||
+        '未知错误'
+      console.error('测试 API 失败:', error)
+      ElMessage.error(`测试失败：${detail}`)
+      return false
     }
+  }
 
-    /**
-     * 更新频率限制值
-     */
-    const updateTimeLimit = async (value: number | null) => {
-        timeLimit.value = value
-        await syncApiSettingsToBackend()
-    }
-
-    /**
-     * 同步 API 设置到后端
-     */
-    const syncApiSettingsToBackend = async () => {
-        const currentSettings = apiStore.selectedApi
-        if (currentSettings.id !== null) {
-            try {
-                await electronAPI.selectAPISetting(
-                    currentSettings.URL,
-                    currentSettings.key,
-                    currentSettings.name,
-                    currentSettings.parallel,
-                    currentSettings.TimeLimit
-                )
-                console.log('API设置已同步到后端')
-            } catch (error) {
-                console.error('同步 API 设置失败:', error)
-            }
-        }
-    }
-
-    /**
-     * 初始化 - 从 store 恢复数据
-     */
-    const initialize = async () => {
-        await fetchAllApiSettings()
-
-        // 如果 selectedApi 中有 id 但 URL 或 key 为空，从 apiSettings 列表中重新加载
-        if (apiStore.selectedApi.id && (!apiStore.selectedApi.URL || !apiStore.selectedApi.key)) {
-            console.log('检测到 selectedApi 数据不完整，从 apiSettings 列表中重新加载')
-            await selectApi(apiStore.selectedApi.id)
-        }
-    }
-
-    // 监听选中 API ID 变化
-    watch(() => apiStore.selectedApi.id, (newId) => {
-        if (newId !== null) {
-            // 确保 apiSettings 列表已加载，否则忽略此次变化
-            if (apiStore.apiSettings.length > 0) {
-                selectApi(newId)
-            } else {
-                console.warn('apiSettings 列表为空，无法选择 API，忽略此次变化')
-            }
-        }
+  const testApi = async () => {
+    const currentSettings = apiStore.selectedApi
+    return testApiConnection({
+      url: currentSettings.URL,
+      key: currentSettings.key,
+      modelName: currentSettings.name
     })
+  }
 
-    return {
-        // 状态
-        selectedApi,
-        apiSettings,
-        parallelValue,
-        openTimeLimit,
-        timeLimit,
-        showAlertSuccess,
-        showAlertError,
-        alertTitle,
+  const updateParallel = async (value: number) => {
+    parallelValue.value = value
+    await syncApiSettingsToBackend()
+  }
 
-        // 方法
-        fetchAllApiSettings,
-        selectApi,
-        addApi,
-        deleteApi,
-        testApi,
-        updateParallel,
-        toggleTimeLimit,
-        updateTimeLimit,
-        initialize
+  const toggleTimeLimit = async () => {
+    const currentValue = apiStore.selectedApi.TimeLimit
+
+    if (currentValue == null) {
+      timeLimit.value = 10
+    } else {
+      timeLimit.value = null
     }
+
+    await syncApiSettingsToBackend()
+  }
+
+  const updateTimeLimit = async (value: number | null) => {
+    timeLimit.value = value
+    await syncApiSettingsToBackend()
+  }
+
+  const syncApiSettingsToBackend = async () => {
+    const currentSettings = apiStore.selectedApi
+    if (currentSettings.id === null) {
+      return
+    }
+
+    try {
+      await electronAPI.selectAPISetting(
+        currentSettings.URL,
+        currentSettings.key,
+        currentSettings.name,
+        currentSettings.parallel,
+        currentSettings.TimeLimit
+      )
+    } catch (error) {
+      console.error('同步 API 设置失败:', error)
+    }
+  }
+
+  const initialize = async () => {
+    await fetchAllApiSettings()
+
+    if (apiStore.selectedApi.id && (!apiStore.selectedApi.URL || !apiStore.selectedApi.key)) {
+      await selectApi(apiStore.selectedApi.id)
+    }
+  }
+
+  watch(
+    () => apiStore.selectedApi.id,
+    newId => {
+      if (newId === null) {
+        return
+      }
+
+      if (apiStore.apiSettings.length > 0) {
+        selectApi(newId)
+      } else {
+        console.warn('apiSettings 列表为空，忽略本次 API 选择')
+      }
+    }
+  )
+
+  return {
+    selectedApi,
+    apiSettings,
+    parallelValue,
+    openTimeLimit,
+    timeLimit,
+    showAlertSuccess,
+    showAlertError,
+    alertTitle,
+    maskApiKey,
+    fetchAllApiSettings,
+    selectApi,
+    addApi,
+    updateApi,
+    deleteApi,
+    testApi,
+    testApiConnection,
+    updateParallel,
+    toggleTimeLimit,
+    updateTimeLimit,
+    findApiSetting,
+    initialize
+  }
 }

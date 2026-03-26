@@ -1,102 +1,162 @@
 <template>
-    <el-dialog
-        :model-value="visible"
-        @update:model-value="handleClose"
-        title="添加新API"
-        width="500px"
-        class="api-dialog"
-    >
+    <el-dialog :model-value="visible" @update:model-value="handleDialogVisibilityChange" :title="dialogTitle"
+        width="500px" class="api-dialog">
         <template #header>
             <div class="dialog-header">
                 <el-icon>
-                    <Plus />
+                    <component :is="headerIcon" />
                 </el-icon>
-                <span>添加新API</span>
+                <span>{{ dialogTitle }}</span>
             </div>
         </template>
         <el-form :model="formData" label-position="top" class="dialog-form">
-            <el-form-item label="API URL:" class="form-item">
-                <el-input
-                    v-model="formData.URL"
-                    placeholder="请输入API地址"
-                    :prefix-icon="Link"
-                />
+            <el-form-item label="API URL" class="form-item">
+                <div class="input-tip">
+                    <el-icon class="tip-icon">
+                        <InfoFilled />
+                    </el-icon>
+                    <span>格式示例：https://api.openai.com/v1 </span>
+                </div>
+                <el-input v-model="formData.URL" placeholder="请输入 API 地址" :prefix-icon="Link" />
+
             </el-form-item>
-            <el-form-item label="API KEY:" class="form-item">
-                <el-input
-                    v-model="formData.key"
-                    type="password"
-                    show-password
-                    placeholder="请输入API密钥"
-                    :prefix-icon="Lock"
-                />
+            <el-form-item label="API KEY" class="form-item">
+                <el-input v-model="formData.key" type="password" show-password placeholder="请输入 API 密钥"
+                    :prefix-icon="Lock" />
             </el-form-item>
-            <el-form-item label="模型名称:" class="form-item">
-                <el-input
-                    v-model="formData.name"
-                    placeholder="请输入模型名称"
-                    :prefix-icon="Cpu"
-                />
+            <el-form-item label="模型名称" class="form-item">
+                <el-input v-model="formData.name" placeholder="请输入模型名称" :prefix-icon="Cpu" />
             </el-form-item>
         </el-form>
         <template #footer>
             <span class="dialog-footer">
                 <el-button @click="handleReset">重置</el-button>
                 <el-button @click="handleClose">取消</el-button>
-                <el-button type="primary" @click="handleSubmit">保存</el-button>
+                <el-button :loading="testing" @click="handleTest">测试连通性</el-button>
+                <el-button type="primary" :loading="submitting" @click="handleSubmit">
+                    {{ mode === 'edit' ? '保存修改' : '保存' }}
+                </el-button>
             </span>
         </template>
     </el-dialog>
 </template>
 
 <script setup lang='ts'>
-import { Plus, Link, Lock, Cpu } from '@element-plus/icons-vue'
-import { reactive } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
+import { Plus, Edit, Link, Lock, Cpu, InfoFilled } from '@element-plus/icons-vue'
+import { useApiSettings, type ApiFormData } from '../../composables/useApiSettings'
 
-interface FormData {
-    URL: string
-    key: string
-    name: string
-}
-
-defineProps<{
-    visible: boolean
-}>()
+const props = withDefaults(
+    defineProps<{
+        visible: boolean
+        mode?: 'create' | 'edit'
+        initialData?: ApiFormData | null
+    }>(),
+    {
+        mode: 'create',
+        initialData: null
+    }
+)
 
 const emit = defineEmits<{
     'update:visible': [value: boolean]
-    'submit': [data: FormData]
-    'reset': []
+    'submit': [data: ApiFormData]
 }>()
 
-const formData = reactive({
+const { testApiConnection } = useApiSettings()
+
+const formData = reactive<ApiFormData>({
+    id: undefined,
     URL: '',
     key: '',
     name: ''
 })
 
-const handleClose = (value: boolean) => {
+const testing = ref(false)
+const submitting = ref(false)
+
+const dialogTitle = computed(() => props.mode === 'edit' ? '编辑 API' : '添加新 API')
+const headerIcon = computed(() => props.mode === 'edit' ? Edit : Plus)
+
+const resetForm = () => {
+    formData.id = undefined
+    formData.URL = ''
+    formData.key = ''
+    formData.name = ''
+}
+
+const syncFormData = () => {
+    if (!props.visible) {
+        return
+    }
+
+    if (props.mode === 'edit' && props.initialData) {
+        formData.id = props.initialData.id
+        formData.URL = props.initialData.URL || ''
+        formData.key = props.initialData.key || ''
+        formData.name = props.initialData.name || ''
+        return
+    }
+
+    resetForm()
+}
+
+watch(
+    () => [props.visible, props.mode, props.initialData] as const,
+    () => {
+        syncFormData()
+    },
+    { immediate: true, deep: true }
+)
+
+const handleDialogVisibilityChange = (value: boolean) => {
     if (!value) {
-        // 关闭时重置表单
-        formData.URL = ''
-        formData.key = ''
-        formData.name = ''
+        resetForm()
     }
     emit('update:visible', value)
 }
 
-const handleSubmit = () => {
-    emit('submit', { ...formData })
-    // 重置表单
-    formData.URL = ''
-    formData.key = ''
-    formData.name = ''
+const handleClose = () => {
+    handleDialogVisibilityChange(false)
+}
+
+const handleSubmit = async () => {
+    submitting.value = true
+    try {
+        emit('submit', {
+            id: formData.id,
+            URL: formData.URL,
+            key: formData.key,
+            name: formData.name
+        })
+    } finally {
+        submitting.value = false
+    }
 }
 
 const handleReset = () => {
-    formData.URL = ''
-    formData.key = ''
-    formData.name = ''
+    if (props.mode === 'edit' && props.initialData) {
+        formData.id = props.initialData.id
+        formData.URL = props.initialData.URL || ''
+        formData.key = props.initialData.key || ''
+        formData.name = props.initialData.name || ''
+        return
+    }
+
+    resetForm()
+}
+
+const handleTest = async () => {
+    testing.value = true
+    try {
+        await testApiConnection({
+            url: formData.URL,
+            key: formData.key,
+            modelName: formData.name
+        })
+    } finally {
+        testing.value = false
+    }
 }
 </script>
 
@@ -125,5 +185,6 @@ const handleReset = () => {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
+    flex-wrap: wrap;
 }
 </style>

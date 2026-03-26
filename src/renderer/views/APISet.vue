@@ -10,35 +10,28 @@
                         {{ alertTitle }}
                     </el-alert>
 
-                    <!-- API选择组件 -->
-                    <ApiSelector @add-api="dialogVisible = true" />
-
-                    <!-- 添加API对话框组件 -->
-                    <AddApiDialog
-                        v-model:visible="dialogVisible"
-                        @submit="handleAddApi"
+                    <ApiSelector
+                        @add-api="openCreateDialog"
+                        @edit-api="openEditDialog"
                     />
 
-                    <!-- Token统计组件  -->
+                    <AddApiDialog
+                        v-model:visible="dialogVisible"
+                        :mode="dialogMode"
+                        :initial-data="editingApi"
+                        @submit="handleSubmitApi"
+                    />
+
                     <TokenStatistics />
-
-                    <!-- 并发设置组件  -->
                     <ConcurrencySettings />
-
-                    <!-- 频率限制设置组件 -->
                     <RateLimitSettings />
-
-                    <!-- 代理设置组件  -->
                     <ProxySettings />
                 </div>
             </el-tab-pane>
 
             <el-tab-pane label="提示词设置" name="prompt">
                 <div class="tab-content">
-                    <!-- 当前提示词展示组件  -->
                     <PromptDisplay />
-
-                    <!-- 编辑提示词组件  -->
                     <PromptEditor />
                 </div>
             </el-tab-pane>
@@ -47,7 +40,7 @@
 </template>
 
 <script setup lang='ts'>
-import { ref, onMounted, computed } from 'vue'
+import { onMounted, ref } from 'vue'
 import ApiSelector from '../components/api/ApiSelector.vue'
 import AddApiDialog from '../components/api/AddApiDialog.vue'
 import TokenStatistics from '../components/api/TokenStatistics.vue'
@@ -56,33 +49,37 @@ import RateLimitSettings from '../components/api/RateLimitSettings.vue'
 import ProxySettings from '../components/api/ProxySettings.vue'
 import PromptDisplay from '../components/prompt/PromptDisplay.vue'
 import PromptEditor from '../components/prompt/PromptEditor.vue'
-import { useApiSettings } from '../composables/useApiSettings'
+import { useApiSettings, type ApiFormData } from '../composables/useApiSettings'
 import { usePrompt } from '../composables/usePrompt'
-import { useProxy } from '../composables/useProxy'
 
-// 当前激活的标签页
 const activeTab = ref('api')
-
-// 添加 API 对话框显示状态
 const dialogVisible = ref(false)
+const dialogMode = ref<'create' | 'edit'>('create')
+const editingApi = ref<ApiFormData | null>(null)
 
-// 使用 composables
-const { showAlertSuccess, showAlertError, alertTitle, addApi, initialize: initApiSettings } = useApiSettings()
+const { showAlertSuccess, showAlertError, alertTitle, addApi, updateApi, initialize: initApiSettings } = useApiSettings()
 const { initialize: initPrompt } = usePrompt()
 
-/**
- * 添加新 API
- */
-const handleAddApi = async (data: { URL: string; key: string; name: string }) => {
-    const success = await addApi(data)
+const openCreateDialog = () => {
+    dialogMode.value = 'create'
+    editingApi.value = null
+    dialogVisible.value = true
+}
+
+const openEditDialog = (api: ApiFormData) => {
+    dialogMode.value = 'edit'
+    editingApi.value = { ...api }
+    dialogVisible.value = true
+}
+
+const handleSubmitApi = async (data: ApiFormData) => {
+    const success = dialogMode.value === 'edit' ? await updateApi(data) : await addApi(data)
     if (success) {
         dialogVisible.value = false
+        editingApi.value = null
     }
 }
 
-/**
- * 初始化
- */
 onMounted(async () => {
     await initApiSettings()
     await initPrompt()
@@ -90,7 +87,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* 主容器 */
 .api-settings-container {
     padding: 20px;
     min-height: 100vh;
@@ -107,7 +103,6 @@ onMounted(async () => {
     background-color: var(--el-bg-color);
 }
 
-/* 动画效果 */
 .fade-slide {
     animation: fadeSlide 0.5s ease;
 }
@@ -124,7 +119,6 @@ onMounted(async () => {
     }
 }
 
-/* 响应式设计 */
 @media (max-width: 768px) {
     .api-settings-container {
         padding: 10px;
