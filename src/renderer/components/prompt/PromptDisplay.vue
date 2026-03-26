@@ -5,13 +5,17 @@
                 <el-icon>
                     <DataLine />
                 </el-icon>
-                <span>当前提示词</span>
+                <span>当前生效提示词</span>
             </div>
         </template>
         <div class="prompt-content-wrapper">
+            <div class="prompt-meta">
+                <span class="prompt-label">当前模式：</span>
+                <el-tag size="small" type="primary">{{ modeLabel }}</el-tag>
+            </div>
             <div class="prompt-label">当前使用的提示词：</div>
             <el-text class="prompt-content">
-                {{ defaultPrompt }}
+                {{ effectivePrompt }}
             </el-text>
         </div>
     </el-card>
@@ -20,15 +24,8 @@
 <script setup lang='ts'>
 import { DataLine } from '@element-plus/icons-vue'
 import { usePrompt } from '../../composables/usePrompt'
-import { onMounted } from 'vue'
 
-// 使用 composable
-const { defaultPrompt, initialize } = usePrompt()
-
-// 组件挂载时初始化提示词数据
-onMounted(async () => {
-    await initialize()
-})
+const { effectivePrompt, modeLabel } = usePrompt()
 </script>
 
 <style scoped>
@@ -43,6 +40,13 @@ onMounted(async () => {
 
 .prompt-content-wrapper {
     padding: 10px 0;
+}
+
+.prompt-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
 }
 
 .prompt-label {
@@ -61,7 +65,7 @@ onMounted(async () => {
     word-break: break-all;
     font-size: 13px;
     line-height: 1.8;
-    max-height: 200px;
+    max-height: 260px;
     overflow-y: auto;
     border: 1px solid var(--el-border-color);
 }

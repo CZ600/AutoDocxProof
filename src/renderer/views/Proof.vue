@@ -141,12 +141,66 @@
                 </div>
             </el-aside>
         </el-container>
+
+        <el-dialog
+            :model-value="progressDialogVisible && !progressMinimized"
+            width="460px"
+            class="proof-progress-dialog"
+            :show-close="false"
+            :close-on-click-modal="false"
+            :close-on-press-escape="false"
+            :modal="true"
+            :destroy-on-close="false"
+        >
+            <template #header>
+                <div class="progress-dialog-header">
+                    <div class="progress-dialog-title">文档校对中</div>
+                    <el-tooltip content="后台处理" placement="top">
+                        <button type="button" class="progress-minimize-button" @click="minimizeProgressDialog">
+                            ×
+                        </button>
+                    </el-tooltip>
+                </div>
+            </template>
+
+            <div class="progress-dialog-body">
+                <div class="progress-row">
+                    <div class="progress-percent">{{ progressPercent }}%</div>
+                    <el-progress
+                        class="proof-progress-bar"
+                        :percentage="progressPercent"
+                        :show-text="false"
+                        :stroke-width="14"
+                        :color="progressBarColor"
+                    />
+                </div>
+                <div class="progress-stage">{{ progressStageText }}</div>
+                <div v-if="progressDetail" class="progress-detail">{{ progressDetail }}</div>
+            </div>
+        </el-dialog>
+
+        <div
+            v-if="progressDialogVisible && progressMinimized"
+            class="floating-progress-widget"
+            :style="floatingProgressStyle"
+            @mousedown.stop="startFloatingProgressDrag"
+            @click="handleFloatingProgressClick"
+        >
+            <div class="floating-progress-percent">{{ progressPercent }}%</div>
+            <el-progress
+                class="floating-progress-bar"
+                :percentage="progressPercent"
+                :show-text="false"
+                :stroke-width="10"
+                :color="progressBarColor"
+            />
+        </div>
     </el-container>
 </template>
 
 
 <script setup>
-import { ref, onMounted, watch, nextTick, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
 import {
     ElContainer,
     ElHeader,
@@ -161,9 +215,12 @@ import {
     ElOption,
     ElCollapse,
     ElCollapseItem,
+    ElDialog,
     ElFormItem,
     ElMessage,
-    ElMessageBox
+    ElMessageBox,
+    ElProgress,
+    ElTooltip
 } from 'element-plus'
 import { renderAsync } from 'docx-preview'
 import { fileInfoStore } from "../stores/store"
@@ -182,6 +239,30 @@ const isLoading = ref(false)
 const error = ref('')
 const processing = ref(false)
 const exporting = ref(false) // 新增导出状态
+const progressDialogVisible = ref(false)
+const progressMinimized = ref(false)
+const progressPercent = ref(0)
+const progressStage = ref('splitting')
+const progressMode = ref('real')
+const progressDetail = ref('')
+const floatingProgressPosition = ref({
+    top: 72,
+    left: 18
+})
+const floatingProgressStyle = computed(() => ({
+    top: `${floatingProgressPosition.value.top}px`,
+    left: `${floatingProgressPosition.value.left}px`
+}))
+const progressBarColor = [
+    { color: '#d8ebff', percentage: 30 },
+    { color: '#b7dcff', percentage: 70 },
+    { color: '#8ec5ff', percentage: 100 }
+]
+let fakeProgressTimer = null
+let closeProgressTimer = null
+let proofreadProgressUnsubscribe = null
+let floatingProgressDragState = null
+let floatingProgressDragged = false
 // const proofreadingResults = ref([]) // 存储校对结果
 const activeNames = ref([]) // 折叠面板展开项
 // 使用 useDark 获取全局暗黑模式状态
@@ -204,6 +285,15 @@ const form = ref({
 const proofreadingResults = computed({
     get: () => fileStore.results,
     set: (val) => fileStore.setCorrectResult(val)
+})
+const progressStageText = computed(() => {
+    const stageMap = {
+        splitting: '正在整理信息',
+        theme: '正在分析文档',
+        proofreading: '正在校对',
+        completed: '校对完成'
+    }
+    return stageMap[progressStage.value] || '正在校对'
 })
 // rag 多选器 设置选项
 const props = {
@@ -372,6 +462,165 @@ const getALLHistory = async () => {
 }
 
 
+
+const clearFakeProgressTimer = () => {
+    if (fakeProgressTimer) {
+        clearInterval(fakeProgressTimer)
+        fakeProgressTimer = null
+    }
+}
+
+const clearCloseProgressTimer = () => {
+    if (closeProgressTimer) {
+        clearTimeout(closeProgressTimer)
+        closeProgressTimer = null
+    }
+}
+
+const resetProgressState = () => {
+    clearFakeProgressTimer()
+    clearCloseProgressTimer()
+    progressMinimized.value = false
+    progressPercent.value = 0
+    progressStage.value = 'splitting'
+    progressDetail.value = ''
+    progressMode.value = 'real'
+}
+
+const openProgressDialog = (mode) => {
+    resetProgressState()
+    progressDialogVisible.value = true
+    progressMode.value = mode === 'polish' ? 'fake' : 'real'
+}
+
+const closeProgressDialog = () => {
+    clearFakeProgressTimer()
+    clearCloseProgressTimer()
+    closeProgressTimer = setTimeout(() => {
+        progressDialogVisible.value = false
+        progressMinimized.value = false
+        progressDetail.value = ''
+        closeProgressTimer = null
+    }, 400)
+}
+
+const minimizeProgressDialog = () => {
+    progressMinimized.value = true
+}
+
+const restoreProgressDialog = () => {
+    progressMinimized.value = false
+}
+
+const clampFloatingProgressPosition = (top, left) => {
+    const widgetWidth = 220
+    const widgetHeight = 52
+    const maxLeft = Math.max(8, window.innerWidth - widgetWidth - 8)
+    const maxTop = Math.max(8, window.innerHeight - widgetHeight - 8)
+
+    return {
+        top: Math.min(Math.max(8, top), maxTop),
+        left: Math.min(Math.max(8, left), maxLeft)
+    }
+}
+
+const handleFloatingProgressDrag = (event) => {
+    if (!floatingProgressDragState) return
+
+    const nextPosition = clampFloatingProgressPosition(
+        event.clientY - floatingProgressDragState.offsetY,
+        event.clientX - floatingProgressDragState.offsetX
+    )
+
+    if (
+        Math.abs(event.clientX - floatingProgressDragState.startX) > 4 ||
+        Math.abs(event.clientY - floatingProgressDragState.startY) > 4
+    ) {
+        floatingProgressDragged = true
+    }
+
+    floatingProgressPosition.value = nextPosition
+}
+
+const stopFloatingProgressDrag = () => {
+    floatingProgressDragState = null
+    window.removeEventListener('mousemove', handleFloatingProgressDrag)
+    window.removeEventListener('mouseup', stopFloatingProgressDrag)
+}
+
+const startFloatingProgressDrag = (event) => {
+    floatingProgressDragged = false
+    floatingProgressDragState = {
+        startX: event.clientX,
+        startY: event.clientY,
+        offsetX: event.clientX - floatingProgressPosition.value.left,
+        offsetY: event.clientY - floatingProgressPosition.value.top
+    }
+    window.addEventListener('mousemove', handleFloatingProgressDrag)
+    window.addEventListener('mouseup', stopFloatingProgressDrag)
+}
+
+const handleFloatingProgressClick = () => {
+    if (floatingProgressDragged) {
+        floatingProgressDragged = false
+        return
+    }
+    restoreProgressDialog()
+}
+
+const startFakeProgress = () => {
+    clearFakeProgressTimer()
+    const startTime = Date.now()
+    const duration = 120000
+
+    fakeProgressTimer = setInterval(() => {
+        const elapsed = Date.now() - startTime
+        const ratio = Math.min(elapsed / duration, 1)
+        const easedRatio = 1 - Math.pow(1 - ratio, 3)
+        const nextPercent = Math.min(99, Math.floor(easedRatio * 99))
+        progressPercent.value = Math.max(progressPercent.value, nextPercent)
+
+        if (ratio >= 1) {
+            progressPercent.value = 99
+            clearFakeProgressTimer()
+        }
+    }, 120)
+}
+
+const finishProgress = () => {
+    clearFakeProgressTimer()
+    progressStage.value = 'completed'
+    progressDetail.value = ''
+    progressPercent.value = 100
+    closeProgressDialog()
+}
+
+const handleProofreadProgress = (payload) => {
+    if (!progressDialogVisible.value || !processing.value) return
+
+    if (payload.stage) {
+        progressStage.value = payload.stage
+    }
+
+    if (payload.stage === 'proofreading') {
+        if (typeof payload.total === 'number' && payload.total > 0) {
+            const completed = typeof payload.completed === 'number' ? payload.completed : 0
+            progressDetail.value = `${completed} / ${payload.total}`
+        } else {
+            progressDetail.value = ''
+        }
+    } else {
+        progressDetail.value = ''
+    }
+
+    if (progressMode.value === 'real' && typeof payload.percent === 'number') {
+        if (payload.stage === 'completed') {
+            progressPercent.value = 100
+        } else {
+            progressPercent.value = Math.min(99, Math.max(progressPercent.value, Math.floor(payload.percent)))
+        }
+    }
+}
 
 const createWhitespaceInsensitiveMatcher = (searchText, flags = 'g') => {
     const escapedText = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -625,6 +874,11 @@ const onSubmit = async () => {
         processing.value = true;
         error.value = '';
         proofreadingResults.value = [];
+        openProgressDialog(form.value.model)
+        progressStage.value = 'splitting'
+        if (form.value.model === 'polish') {
+            startFakeProgress()
+        }
 
         // 在开始校对前，先同步 API 设置到主进程
         let apiURL, apiKey, modelName, parallel, timeLimit
@@ -668,6 +922,11 @@ const onSubmit = async () => {
                 type: 'error',
                 duration: 3000
             });
+            clearFakeProgressTimer()
+            clearCloseProgressTimer()
+            progressDialogVisible.value = false
+            progressMinimized.value = false
+            progressDetail.value = ''
             processing.value = false;
             return;
         }
@@ -712,6 +971,11 @@ const onSubmit = async () => {
                         type: 'error',
                         duration: 1500
                     });
+                    clearFakeProgressTimer()
+                    clearCloseProgressTimer()
+                    progressDialogVisible.value = false
+                    progressMinimized.value = false
+                    progressDetail.value = ''
                     return;
                 }
             }
@@ -742,6 +1006,11 @@ const onSubmit = async () => {
                         type: 'error',
                         duration: 1500
                     });
+                    clearFakeProgressTimer()
+                    clearCloseProgressTimer()
+                    progressDialogVisible.value = false
+                    progressMinimized.value = false
+                    progressDetail.value = ''
                     return;
                 }
             }
@@ -760,6 +1029,7 @@ const onSubmit = async () => {
         )
         
         // 确保结果是数组格式
+        finishProgress()
         const finalResults = Array.isArray(results) ? results : [];
 
         // 调试：打印第一个结果的结构
@@ -789,6 +1059,11 @@ const onSubmit = async () => {
             activeNames.value = [0];
         }
     } catch (err) {
+        clearFakeProgressTimer()
+        clearCloseProgressTimer()
+        progressDialogVisible.value = false
+        progressMinimized.value = false
+        progressDetail.value = ''
         error.value = `校对处理失败: ${err.message}`
         console.error('校对处理异常:', err)
         ElMessage({
@@ -797,6 +1072,7 @@ const onSubmit = async () => {
             duration: 3000
         });
     } finally {
+        clearFakeProgressTimer()
         processing.value = false;
     }
 }
@@ -945,11 +1221,19 @@ const initCorrectStatus = async () => {
 }
 
 // 组件挂载后检查 Electron API 是否可用
+const initProofreadProgressListener = () => {
+    if (proofreadProgressUnsubscribe) {
+        proofreadProgressUnsubscribe()
+    }
+    proofreadProgressUnsubscribe = electronAPI.onProofreadProgress(handleProofreadProgress)
+}
+
 onMounted(async () => {
     if (!window.electronAPI) {
         error.value = 'Electron 环境未正确加载...'
         return
     }
+    initProofreadProgressListener()
     initRepository()
 
     // 如果 store 中有文件路径，尝试重新加载预览
@@ -981,6 +1265,16 @@ onMounted(async () => {
         } finally {
             isLoading.value = false
         }
+    }
+})
+
+onUnmounted(() => {
+    clearFakeProgressTimer()
+    clearCloseProgressTimer()
+    stopFloatingProgressDrag()
+    if (proofreadProgressUnsubscribe) {
+        proofreadProgressUnsubscribe()
+        proofreadProgressUnsubscribe = null
     }
 })
 </script>
@@ -1055,6 +1349,47 @@ html.dark .reference-text {
 }
 
 html.dark .reference-content h4 {
+    color: #f2f3f5;
+}
+
+html.dark .proof-progress-dialog .el-dialog {
+    background: #1d1e1f;
+    border: 1px solid #2c2e30;
+}
+
+html.dark .proof-progress-dialog .el-dialog__header {
+    border-bottom-color: #2c2e30;
+}
+
+html.dark .progress-dialog-title,
+html.dark .progress-percent {
+    color: #f2f3f5;
+}
+
+html.dark .progress-stage {
+    color: #d7e9ff;
+}
+
+html.dark .progress-detail {
+    color: #a7afbb;
+}
+
+html.dark .progress-minimize-button {
+    color: #d7e9ff;
+    background: rgba(142, 197, 255, 0.08);
+}
+
+html.dark .progress-minimize-button:hover {
+    background: rgba(142, 197, 255, 0.16);
+}
+
+html.dark .floating-progress-widget {
+    background: rgba(29, 30, 31, 0.96);
+    border-color: #2c2e30;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+}
+
+html.dark .floating-progress-percent {
     color: #f2f3f5;
 }
 
@@ -1159,6 +1494,121 @@ html.dark .preview-container hr {
     background-color: rgba(255, 214, 102, 0.7) !important;
     transform: translateY(-1px) !important;
 }
+
+.proof-progress-dialog .el-dialog {
+    border-radius: 18px;
+    overflow: hidden;
+}
+
+.proof-progress-dialog .el-dialog__header {
+    margin: 0;
+    padding: 20px 24px 0;
+    border-bottom: 1px solid rgba(142, 197, 255, 0.18);
+}
+
+.proof-progress-dialog .el-dialog__body {
+    padding: 22px 24px 24px;
+}
+
+.progress-dialog-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #303133;
+}
+
+.progress-dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.progress-minimize-button {
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(142, 197, 255, 0.12);
+    color: #3a8ee6;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.progress-minimize-button:hover {
+    background: rgba(142, 197, 255, 0.22);
+    transform: translateY(-1px);
+}
+
+.progress-dialog-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.progress-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.progress-percent {
+    width: 52px;
+    flex-shrink: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: #2f5f8f;
+    text-align: left;
+}
+
+.proof-progress-bar {
+    flex: 1;
+}
+
+.progress-stage {
+    color: #3a8ee6;
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.progress-detail {
+    color: #909399;
+    font-size: 13px;
+}
+
+.floating-progress-widget {
+    position: absolute;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 220px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(142, 197, 255, 0.28);
+    box-shadow: 0 10px 28px rgba(58, 142, 230, 0.12);
+    cursor: grab;
+    user-select: none;
+    backdrop-filter: blur(10px);
+}
+
+.floating-progress-widget:active {
+    cursor: grabbing;
+}
+
+.floating-progress-percent {
+    width: 42px;
+    flex-shrink: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #2f5f8f;
+}
+
+.floating-progress-bar {
+    flex: 1;
+}
 </style>
 
 <style scoped>
@@ -1250,6 +1700,7 @@ html.dark .preview-container hr {
 <style scoped>
 .app-container {
     height: 100vh;
+    position: relative;
     font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 

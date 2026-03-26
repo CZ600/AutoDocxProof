@@ -5,6 +5,8 @@
  */
 import { proofreadLargeDocument, ProofreadingCorrection } from './proof'
 import { apiSettings } from './ipcHandlers'
+import { ProofreadProgressPayload } from '../shared/proofreadProgress'
+import { PromptSettings } from '../shared/promptSettings'
 
 export interface proofHistory {
   id?: number
@@ -124,10 +126,16 @@ export default interface ElectronApi {
     proofResult: ProofreadingCorrection[]
     token_usage: number
   }> // 进行了更新
+  onProofreadProgress: (callback: (payload: ProofreadProgressPayload) => void) => () => void
+  offProofreadProgress: (callback: (payload: ProofreadProgressPayload) => void) => void
   exportCorrectedDocx: (config: any) => Promise<ExportCorrectedDocxResult>
 
   // 提示词处理接口
   getDefaultPrompt: () => Promise<string>
+  getPromptSettings: () => Promise<PromptSettings>
+  setPromptSettings: (settings: PromptSettings) => Promise<boolean>
+  getEffectivePrompt: () => Promise<string>
+  resetPromptSettings: () => Promise<boolean>
   setNewPrompt: (newPrompt: string) => Promise<boolean>
 
   // 历史记录接口

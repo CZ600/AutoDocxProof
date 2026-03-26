@@ -33,7 +33,7 @@ const defaultApiSettings: ApiSettings = {
   name: '',
   time: '',
   parallel: 30,
-  TimeLimit: undefined
+  TimeLimit: null
 }
 
 // 默认 token 使用统计
@@ -65,7 +65,7 @@ export const useApiStore = defineStore(
       selectedApi.parallel = parallelSet
     }
 
-    function setTimeLimit(TimeLimit: number) {
+    function setTimeLimit(TimeLimit: number | null) {
       selectedApi.TimeLimit = TimeLimit
     }
 

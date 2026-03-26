@@ -9,7 +9,9 @@
     "sourceMap": true,
     "baseUrl": ".",
     "outDir": "dist",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "moduleResolution": "node",
     "resolveJsonModule": true
   }

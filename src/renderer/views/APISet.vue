@@ -31,8 +31,7 @@
 
             <el-tab-pane label="提示词设置" name="prompt">
                 <div class="tab-content">
-                    <PromptDisplay />
-                    <PromptEditor />
+                    <PromptSettingsPanel />
                 </div>
             </el-tab-pane>
         </el-tabs>
@@ -47,10 +46,8 @@ import TokenStatistics from '../components/api/TokenStatistics.vue'
 import ConcurrencySettings from '../components/api/ConcurrencySettings.vue'
 import RateLimitSettings from '../components/api/RateLimitSettings.vue'
 import ProxySettings from '../components/api/ProxySettings.vue'
-import PromptDisplay from '../components/prompt/PromptDisplay.vue'
-import PromptEditor from '../components/prompt/PromptEditor.vue'
+import PromptSettingsPanel from '../components/prompt/PromptSettingsPanel.vue'
 import { useApiSettings, type ApiFormData } from '../composables/useApiSettings'
-import { usePrompt } from '../composables/usePrompt'
 
 const activeTab = ref('api')
 const dialogVisible = ref(false)
@@ -58,7 +55,6 @@ const dialogMode = ref<'create' | 'edit'>('create')
 const editingApi = ref<ApiFormData | null>(null)
 
 const { showAlertSuccess, showAlertError, alertTitle, addApi, updateApi, initialize: initApiSettings } = useApiSettings()
-const { initialize: initPrompt } = usePrompt()
 
 const openCreateDialog = () => {
     dialogMode.value = 'create'
@@ -82,7 +78,6 @@ const handleSubmitApi = async (data: ApiFormData) => {
 
 onMounted(async () => {
     await initApiSettings()
-    await initPrompt()
 })
 </script>
 

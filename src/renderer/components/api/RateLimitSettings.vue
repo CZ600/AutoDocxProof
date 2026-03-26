@@ -20,7 +20,7 @@
                 @click="handleToggleLimit"
                 class="toggle-btn"
             >
-                {{ openTimeLimit ? "已开启限制" : "开启限制" }}
+                {{ openTimeLimit ? "关闭限制" : "开启限制" }}
             </el-button>
             <el-slider
                 v-if="openTimeLimit"
@@ -28,6 +28,7 @@
                 @update:model-value="handleTimeLimitChange"
                 show-input
                 :min="1"
+                :max="500"
                 class="custom-slider"
             />
         </div>

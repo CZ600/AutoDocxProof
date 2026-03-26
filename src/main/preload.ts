@@ -1,10 +1,17 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { get } from 'http'
 import test from 'node:test'
-import { setNewPrompt } from './proof'
 import { apiSettings } from './database'
+import { ProofreadProgressPayload } from '../shared/proofreadProgress'
+import { PromptSettings } from '../shared/promptSettings'
 
 console.log('this message from the preload')
+
+const PROOFREAD_PROGRESS_CHANNEL = 'proofread-progress'
+const proofreadProgressListeners = new WeakMap<
+  (payload: ProofreadProgressPayload) => void,
+  (_event: any, payload: ProofreadProgressPayload) => void
+>()
 
 // contextBridge.exposeInMainWorld 是一个安全机制，它允许你在预加载脚本中定义一些函数或对象，并将它们注入到网页的全局 window 对象中。
 // 第一个参数 electronAPI 表示将要挂载到window上的属性名称
@@ -69,6 +76,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // 导出修正到文件中
+  onProofreadProgress: (callback: (payload: ProofreadProgressPayload) => void) => {
+    const listener = (_event: any, payload: ProofreadProgressPayload) => {
+      callback(payload)
+    }
+    proofreadProgressListeners.set(callback, listener)
+    ipcRenderer.on(PROOFREAD_PROGRESS_CHANNEL, listener)
+    return () => {
+      ipcRenderer.removeListener(PROOFREAD_PROGRESS_CHANNEL, listener)
+      proofreadProgressListeners.delete(callback)
+    }
+  },
+  offProofreadProgress: (callback: (payload: ProofreadProgressPayload) => void) => {
+    const listener = proofreadProgressListeners.get(callback)
+    if (!listener) return
+    ipcRenderer.removeListener(PROOFREAD_PROGRESS_CHANNEL, listener)
+    proofreadProgressListeners.delete(callback)
+  },
   exportCorrectedDocx: (config: any) => {
     // 确保传递的参数是可序列化的
     const serializableConfig = JSON.parse(JSON.stringify(config))
@@ -76,6 +100,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   // 获取默认的提示词
   getDefaultPrompt: () => ipcRenderer.invoke('getDefaultPrompt'),
+  getPromptSettings: () => ipcRenderer.invoke('getPromptSettings'),
+  setPromptSettings: (settings: PromptSettings) => ipcRenderer.invoke('setPromptSettings', settings),
+  getEffectivePrompt: () => ipcRenderer.invoke('getEffectivePrompt'),
+  resetPromptSettings: () => ipcRenderer.invoke('resetPromptSettings'),
   // 设置新的提示词
   setNewPrompt: (prompt: string) => ipcRenderer.invoke('setPrompt', prompt),
   // 获取所有历史记录

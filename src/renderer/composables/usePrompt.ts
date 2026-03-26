@@ -1,88 +1,99 @@
-// composables/usePrompt.ts
-import { ref } from 'vue'
+import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { usePromptStore } from '../stores/promptStore'
+import {
+  buildPromptFromSettings,
+  clonePromptSettings,
+  DEFAULT_PROMPT_SETTINGS,
+  getPromptModeLabel,
+  normalizePromptSettings,
+  PROMPT_BACKGROUND_OPTIONS,
+  PROMPT_ERROR_TYPE_OPTIONS,
+  PROMPT_INTENSITY_OPTIONS,
+  PromptSettings
+} from '../../shared/promptSettings'
 
-/**
- * Prompt 管理功能
- * 封装提示词的获取、更新、重置等操作
- */
 export function usePrompt() {
-    const electronAPI = window.electronAPI
+  const electronAPI = window.electronAPI
+  const promptStore = usePromptStore()
 
-    // 默认提示词
-    const defaultPrompt = ref('')
-    const theDefaultPrompt = ref('')
+  const settings = computed(() => promptStore.settings)
+  const effectivePrompt = computed(() => buildPromptFromSettings(settings.value))
+  const modeLabel = computed(() => getPromptModeLabel(settings.value))
 
-    // 新编辑的提示词
-    const newPrompt = ref('')
+  const initialize = async () => {
+    try {
+      const promptSettings = await electronAPI.getPromptSettings()
+      promptStore.setSettings(normalizePromptSettings(promptSettings))
+    } catch (error) {
+      console.error('获取提示词配置失败:', error)
+      promptStore.resetSettings()
+    }
+  }
 
-    /**
-     * 初始化 - 获取默认提示词
-     */
-    const initialize = async () => {
-        try {
-            const prompt = await electronAPI.getDefaultPrompt()
-            theDefaultPrompt.value = prompt
-            defaultPrompt.value = prompt
-        } catch (error) {
-            console.error('获取默认提示词失败:', error)
-        }
+  const savePromptSettings = async (nextSettings: PromptSettings) => {
+    const normalizedSettings = normalizePromptSettings(nextSettings)
+
+    if (normalizedSettings.errorTypes.length === 0) {
+      ElMessage.warning('请至少选择一种错误类型')
+      return false
     }
 
-    /**
-     * 更新提示词
-     */
-    const updatePrompt = async () => {
-        if (!newPrompt.value.trim()) {
-            ElMessage.warning('请输入新的提示词内容')
-            return false
-        }
-
-        try {
-            const result = await electronAPI.setNewPrompt(newPrompt.value)
-            if (result) {
-                defaultPrompt.value = newPrompt.value
-                ElMessage.success('修改成功')
-                newPrompt.value = ''
-                return true
-            }
-            return false
-        } catch (error) {
-            console.error('更新提示词失败:', error)
-            ElMessage.error('修改失败')
-            return false
-        }
+    if (normalizedSettings.background === 'custom' && !normalizedSettings.customBackground.trim()) {
+      ElMessage.warning('请输入自定义背景说明')
+      return false
     }
 
-    /**
-     * 恢复默认提示词
-     */
-    const resetToDefault = async () => {
-        try {
-            const result = await electronAPI.setNewPrompt(theDefaultPrompt.value)
-            if (result) {
-                defaultPrompt.value = theDefaultPrompt.value
-                newPrompt.value = ''
-                ElMessage.success('恢复为默认设置')
-                return true
-            }
-            return false
-        } catch (error) {
-            console.error('恢复默认提示词失败:', error)
-            ElMessage.error('恢复失败')
-            return false
-        }
+    if (normalizedSettings.customPromptEnabled && !normalizedSettings.customPrompt.trim()) {
+      ElMessage.warning('请输入自定义提示词')
+      return false
     }
 
-    return {
-        // 状态
-        defaultPrompt,
-        theDefaultPrompt,
-        newPrompt,
+    try {
+      const result = await electronAPI.setPromptSettings(normalizedSettings)
+      if (!result) {
+        ElMessage.error('保存失败')
+        return false
+      }
 
-        // 方法
-        initialize,
-        updatePrompt,
-        resetToDefault
+      promptStore.setSettings(normalizedSettings)
+      ElMessage.success('提示词配置已更新')
+      return true
+    } catch (error) {
+      console.error('保存提示词配置失败:', error)
+      ElMessage.error('保存失败')
+      return false
     }
+  }
+
+  const resetToDefault = async () => {
+    try {
+      const result = await electronAPI.resetPromptSettings()
+      if (!result) {
+        ElMessage.error('恢复失败')
+        return false
+      }
+
+      promptStore.resetSettings()
+      ElMessage.success('已恢复默认配置')
+      return true
+    } catch (error) {
+      console.error('恢复默认提示词配置失败:', error)
+      ElMessage.error('恢复失败')
+      return false
+    }
+  }
+
+  return {
+    settings,
+    effectivePrompt,
+    modeLabel,
+    defaultSettings: clonePromptSettings(DEFAULT_PROMPT_SETTINGS),
+    errorTypeOptions: PROMPT_ERROR_TYPE_OPTIONS,
+    intensityOptions: PROMPT_INTENSITY_OPTIONS,
+    backgroundOptions: PROMPT_BACKGROUND_OPTIONS,
+    initialize,
+    savePromptSettings,
+    resetToDefault
+  }
 }

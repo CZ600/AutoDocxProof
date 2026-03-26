@@ -2,8 +2,17 @@ import * as fs from 'fs'
 import * as mammoth from 'mammoth'
 import { OpenaiGen } from './chat'
 import path from 'path'
+import { app } from 'electron'
 import { queryDocuments, getAllDocuments } from './lancedb'
 import { error } from 'console'
+import { ProofreadProgressPayload } from '../shared/proofreadProgress'
+import {
+  buildPromptFromSettings,
+  clonePromptSettings,
+  DEFAULT_PROMPT_SETTINGS,
+  normalizePromptSettings,
+  PromptSettings
+} from '../shared/promptSettings'
 
 // ====== 类型定义 ======
 interface ProofreadingCorrection {
@@ -40,41 +49,46 @@ interface ApiSettings {
 }
 
 // ====== 全局 Prompt ======
-let defaultPrompt = `
-你是一个专业的中文文本校对专家。请仔细检查文本中的错别字、标点错误和语法问题。
-要求：
-1. 只校对错别字、标点错误、语法错误
-2. 保持原文意思不变
-3. 不要进行风格改写或内容扩展
-4. 按照指定的JSON格式返回结果
-请校对用户提供的文本，找出其中的错别字、标点错误和语法问题，并按照以下JSON格式(JSON format)返回：
-[
-  {
-    "original": "原文错误内容（只截取原文错误的词组，不要多写，不超过15字！）",
-    "suggested": "建议修改内容（基于原文的修改后的内容）",
-    "reason": "错误原因的简短说明",
-    "type": "错误类型(Typo/Punctuation/Grammar/Consistency)"
-  }
-]
-如果没有任何错误，请返回空数组[]。只返回JSON数组，不要添加其他任何说明文字。
-`
+let currentPromptSettings: PromptSettings = clonePromptSettings(DEFAULT_PROMPT_SETTINGS)
+let promptSettingsLoaded = false
 
-const realDefaultPrompt = `你是一个专业的中文文本校对专家。请仔细检查文本中的错别字、标点错误和语法问题。
-要求：
-1. 只校对错别字、标点错误、语法错误
-2. 保持原文意思不变
-3. 不要进行风格改写或内容扩展
-4. 按照指定的JSON格式返回结果
-请校对用户提供的文本，找出其中的错别字、标点错误和语法问题，并按照以下JSON格式(JSON format)返回：
-[
-  {
-    "original": "原文错误内容（只截取原文错误的词组，不要多写，不超过15字！）",
-    "suggested": "建议修改内容（基于原文的修改后的内容）",
-    "reason": "错误原因的简短说明",
-    "type": "错误类型(Typo/Punctuation/Grammar/Consistency)"
+function getPromptSettingsFilePath() {
+  return path.join(app.getPath('userData'), 'prompt-settings.json')
+}
+
+function ensurePromptSettingsLoaded() {
+  if (promptSettingsLoaded) return
+
+  try {
+    const filePath = getPromptSettingsFilePath()
+    if (fs.existsSync(filePath)) {
+      const fileContent = fs.readFileSync(filePath, 'utf-8')
+      currentPromptSettings = normalizePromptSettings(JSON.parse(fileContent))
+    } else {
+      currentPromptSettings = clonePromptSettings(DEFAULT_PROMPT_SETTINGS)
+    }
+  } catch (error) {
+    console.error('加载提示词配置失败，已回退到默认配置:', error)
+    currentPromptSettings = clonePromptSettings(DEFAULT_PROMPT_SETTINGS)
   }
-]
-如果没有任何错误，请返回空数组[]。只返回JSON数组，不要添加其他任何说明文字。`
+
+  promptSettingsLoaded = true
+}
+
+function persistPromptSettings() {
+  const filePath = getPromptSettingsFilePath()
+  fs.writeFileSync(filePath, JSON.stringify(currentPromptSettings, null, 2), 'utf-8')
+}
+
+function getCurrentPromptSettings(): PromptSettings {
+  ensurePromptSettingsLoaded()
+  return clonePromptSettings(currentPromptSettings)
+}
+
+function getCurrentEffectivePrompt(): string {
+  ensurePromptSettingsLoaded()
+  return buildPromptFromSettings(currentPromptSettings)
+}
 
 const ragText =
   '以下内容是校对的参考内容，请结合这些文字进行校对工作（如果是双语内容，则以校对内容的语言类型为准），校对规则遵循之前讲述的要求'
@@ -102,13 +116,15 @@ export async function runWithLimits<T, R>(
   processor: (item: T) => Promise<R>,
   options?: {
     requestsPerMinute?: number
+    onItemCompleted?: (completed: number, total: number) => void
   }
 ): Promise<R[]> {
   const results: (R | undefined)[] = new Array(items.length)
   const executing: Promise<void>[] = []
+  let completedCount = 0
 
   // --- 新增逻辑: 速率限制初始化 ---
-  const { requestsPerMinute } = options || {}
+  const { requestsPerMinute, onItemCompleted } = options || {}
   const hasRateLimit = typeof requestsPerMinute === 'number' && requestsPerMinute > 0
 
   // 计算两次请求之间的最小时间间隔（毫秒）
@@ -139,6 +155,8 @@ export async function runWithLimits<T, R>(
     const execute = async () => {
       try {
         results[i] = await processor(items[i])
+        completedCount += 1
+        onItemCompleted?.(completedCount, items.length)
       } catch (error) {
         console.error(`并发任务 ${i} 失败:`, error)
         results[i] = undefined
@@ -158,11 +176,37 @@ export async function runWithLimits<T, R>(
 
 // ====== 导出 Prompt 管理 ======
 export async function getDefaultPrompt(): Promise<string> {
-  return realDefaultPrompt
+  return buildPromptFromSettings(DEFAULT_PROMPT_SETTINGS)
 }
 
 export async function setNewPrompt(newPrompt: string): Promise<boolean> {
-  defaultPrompt = newPrompt
+  const nextSettings = normalizePromptSettings({
+    ...getCurrentPromptSettings(),
+    customPromptEnabled: true,
+    customPrompt: newPrompt
+  })
+  currentPromptSettings = nextSettings
+  persistPromptSettings()
+  return true
+}
+
+export async function getPromptSettings(): Promise<PromptSettings> {
+  return getCurrentPromptSettings()
+}
+
+export async function setPromptSettings(settings: PromptSettings): Promise<boolean> {
+  currentPromptSettings = normalizePromptSettings(settings)
+  persistPromptSettings()
+  return true
+}
+
+export async function getEffectivePrompt(): Promise<string> {
+  return getCurrentEffectivePrompt()
+}
+
+export async function resetPromptSettings(): Promise<boolean> {
+  currentPromptSettings = clonePromptSettings(DEFAULT_PROMPT_SETTINGS)
+  persistPromptSettings()
   return true
 }
 
@@ -197,6 +241,29 @@ function getHeadingLevel(line: string): number {
 }
 
 // ====== 文档解析 ======
+function splitSectionIntoParagraphs(section: DocumentSection): DocumentSection[] {
+  const paragraphs = section.content
+    .split('\n')
+    .map(paragraph => paragraph.trim())
+    .filter(paragraph => paragraph.length > 0)
+
+  return paragraphs.map((paragraph, index) => ({
+    title: paragraphs.length > 1 ? `${section.title}-段落${index + 1}` : section.title,
+    content: paragraph,
+    level: section.level
+  }))
+}
+
+function getSectionsForProofreading(sections: DocumentSection[]): DocumentSection[] {
+  const nonEmptySections = sections.filter(section => section.content.trim().length > 0)
+  if (nonEmptySections.length !== 1) {
+    return nonEmptySections
+  }
+
+  const paragraphSections = splitSectionIntoParagraphs(nonEmptySections[0])
+  return paragraphSections.length > 1 ? paragraphSections : nonEmptySections
+}
+
 async function parseWordDocument(documentPath: string): Promise<DocumentStructure> {
   try {
     const result = await mammoth.extractRawText({ path: documentPath })
@@ -589,10 +656,12 @@ export async function proofreadDocument(
   repositoryNameList?: string[],
   embeddingConfig?: ApiSettings,
   parallelSet: number = 30, // 并发限制
-  setTimeLimit?: number // 每分钟最高发射频率
+  setTimeLimit?: number, // 每分钟最高发射频率
+  onProgress?: (payload: ProofreadProgressPayload) => void
 ): Promise<{ proofResult: ProofreadingCorrection[]; token_usage: number }> {
   console.log('process mode is:', mode)
   console.log('process api is:', apiURL, modelName)
+  const effectivePrompt = getCurrentEffectivePrompt()
   let total_tokens = 0 // calculate the usage of tokens
   const option = setTimeLimit // set the limit of request per minute
     ? {
@@ -604,6 +673,11 @@ export async function proofreadDocument(
     const fileName = path.basename(documentPath)
 
     if (mode === 'full') {
+      onProgress?.({
+        stage: 'splitting',
+        mode,
+        message: '正在整理信息'
+      })
       const fullText = await mammoth.extractRawText({ path: documentPath }) // get full text
       const text = fullText.value.trim() // trim
       if (!text)
@@ -613,7 +687,7 @@ export async function proofreadDocument(
         }
       const { result, use_tokens } = await proofreadTextWithRAG(
         text,
-        defaultPrompt,
+        effectivePrompt,
         apiKey,
         modelName,
         apiURL,
@@ -623,12 +697,28 @@ export async function proofreadDocument(
       )
       total_tokens += use_tokens
 
+      onProgress?.({
+        stage: 'completed',
+        mode,
+        percent: 100,
+        message: '正在校对'
+      })
       return { proofResult: result, token_usage: total_tokens }
     }
 
+    onProgress?.({
+      stage: 'splitting',
+      mode,
+      message: '正在整理信息'
+    })
     const docStructure = await parseWordDocument(documentPath)
+    onProgress?.({
+      stage: 'theme',
+      mode,
+      message: '正在分析文档'
+    })
     const documentTheme = await summarizeDocumentTheme(docStructure, apiKey, modelName, apiURL)
-    const nonEmptySections = docStructure.sections.filter(sec => sec.content.trim().length > 0)
+    const nonEmptySections = getSectionsForProofreading(docStructure.sections)
     if (nonEmptySections.length === 0)
       return {
         proofResult: null,
@@ -638,11 +728,19 @@ export async function proofreadDocument(
     let allCorrections: ProofreadingCorrection[] = []
 
     if (mode === 'section') {
+      onProgress?.({
+        stage: 'proofreading',
+        mode,
+        total: nonEmptySections.length,
+        completed: 0,
+        percent: 0,
+        message: '正在校对'
+      })
       const sectionResults = await runWithLimits(
         nonEmptySections,
         parallelSet,
         async section => {
-          const systemContext = `${defaultPrompt}
+          const systemContext = `${effectivePrompt}
 文档标题: ${docStructure.title}
 文档主题: ${documentTheme}
 当前章节标题: ${section.title}`
@@ -657,7 +755,19 @@ export async function proofreadDocument(
             embeddingConfig
           )
         },
-        option
+        {
+          ...option,
+          onItemCompleted: (completed, total) => {
+            onProgress?.({
+              stage: 'proofreading',
+              mode,
+              total,
+              completed,
+              percent: total > 0 ? Math.min(99, Math.floor((completed / total) * 100)) : 0,
+              message: '正在校对'
+            })
+          }
+        }
       )
       let resultList: ProofreadingCorrection[][] = []
       sectionResults.forEach(item => {
@@ -674,7 +784,7 @@ export async function proofreadDocument(
 
         for (const sentence of validSentences) {
           sentenceTasks.push(async () => {
-            const systemContext = `${defaultPrompt}
+            const systemContext = `${effectivePrompt}
 文档标题: ${docStructure.title}
 文档主题: ${documentTheme}
 当前章节标题: ${section.title}`
@@ -692,8 +802,29 @@ export async function proofreadDocument(
         }
       }
 
+      onProgress?.({
+        stage: 'proofreading',
+        mode,
+        total: sentenceTasks.length,
+        completed: 0,
+        percent: 0,
+        message: '正在校对'
+      })
+
       if (sentenceTasks.length > 0) {
-        const sentenceResults = await runWithLimits(sentenceTasks, parallelSet, task => task(), option)
+        const sentenceResults = await runWithLimits(sentenceTasks, parallelSet, task => task(), {
+          ...option,
+          onItemCompleted: (completed, total) => {
+            onProgress?.({
+              stage: 'proofreading',
+              mode,
+              total,
+              completed,
+              percent: total > 0 ? Math.min(99, Math.floor((completed / total) * 100)) : 0,
+              message: '正在校对'
+            })
+          }
+        })
         let resultList: ProofreadingCorrection[][] = []
         sentenceResults.forEach(Items => {
           total_tokens += Items.use_tokens
@@ -713,6 +844,12 @@ export async function proofreadDocument(
     }))
 
     console.log('校对结果:', serializableCorrections)
+    onProgress?.({
+      stage: 'completed',
+      mode,
+      percent: 100,
+      message: '正在校对'
+    })
     return { proofResult: serializableCorrections, token_usage: total_tokens }
   } catch (error) {
     console.error('文档校对过程中出现错误:', error)

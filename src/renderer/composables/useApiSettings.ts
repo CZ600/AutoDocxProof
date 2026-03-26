@@ -83,9 +83,7 @@ export function useApiSettings() {
   const timeLimit = computed({
     get: () => apiStore.selectedApi.TimeLimit,
     set: (value: number | null) => {
-      if (value !== null) {
-        apiStore.setTimeLimit(value)
-      }
+      apiStore.setTimeLimit(value)
     }
   })
 

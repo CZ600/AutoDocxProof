@@ -3,7 +3,15 @@ import { dialog } from 'electron'
 import * as path from 'path'
 import { DB } from './database'
 import { testAPI } from './chat'
-import { proofreadDocument, getDefaultPrompt, setNewPrompt } from './proof'
+import {
+  proofreadDocument,
+  getDefaultPrompt,
+  setNewPrompt,
+  getPromptSettings,
+  setPromptSettings,
+  getEffectivePrompt,
+  resetPromptSettings
+} from './proof'
 import { deleteDocumentByName, listFilenamesInRepository } from './lancedb'
 import { Mode } from '@google/genai'
 import * as mammoth from 'mammoth'
@@ -22,6 +30,7 @@ import { processDocument, getPDFDocumentChunks } from './pdfUtils'
 import { list } from 'changelog.config'
 import { error } from 'console'
 import { eventNames, env } from 'process'
+import { ProofreadProgressPayload } from '../shared/proofreadProgress'
 // const { platform, arch, env } = process;
 export interface apiSettings {
   apiURL: string
@@ -49,6 +58,8 @@ let proxy_settings: ProxySettings = {
   enabled: false,
   port: 33210
 }
+
+const PROOFREAD_PROGRESS_CHANNEL = 'proofread-progress'
 
 // 全局embedding_api变量已移除，由Pinia store管理
 export const registerIpcHandlers = () => {
@@ -196,6 +207,9 @@ export const registerIpcHandlers = () => {
       parallelSet: number = 30
     ) => {
       try {
+        const sendProgress = (payload: ProofreadProgressPayload) => {
+          event.sender.send(PROOFREAD_PROGRESS_CHANNEL, payload)
+        }
         // 三种校对模式：mode: 'section' | 'sentence' | 'full',
         console.log(
           '-----------------------------------------------processing docx file-------------------------------------------------------'
@@ -229,7 +243,8 @@ export const registerIpcHandlers = () => {
             repositoryNameList,
             embeddingConfig,
             parallelSet,
-            setTimeLimit
+            setTimeLimit,
+            sendProgress
           )
           // 确保返回的数据是可克隆的
           try {
@@ -256,7 +271,8 @@ export const registerIpcHandlers = () => {
             repositoryNameList,
             embeddingConfig,
             parallelSet,
-            setTimeLimit
+            setTimeLimit,
+            sendProgress
           )
           // 确保返回的数据是可克隆的
           try {
@@ -283,7 +299,8 @@ export const registerIpcHandlers = () => {
             repositoryNameList,
             embeddingConfig,
             parallelSet,
-            setTimeLimit
+            setTimeLimit,
+            sendProgress
           )
           // 确保返回的数据是可克隆的
           try {
@@ -371,7 +388,19 @@ export const registerIpcHandlers = () => {
     const prompt = await getDefaultPrompt()
     return prompt
   })
-  // 设置提示词（注意，这里设置的提示词没有长期记忆功能，只能暂时设置
+  ipcMain.handle('getPromptSettings', async () => {
+    return await getPromptSettings()
+  })
+  ipcMain.handle('setPromptSettings', async (_event, settings) => {
+    return await setPromptSettings(settings)
+  })
+  ipcMain.handle('getEffectivePrompt', async () => {
+    return await getEffectivePrompt()
+  })
+  ipcMain.handle('resetPromptSettings', async () => {
+    return await resetPromptSettings()
+  })
+  // 兼容旧接口：直接设置自定义提示词覆盖模式
   ipcMain.handle('setPrompt', async (event, newPrompt) => {
     if (newPrompt) {
       const result = await setNewPrompt(newPrompt)
