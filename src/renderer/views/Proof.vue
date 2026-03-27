@@ -1832,6 +1832,7 @@ html.dark .preview-container hr {
     height: 100vh;
     position: relative;
     font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    overflow: hidden;
 }
 
 .error-alert {
@@ -1840,7 +1841,7 @@ html.dark .preview-container hr {
 }
 
 .action-bar {
-    padding: 20px 24px;
+    padding: 16px 24px;
     height: auto !important;
     border-bottom: 1px solid #e4e7ed;
     background-color: #fff;
@@ -1910,8 +1911,9 @@ html.dark .preview-container hr {
 }
 
 .main-content {
-    flex: 1;
+    height: calc(100vh - 150px);
     overflow: hidden;
+    display: flex;
 }
 
 .preview-area {
@@ -1936,7 +1938,7 @@ html.dark .preview-container hr {
 .proofreading-sidebar {
     width: 30%;
     border-left: 1px solid #e4e7ed;
-    overflow-y: auto;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     background-color: #fafbfc;
