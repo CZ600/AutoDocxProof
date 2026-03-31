@@ -13,6 +13,7 @@
     "release-minor": "standard-version --release-as minor",
     "release-patch": "standard-version --release-as patch",
     "lint:fix": "eslint --ext .js,.ts,.vue . --fix",
+    "test": "vitest run",
     "commit": "git add . && git-cz"
   },
   "eslintConfig": {
@@ -45,7 +46,8 @@
     "standard-version": "^9.5.0",
     "ts-node": "^10.0.0",
     "typescript": "^5.6.3",
-    "vite": "^5.0.12"
+    "vite": "^5.0.12",
+    "vitest": "^1.6.0"
   },
   "keywords": [],
   "author": {

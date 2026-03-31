@@ -1,6 +1,6 @@
 // stores/apiStore.ts
 import { defineStore } from 'pinia'
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 
 interface ApiSettings {
   id: number | null
@@ -36,6 +36,9 @@ const defaultApiSettings: ApiSettings = {
   TimeLimit: null
 }
 
+// 审核模型 ID（null 表示与校对模型一致）
+const defaultReviewModelId: number | null = null
+
 // 默认 token 使用统计
 const defaultTokenUsage: TokenUsage = {
   totalTokens: 0,
@@ -49,6 +52,7 @@ export const useApiStore = defineStore(
     // 使用默认值初始化
     const selectedApi = reactive<ApiSettings>({ ...defaultApiSettings })
     const tokenUsage = reactive<TokenUsage>({ ...defaultTokenUsage })
+    const reviewModelId = ref<number | null>(defaultReviewModelId)
 
     // API 设置列表
     const apiSettings = reactive<ApiSettingItem[]>([])
@@ -91,6 +95,14 @@ export const useApiStore = defineStore(
       }
     }
 
+    function setReviewModelId(id: number | null) {
+      reviewModelId.value = id
+    }
+
+    function clearReviewModel() {
+      reviewModelId.value = null
+    }
+
     // Token 相关方法
     /**
      * 添加 token 使用量
@@ -127,6 +139,7 @@ export const useApiStore = defineStore(
       selectedApi,
       tokenUsage,
       apiSettings,
+      reviewModelId,
       setSelectedApi,
       clearSelectedApi,
       setParallel,
@@ -134,6 +147,8 @@ export const useApiStore = defineStore(
       setApiSettings,
       addApiSetting,
       removeApiSetting,
+      setReviewModelId,
+      clearReviewModel,
       addTotalTokens,
       resetTokenUsage,
       getTokenUsage,
@@ -144,7 +159,7 @@ export const useApiStore = defineStore(
     persist: {
       key: 'apiSettings',
       storage: localStorage,
-      pick: ['selectedApi', 'tokenUsage'] // 持久化 token 使用统计
+      pick: ['selectedApi', 'tokenUsage', 'reviewModelId']
     }
   }
 )

@@ -35,8 +35,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectDocxFile: () => ipcRenderer.invoke('select-docx-file'),
   // 可选：如果需要主进程读取文件内容
   readDocxFile: (filePath: string) => ipcRenderer.invoke('read-docx-file', filePath),
-  APISettings: (url: string, key: string, modelName: string) =>
-    ipcRenderer.invoke('set-api', url, key, modelName),
+  APISettings: (url: string, key: string, modelName: string) => ipcRenderer.invoke('set-api', url, key, modelName),
   updateAPISetting: (id: number, url: string, key: string, modelName: string) =>
     ipcRenderer.invoke('update-api', id, url, key, modelName),
   getALLAPISettings: () => ipcRenderer.invoke('get-all-api-settings', {}),
@@ -52,7 +51,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     repositoryNameList?: string[],
     embeddingConfig?: apiSettings,
     setTimeLimit?: number,
-    parallelSet?: number
+    parallelSet?: number,
+    reviewModelId?: number | null
   ) => {
     // 确保传递的参数是可序列化的
     const serializableParams = {
@@ -61,7 +61,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       repositoryNameList: repositoryNameList ? [...repositoryNameList] : undefined,
       embeddingConfig: embeddingConfig ? { ...embeddingConfig } : undefined,
       setTimeLimit: setTimeLimit || undefined,
-      parallelSet: parallelSet || 30
+      parallelSet: parallelSet || 30,
+      reviewModelId: reviewModelId ?? null
     }
 
     return ipcRenderer.invoke(
@@ -71,7 +72,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       serializableParams.repositoryNameList,
       serializableParams.embeddingConfig,
       serializableParams.setTimeLimit,
-      serializableParams.parallelSet
+      serializableParams.parallelSet,
+      serializableParams.reviewModelId
     )
   },
 
@@ -141,5 +143,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getEnvPath: () => ipcRenderer.invoke('getEnvPath'), // 调试用，检验打包后的
   // 代理设置相关API
   setProxySettings: (enabled: boolean, port: number) => ipcRenderer.invoke('setProxySettings', enabled, port),
-  getProxySettings: () => ipcRenderer.invoke('getProxySettings')
+  getProxySettings: () => ipcRenderer.invoke('getProxySettings'),
+  // 获取当前校对背景信息
+  getCurrentBackgroundInstruction: () => ipcRenderer.invoke('getCurrentBackgroundInstruction')
 })

@@ -10,7 +10,9 @@ import {
   getPromptSettings,
   setPromptSettings,
   getEffectivePrompt,
-  resetPromptSettings
+  resetPromptSettings,
+  reviewCorrections,
+  getCurrentBackgroundInstruction
 } from './proof'
 import { deleteDocumentByName, listFilenamesInRepository } from './lancedb'
 import { Mode } from '@google/genai'
@@ -204,7 +206,8 @@ export const registerIpcHandlers = () => {
       repositoryNameList?: string[],
       embeddingConfig?: apiSettings,
       setTimeLimit?: number,
-      parallelSet: number = 30
+      parallelSet: number = 30,
+      reviewModelId?: number | null
     ) => {
       try {
         const sendProgress = (payload: ProofreadProgressPayload) => {
@@ -234,7 +237,7 @@ export const registerIpcHandlers = () => {
         }
         if (Model === 'wordError') {
           console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
-          const { proofResult, token_usage } = await proofreadDocument(
+          let { proofResult, token_usage } = await proofreadDocument(
             filePath,
             'sentence',
             api_info.apiKey,
@@ -246,6 +249,48 @@ export const registerIpcHandlers = () => {
             setTimeLimit,
             sendProgress
           )
+
+          // 自动审核校对结果
+          let reviewApiInfo: { apiKey: string; apiURL: string; modelName: string } | null = null
+          if (reviewModelId) {
+            const reviewApi = await DB.getAPISettingById(reviewModelId)
+            if (reviewApi) {
+              reviewApiInfo = { apiKey: reviewApi.apiKey, apiURL: reviewApi.apiURL, modelName: reviewApi.modelName }
+            }
+          }
+          if (!reviewApiInfo && api_info) {
+            reviewApiInfo = { apiKey: api_info.apiKey, apiURL: api_info.apiURL, modelName: api_info.modelName }
+          }
+          if (reviewApiInfo && proofResult && proofResult.length > 0) {
+            sendProgress({
+              stage: 'reviewing',
+              mode: 'sentence',
+              total: proofResult.length,
+              completed: 0,
+              percent: 95,
+              message: '正在审核校对结果'
+            })
+            const backgroundInstruction = getCurrentBackgroundInstruction()
+            const { reviewedResult, token_usage: reviewTokens } = await reviewCorrections(
+              proofResult,
+              backgroundInstruction,
+              reviewApiInfo.apiKey,
+              reviewApiInfo.modelName,
+              reviewApiInfo.apiURL,
+              (completed, total) => {
+                sendProgress({
+                  stage: 'reviewing',
+                  mode: 'sentence',
+                  total,
+                  completed,
+                  percent: total > 0 ? Math.min(100, 95 + Math.floor((completed / total) * 5)) : 95,
+                  message: '正在审核校对结果'
+                })
+              }
+            )
+            proofResult = reviewedResult
+            token_usage += reviewTokens
+          }
           // 确保返回的数据是可克隆的
           try {
             const result = {
@@ -262,7 +307,7 @@ export const registerIpcHandlers = () => {
           }
         } else if (Model === 'ComprehensiveError') {
           console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
-          const { proofResult, token_usage } = await proofreadDocument(
+          let { proofResult, token_usage } = await proofreadDocument(
             filePath,
             'section',
             api_info.apiKey,
@@ -274,6 +319,48 @@ export const registerIpcHandlers = () => {
             setTimeLimit,
             sendProgress
           )
+
+          // 自动审核校对结果
+          let reviewApiInfo2: { apiKey: string; apiURL: string; modelName: string } | null = null
+          if (reviewModelId) {
+            const reviewApi = await DB.getAPISettingById(reviewModelId)
+            if (reviewApi) {
+              reviewApiInfo2 = { apiKey: reviewApi.apiKey, apiURL: reviewApi.apiURL, modelName: reviewApi.modelName }
+            }
+          }
+          if (!reviewApiInfo2 && api_info) {
+            reviewApiInfo2 = { apiKey: api_info.apiKey, apiURL: api_info.apiURL, modelName: api_info.modelName }
+          }
+          if (reviewApiInfo2 && proofResult && proofResult.length > 0) {
+            sendProgress({
+              stage: 'reviewing',
+              mode: 'section',
+              total: proofResult.length,
+              completed: 0,
+              percent: 95,
+              message: '正在审核校对结果'
+            })
+            const backgroundInstruction = getCurrentBackgroundInstruction()
+            const { reviewedResult, token_usage: reviewTokens } = await reviewCorrections(
+              proofResult,
+              backgroundInstruction,
+              reviewApiInfo2.apiKey,
+              reviewApiInfo2.modelName,
+              reviewApiInfo2.apiURL,
+              (completed, total) => {
+                sendProgress({
+                  stage: 'reviewing',
+                  mode: 'section',
+                  total,
+                  completed,
+                  percent: total > 0 ? Math.min(100, 95 + Math.floor((completed / total) * 5)) : 95,
+                  message: '正在审核校对结果'
+                })
+              }
+            )
+            proofResult = reviewedResult
+            token_usage += reviewTokens
+          }
           // 确保返回的数据是可克隆的
           try {
             const result = {
@@ -290,7 +377,7 @@ export const registerIpcHandlers = () => {
           }
         } else if (Model === 'polish') {
           console.log('will process by the model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
-          const { proofResult, token_usage } = await proofreadDocument(
+          let { proofResult, token_usage } = await proofreadDocument(
             filePath,
             'full',
             api_info.apiKey,
@@ -302,6 +389,48 @@ export const registerIpcHandlers = () => {
             setTimeLimit,
             sendProgress
           )
+
+          // 自动审核校对结果
+          let reviewApiInfo3: { apiKey: string; apiURL: string; modelName: string } | null = null
+          if (reviewModelId) {
+            const reviewApi = await DB.getAPISettingById(reviewModelId)
+            if (reviewApi) {
+              reviewApiInfo3 = { apiKey: reviewApi.apiKey, apiURL: reviewApi.apiURL, modelName: reviewApi.modelName }
+            }
+          }
+          if (!reviewApiInfo3 && api_info) {
+            reviewApiInfo3 = { apiKey: api_info.apiKey, apiURL: api_info.apiURL, modelName: api_info.modelName }
+          }
+          if (reviewApiInfo3 && proofResult && proofResult.length > 0) {
+            sendProgress({
+              stage: 'reviewing',
+              mode: 'full',
+              total: proofResult.length,
+              completed: 0,
+              percent: 95,
+              message: '正在审核校对结果'
+            })
+            const backgroundInstruction = getCurrentBackgroundInstruction()
+            const { reviewedResult, token_usage: reviewTokens } = await reviewCorrections(
+              proofResult,
+              backgroundInstruction,
+              reviewApiInfo3.apiKey,
+              reviewApiInfo3.modelName,
+              reviewApiInfo3.apiURL,
+              (completed, total) => {
+                sendProgress({
+                  stage: 'reviewing',
+                  mode: 'full',
+                  total,
+                  completed,
+                  percent: total > 0 ? Math.min(100, 95 + Math.floor((completed / total) * 5)) : 95,
+                  message: '正在审核校对结果'
+                })
+              }
+            )
+            proofResult = reviewedResult
+            token_usage += reviewTokens
+          }
           // 确保返回的数据是可克隆的
           try {
             const result = {
@@ -650,7 +779,7 @@ export const registerIpcHandlers = () => {
     }
   })
 
-  ipcMain.handle('getProxySettings', async (event) => {
+  ipcMain.handle('getProxySettings', async event => {
     return proxy_settings
   })
 
@@ -658,5 +787,10 @@ export const registerIpcHandlers = () => {
   ipcMain.handle('getEnvPath', async event => {
     console.log(' env.LANCEDB_NATIVE_PATH:', env.LANCEDB_NATIVE_PATH)
     return env.LANCEDB_NATIVE_PATH
+  })
+
+  // 获取当前校对背景信息
+  ipcMain.handle('getCurrentBackgroundInstruction', async () => {
+    return getCurrentBackgroundInstruction()
   })
 }

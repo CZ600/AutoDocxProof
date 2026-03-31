@@ -8,6 +8,8 @@ export interface CorrectionResult {
   reason: string
   suggested: string
   type: string
+  filtered?: boolean
+  filterReason?: string
 }
 
 export const fileInfoStore = defineStore('fileInfo', {

@@ -58,10 +58,8 @@ const ERROR_TYPE_MODEL_TYPES: Record<PromptErrorType, string> = {
 const INTENSITY_INSTRUCTIONS: Record<PromptIntensity, string> = {
   strict:
     '校正强度为“非常严格”。请尽可能严格地审查文本，只要存在明确且合理的修改必要，就应提出修改意见，但仍必须避免改变原文事实和核心意思。',
-  normal:
-    '校正强度为“正常”。请在保证准确性的前提下进行常规校对，修正明显问题，避免过度改写。',
-  loose:
-    '校正强度为“宽松”。仅在存在明显错误或确有必要时才提出修改，避免对可接受表达做非必要调整。'
+  normal: '校正强度为“正常”。请在保证准确性的前提下进行常规校对，修正明显问题，避免过度改写。',
+  loose: '校正强度为“宽松”。仅在存在明显错误或确有必要时才提出修改，避免对可接受表达做非必要调整。'
 }
 
 const BACKGROUND_INSTRUCTIONS: Record<Exclude<PromptBackground, 'custom'>, string> = {
@@ -104,7 +102,8 @@ export function normalizePromptSettings(
     errorTypes: incomingErrorTypes.length > 0 ? [...incomingErrorTypes] : [...base.errorTypes],
     intensity,
     background,
-    customBackground: typeof input?.customBackground === 'string' ? input.customBackground.trim() : base.customBackground,
+    customBackground:
+      typeof input?.customBackground === 'string' ? input.customBackground.trim() : base.customBackground,
     customPromptEnabled:
       typeof input?.customPromptEnabled === 'boolean' ? input.customPromptEnabled : base.customPromptEnabled,
     customPrompt: typeof input?.customPrompt === 'string' ? input.customPrompt : base.customPrompt
@@ -115,7 +114,7 @@ export function getPromptModeLabel(settings: PromptSettings): string {
   return settings.customPromptEnabled ? '自定义覆盖' : '选项式生成'
 }
 
-function buildBackgroundInstruction(settings: PromptSettings): string {
+export function buildBackgroundInstruction(settings: PromptSettings): string {
   if (settings.background === 'custom') {
     const customBackground = settings.customBackground.trim()
     return customBackground

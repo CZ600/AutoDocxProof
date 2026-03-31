@@ -1,17 +1,24 @@
 <template>
   <div class="navbar-container" :class="{ dark: isDark }">
     <!-- 导航栏 -->
-    <div class="navbar" style="display: flex; align-items: center;">
+    <div class="navbar" style="display: flex; align-items: center">
       <!-- Logo区域 -->
       <div class="logo">
         <img src="./assets/logo.png" alt="Logo" class="logo-img" />
-        <span class="logo-text" >智能校对</span>
+        <span class="logo-text">智能校对</span>
       </div>
 
       <!-- 导航菜单 -->
-      <el-menu mode="horizontal" :default-active="currentPath" @select="handleSelect" class="nav-menu"
-        :background-color="isDark ? '#1d1e1f' : '#FFFFFF'" :text-color="isDark ? '#ffffff' : '#333'"
-        :active-text-color="isDark ? '#669efc' : '#669efc'" :ellipsis="false">
+      <el-menu
+        mode="horizontal"
+        :default-active="currentPath"
+        @select="handleSelect"
+        class="nav-menu"
+        :background-color="isDark ? '#1d1e1f' : '#FFFFFF'"
+        :text-color="isDark ? '#ffffff' : '#333'"
+        :active-text-color="isDark ? '#669efc' : '#669efc'"
+        :ellipsis="false"
+      >
         <el-menu-item index="/work/proof" class="navbutton">
           <el-icon>
             <HomeFilled />
@@ -37,8 +44,6 @@
           <span>功能设置</span>
         </el-menu-item>
 
-
-
         <el-menu-item index="/about" class="navbutton">
           <el-icon>
             <InfoFilled />
@@ -47,21 +52,22 @@
         </el-menu-item>
         <el-menu-item class="navbutton">
           <el-popover placement="bottom">
-            <p style="text-align: center;font-size:16px">明暗模式切换</p>
+            <p style="text-align: center; font-size: 16px">明暗模式切换</p>
             <template #reference>
-              <el-button @click.stop="toggleDark()"
-                :style="{ backgroundColor: isDark ? '#1d1e1f' : '#FFFFFF', color: isDark ? '#ffffff' : '#333' }" circle>
-                <el-icon v-if="isDark" style="margin-left: 3px;">
+              <el-button
+                @click.stop="toggleDark()"
+                :style="{ backgroundColor: isDark ? '#1d1e1f' : '#FFFFFF', color: isDark ? '#ffffff' : '#333' }"
+                circle
+              >
+                <el-icon v-if="isDark" style="margin-left: 3px">
                   <Moon />
                 </el-icon>
-                <el-icon v-else style="margin-left: 5px;">
+                <el-icon v-else style="margin-left: 5px">
                   <Sunny />
                 </el-icon>
               </el-button>
             </template>
           </el-popover>
-
-
         </el-menu-item>
       </el-menu>
     </div>
@@ -71,11 +77,10 @@
       <router-view />
     </div>
   </div>
-
 </template>
 
 <script setup>
-import "./assets/css/common.css";
+import './assets/css/common.css'
 import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { HomeFilled, Monitor, InfoFilled, Setting, Clock, Collection, Sunny, Moon } from '@element-plus/icons-vue'
@@ -93,7 +98,7 @@ const toggleDark = useToggle(isDark)
 const currentPath = computed(() => route.path)
 
 // 路由跳转处理
-const handleSelect = (key) => {
+const handleSelect = key => {
   router.push(key)
 }
 
@@ -103,7 +108,6 @@ const getEnv = async () => {
 }
 
 getEnv()
-
 </script>
 
 <style scoped>
@@ -164,6 +168,7 @@ getEnv()
 
 .router-view-container {
   flex: 1;
+  min-height: 0;
   padding: 15px;
   background-color: #f9f9f9;
   overflow-y: auto;
@@ -175,7 +180,7 @@ getEnv()
   color: #ffffff;
 }
 
-/* 隐藏滚动条 */
+/* 隐藏滚动条（滚动功能仍保留） */
 ::-webkit-scrollbar {
   display: none;
 }

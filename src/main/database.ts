@@ -77,6 +77,14 @@ export class DB {
         )
         `
       )
+      // 创建存储审核模型设置的表（兼容旧版本，不再使用）
+      await DB.instance.exec(`
+        CREATE TABLE IF NOT EXISTS review_model_settings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          apiId INTEGER,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
     }
     return DB.instance
   }
@@ -164,7 +172,6 @@ export class DB {
   }
 
   // 根据id查询api记录
-
   static async getAPISettingById(id: number): Promise<apiSettings | null> {
     const db = await DB.getInstance()
     const result = await db.get(`SELECT * FROM api_settings WHERE id = ?`, id)
@@ -224,7 +231,6 @@ export class DB {
     const rows = await db.all<apiSettings[]>(
       `SELECT id, apiURL, apiKey, modelName, created_at FROM api_settings ORDER BY created_at DESC`
     )
-    console.log('the result of the search of all ', rows)
     return rows
   }
 
@@ -234,7 +240,21 @@ export class DB {
     const rows = await db.all<proofHistory[]>(
       `SELECT id, filePath, apiURL, modelName, created_at, result FROM proof_history ORDER BY created_at DESC`
     )
-    console.log('the result of the search of all ', rows)
     return rows
+  }
+
+  static async getALLHistory(): Promise<proofHistory[]> {
+    // 获取所有校对记录
+    const db = await DB.getInstance()
+    const rows = await db.all<proofHistory[]>(
+      `SELECT id, filePath, apiURL, modelName, created_at, result FROM proof_history ORDER BY created_at DESC`
+    )
+    return rows
+  }
+
+  static async getAPISettings(): Promise<apiSettings | null> {
+    const db = await DB.getInstance()
+    const row = await db.get<apiSettings>(`SELECT * FROM api_settings ORDER BY created_at DESC LIMIT 1`)
+    return row || null
   }
 }
