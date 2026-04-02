@@ -1,3 +1,8 @@
+import * as zhCNPrompts from './prompts/zh-CN'
+import * as enPrompts from './prompts/en'
+
+export type AppLanguage = 'zh-CN' | 'en'
+
 export type PromptErrorType = 'typo' | 'grammar' | 'consistency' | 'punctuation'
 export type PromptIntensity = 'strict' | 'normal' | 'loose'
 export type PromptBackground = 'academic' | 'news' | 'official' | 'daily' | 'custom'
@@ -41,13 +46,6 @@ export const DEFAULT_PROMPT_SETTINGS: PromptSettings = {
   customPrompt: ''
 }
 
-const ERROR_TYPE_LABELS: Record<PromptErrorType, string> = {
-  typo: '错别字',
-  grammar: '语法',
-  consistency: '上下文一致性',
-  punctuation: '标点'
-}
-
 const ERROR_TYPE_MODEL_TYPES: Record<PromptErrorType, string> = {
   typo: 'Typo',
   grammar: 'Grammar',
@@ -55,18 +53,47 @@ const ERROR_TYPE_MODEL_TYPES: Record<PromptErrorType, string> = {
   punctuation: 'Punctuation'
 }
 
-const INTENSITY_INSTRUCTIONS: Record<PromptIntensity, string> = {
-  strict:
-    '校正强度为“非常严格”。请尽可能严格地审查文本，只要存在明确且合理的修改必要，就应提出修改意见，但仍必须避免改变原文事实和核心意思。',
-  normal: '校正强度为“正常”。请在保证准确性的前提下进行常规校对，修正明显问题，避免过度改写。',
-  loose: '校正强度为“宽松”。仅在存在明显错误或确有必要时才提出修改，避免对可接受表达做非必要调整。'
+function getPrompts(lang: AppLanguage) {
+  return lang === 'zh-CN' ? zhCNPrompts : enPrompts
 }
 
-const BACKGROUND_INSTRUCTIONS: Record<Exclude<PromptBackground, 'custom'>, string> = {
-  academic: '文本背景为学术写作，请优先保证术语准确、表达严谨、上下文逻辑一致。',
-  news: '文本背景为新闻写作，请优先保证叙述准确、语句清晰、表述客观、标点规范。',
-  official: '文本背景为公文写作，请优先保证措辞规范、格式庄重、逻辑严密、上下文前后一致。',
-  daily: '文本背景为日常表达，请优先保证表达自然、易懂、语句通顺和基本规范。'
+const INTENSITY_LABELS: Record<AppLanguage, Record<PromptIntensity, string>> = {
+  'zh-CN': { strict: '非常严格（锱铢必较）', normal: '正常', loose: '宽松（仅进行必要修改）' },
+  en: { strict: 'Very Strict (Nitpicking)', normal: 'Normal', loose: 'Loose (Only necessary changes)' }
+}
+
+const BACKGROUND_LABELS: Record<AppLanguage, Record<PromptBackground, string>> = {
+  'zh-CN': { academic: '学术', news: '新闻', official: '公文', daily: '日常', custom: '自定义' },
+  en: { academic: 'Academic', news: 'News', official: 'Official', daily: 'Daily', custom: 'Custom' }
+}
+
+const PROMPT_MODE_LABELS: Record<AppLanguage, Record<string, string>> = {
+  'zh-CN': { custom: '自定义覆盖', generated: '选项式生成' },
+  en: { custom: 'Custom Override', generated: 'Generated from Options' }
+}
+
+export function getLocalizedErrorTypeLabels(lang: AppLanguage) {
+  const prompts = getPrompts(lang)
+  return PROMPT_ERROR_TYPE_OPTIONS.map(option => ({
+    value: option.value,
+    label: prompts.ERROR_TYPE_LABELS[option.value]
+  }))
+}
+
+export function getLocalizedIntensityOptions(lang: AppLanguage) {
+  const labels = INTENSITY_LABELS[lang]
+  return PROMPT_INTENSITY_OPTIONS.map(option => ({
+    value: option.value,
+    label: labels[option.value]
+  }))
+}
+
+export function getLocalizedBackgroundOptions(lang: AppLanguage) {
+  const labels = BACKGROUND_LABELS[lang]
+  return PROMPT_BACKGROUND_OPTIONS.map(option => ({
+    value: option.value,
+    label: labels[option.value]
+  }))
 }
 
 export function clonePromptSettings(settings: PromptSettings): PromptSettings {
@@ -110,54 +137,33 @@ export function normalizePromptSettings(
   }
 }
 
-export function getPromptModeLabel(settings: PromptSettings): string {
-  return settings.customPromptEnabled ? '自定义覆盖' : '选项式生成'
+export function getPromptModeLabel(settings: PromptSettings, language: AppLanguage = 'zh-CN'): string {
+  const labels = PROMPT_MODE_LABELS[language]
+  return settings.customPromptEnabled ? labels.custom : labels.generated
 }
 
-export function buildBackgroundInstruction(settings: PromptSettings): string {
-  if (settings.background === 'custom') {
-    const customBackground = settings.customBackground.trim()
-    return customBackground
-      ? `文本背景为自定义场景：${customBackground}。请据此理解语境并执行校对。`
-      : '文本背景为自定义场景。请根据文本语境执行审慎校对。'
-  }
-
-  return BACKGROUND_INSTRUCTIONS[settings.background]
+export function buildBackgroundInstruction(settings: PromptSettings, language: AppLanguage = 'zh-CN'): string {
+  const prompts = getPrompts(language)
+  return prompts.buildBackgroundInstruction(settings)
 }
 
-function buildErrorTypeInstruction(errorTypes: PromptErrorType[]): string {
-  const labels = errorTypes.map(type => ERROR_TYPE_LABELS[type])
-  return `本次仅检查以下错误类型：${labels.join('、')}。未列出的类型不要作为修改理由。`
-}
-
-function buildJsonTypeInstruction(errorTypes: PromptErrorType[]): string {
-  const modelTypes = errorTypes.map(type => ERROR_TYPE_MODEL_TYPES[type]).join('/')
-  return `"type": "错误类型(${modelTypes})"`
-}
-
-export function buildPromptFromSettings(input?: Partial<PromptSettings> | null): string {
+export function buildPromptFromSettings(
+  input?: Partial<PromptSettings> | null,
+  language: AppLanguage = 'zh-CN'
+): string {
   const settings = normalizePromptSettings(input)
   if (settings.customPromptEnabled) {
     return settings.customPrompt.trim()
   }
 
-  const jsonTypeInstruction = buildJsonTypeInstruction(settings.errorTypes)
+  const prompts = getPrompts(language)
+  const errorTypeInstruction = prompts.buildErrorTypeInstruction(settings.errorTypes)
+  const intensityInstruction = prompts.INTENSITY_INSTRUCTIONS[settings.intensity]
+  const backgroundInstruction = prompts.buildBackgroundInstruction(settings)
+  const jsonTypeInstruction = prompts.buildJsonTypeInstruction(settings.errorTypes)
 
-  return `你是一个专业的中文文本校对专家。请根据给定配置仔细检查文本。
-要求：
-1. ${buildErrorTypeInstruction(settings.errorTypes)}
-2. ${INTENSITY_INSTRUCTIONS[settings.intensity]}
-3. ${buildBackgroundInstruction(settings)}
-4. 保持原文意思不变，不要进行风格改写或内容扩展。
-5. 按照指定的JSON格式返回结果。
-请校对用户提供的文本，并按照以下JSON格式(JSON format)返回：
-[
-  {
-    "original": "原文错误内容（只截取原文错误的词组，不要多写，不超过15字！）",
-    "suggested": "建议修改内容（基于原文的修改后的内容）",
-    "reason": "错误原因的简短说明",
-    ${jsonTypeInstruction}
-  }
-]
-如果没有任何错误，请返回空数组[]。只返回JSON数组，不要添加其他任何说明文字。`
+  return prompts.MASTER_PROMPT_TEMPLATE.replace('{errorTypeInstruction}', errorTypeInstruction)
+    .replace('{intensityInstruction}', intensityInstruction)
+    .replace('{backgroundInstruction}', backgroundInstruction)
+    .replace('{jsonTypeInstruction}', jsonTypeInstruction)
 }

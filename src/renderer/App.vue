@@ -1,81 +1,64 @@
 <template>
   <div class="navbar-container" :class="{ dark: isDark }">
-    <!-- 导航栏 -->
-    <div class="navbar" style="display: flex; align-items: center">
-      <!-- Logo区域 -->
-      <div class="logo">
-        <img src="./assets/logo.png" alt="Logo" class="logo-img" />
-        <span class="logo-text">智能校对</span>
+    <el-config-provider :locale="elementLocale">
+      <div class="navbar" style="display: flex; align-items: center">
+        <div class="logo">
+          <img src="./assets/logo.png" alt="Logo" class="logo-img" />
+          <span class="logo-text">{{ t('app.title') }}</span>
+        </div>
+
+        <el-menu
+          mode="horizontal"
+          :default-active="currentPath"
+          @select="handleSelect"
+          class="nav-menu"
+          :background-color="isDark ? '#1d1e1f' : '#FFFFFF'"
+          :text-color="isDark ? '#ffffff' : '#333'"
+          :active-text-color="isDark ? '#669efc' : '#669efc'"
+          :ellipsis="false"
+        >
+          <el-menu-item index="/work/proof" class="navbutton">
+            <el-icon><HomeFilled /></el-icon>
+            <span>{{ t('app.nav.proof') }}</span>
+          </el-menu-item>
+          <el-menu-item index="/work/history" class="navbutton">
+            <el-icon><Clock /></el-icon>
+            <span>{{ t('app.nav.history') }}</span>
+          </el-menu-item>
+          <el-menu-item index="/work/dictionary" class="navbutton">
+            <el-icon><Collection /></el-icon>
+            <span>{{ t('app.nav.dictionary') }}</span>
+          </el-menu-item>
+          <el-menu-item index="/work/api" class="navbutton">
+            <el-icon><Setting /></el-icon>
+            <span>{{ t('app.nav.settings') }}</span>
+          </el-menu-item>
+          <el-menu-item index="/about" class="navbutton">
+            <el-icon><InfoFilled /></el-icon>
+            <span>{{ t('app.nav.about') }}</span>
+          </el-menu-item>
+          <el-menu-item class="navbutton">
+            <el-popover placement="bottom">
+              <p style="text-align: center; font-size: 16px">{{ t('app.nav.themeToggle') }}</p>
+              <template #reference>
+                <el-button
+                  @click.stop="toggleDark()"
+                  :style="{ backgroundColor: isDark ? '#1d1e1f' : '#FFFFFF', color: isDark ? '#ffffff' : '#333' }"
+                  circle
+                >
+                  <el-icon v-if="isDark" style="margin-left: 3px"><Moon /></el-icon>
+                  <el-icon v-else style="margin-left: 5px"><Sunny /></el-icon>
+                </el-button>
+              </template>
+            </el-popover>
+          </el-menu-item>
+        </el-menu>
       </div>
 
-      <!-- 导航菜单 -->
-      <el-menu
-        mode="horizontal"
-        :default-active="currentPath"
-        @select="handleSelect"
-        class="nav-menu"
-        :background-color="isDark ? '#1d1e1f' : '#FFFFFF'"
-        :text-color="isDark ? '#ffffff' : '#333'"
-        :active-text-color="isDark ? '#669efc' : '#669efc'"
-        :ellipsis="false"
-      >
-        <el-menu-item index="/work/proof" class="navbutton">
-          <el-icon>
-            <HomeFilled />
-          </el-icon>
-          <span>文档校对</span>
-        </el-menu-item>
-        <el-menu-item index="/work/history" class="navbutton">
-          <el-icon>
-            <Clock />
-          </el-icon>
-          <span>历史记录</span>
-        </el-menu-item>
-        <el-menu-item index="/work/dictionary" class="navbutton">
-          <el-icon>
-            <Collection />
-          </el-icon>
-          <span>本地知识库</span>
-        </el-menu-item>
-        <el-menu-item index="/work/api" class="navbutton">
-          <el-icon>
-            <Setting />
-          </el-icon>
-          <span>功能设置</span>
-        </el-menu-item>
-
-        <el-menu-item index="/about" class="navbutton">
-          <el-icon>
-            <InfoFilled />
-          </el-icon>
-          <span>关于应用</span>
-        </el-menu-item>
-        <el-menu-item class="navbutton">
-          <el-popover placement="bottom">
-            <p style="text-align: center; font-size: 16px">明暗模式切换</p>
-            <template #reference>
-              <el-button
-                @click.stop="toggleDark()"
-                :style="{ backgroundColor: isDark ? '#1d1e1f' : '#FFFFFF', color: isDark ? '#ffffff' : '#333' }"
-                circle
-              >
-                <el-icon v-if="isDark" style="margin-left: 3px">
-                  <Moon />
-                </el-icon>
-                <el-icon v-else style="margin-left: 5px">
-                  <Sunny />
-                </el-icon>
-              </el-button>
-            </template>
-          </el-popover>
-        </el-menu-item>
-      </el-menu>
-    </div>
-
-    <!-- 预留的路由区域 -->
-    <div class="router-view-container">
-      <router-view />
-    </div>
+      <div class="router-view-container">
+        <router-view />
+      </div>
+    </el-config-provider>
   </div>
 </template>
 
@@ -84,20 +67,24 @@ import './assets/css/common.css'
 import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { HomeFilled, Monitor, InfoFilled, Setting, Clock, Collection, Sunny, Moon } from '@element-plus/icons-vue'
+import { useDark, useToggle } from '@vueuse/core'
+import { useI18n } from 'vue-i18n'
+import { useLocaleStore } from './stores/localeStore'
+import en from 'element-plus/es/locale/lang/en'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import 'element-plus/theme-chalk/dark/css-vars.css'
+
 const electronAPI = window.electronAPI
 const router = useRouter()
 const route = useRoute()
-import { useDark, useToggle } from '@vueuse/core'
-import 'element-plus/theme-chalk/dark/css-vars.css'
-// 使用 useDark 创建响应式状态
+const { t } = useI18n()
 const isDark = useDark()
-// 使用 useToggle 创建切换函数
 const toggleDark = useToggle(isDark)
+const localeStore = useLocaleStore()
 
-// 获取当前路由路径
 const currentPath = computed(() => route.path)
+const elementLocale = computed(() => (localeStore.locale === 'en' ? en : zhCn))
 
-// 路由跳转处理
 const handleSelect = key => {
   router.push(key)
 }
@@ -106,7 +93,6 @@ const getEnv = async () => {
   const envPath = await electronAPI.getEnvPath()
   console.log('envPath:', envPath)
 }
-
 getEnv()
 </script>
 

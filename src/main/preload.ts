@@ -145,5 +145,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setProxySettings: (enabled: boolean, port: number) => ipcRenderer.invoke('setProxySettings', enabled, port),
   getProxySettings: () => ipcRenderer.invoke('getProxySettings'),
   // 获取当前校对背景信息
-  getCurrentBackgroundInstruction: () => ipcRenderer.invoke('getCurrentBackgroundInstruction')
+  getCurrentBackgroundInstruction: () => ipcRenderer.invoke('getCurrentBackgroundInstruction'),
+  sendLocale: (locale: string) => ipcRenderer.send('set-locale', locale)
 })

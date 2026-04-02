@@ -1,5 +1,6 @@
 import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { usePromptStore } from '../stores/promptStore'
 import {
   buildPromptFromSettings,
@@ -14,6 +15,7 @@ import {
 } from '../../shared/promptSettings'
 
 export function usePrompt() {
+  const { t } = useI18n()
   const electronAPI = window.electronAPI
   const promptStore = usePromptStore()
 
@@ -26,7 +28,7 @@ export function usePrompt() {
       const promptSettings = await electronAPI.getPromptSettings()
       promptStore.setSettings(normalizePromptSettings(promptSettings))
     } catch (error) {
-      console.error('获取提示词配置失败:', error)
+      console.error(t('usePrompt.getPromptFailed'), error)
       promptStore.resetSettings()
     }
   }
@@ -35,33 +37,33 @@ export function usePrompt() {
     const normalizedSettings = normalizePromptSettings(nextSettings)
 
     if (normalizedSettings.errorTypes.length === 0) {
-      ElMessage.warning('请至少选择一种错误类型')
+      ElMessage.warning(t('usePrompt.atLeastOneErrorType'))
       return false
     }
 
     if (normalizedSettings.background === 'custom' && !normalizedSettings.customBackground.trim()) {
-      ElMessage.warning('请输入自定义背景说明')
+      ElMessage.warning(t('usePrompt.inputCustomBackground'))
       return false
     }
 
     if (normalizedSettings.customPromptEnabled && !normalizedSettings.customPrompt.trim()) {
-      ElMessage.warning('请输入自定义提示词')
+      ElMessage.warning(t('usePrompt.inputCustomPrompt'))
       return false
     }
 
     try {
       const result = await electronAPI.setPromptSettings(normalizedSettings)
       if (!result) {
-        ElMessage.error('保存失败')
+        ElMessage.error(t('usePrompt.saveFailed'))
         return false
       }
 
       promptStore.setSettings(normalizedSettings)
-      ElMessage.success('提示词配置已更新')
+      ElMessage.success(t('usePrompt.promptUpdated'))
       return true
     } catch (error) {
       console.error('保存提示词配置失败:', error)
-      ElMessage.error('保存失败')
+      ElMessage.error(t('usePrompt.saveFailed'))
       return false
     }
   }
@@ -70,16 +72,16 @@ export function usePrompt() {
     try {
       const result = await electronAPI.resetPromptSettings()
       if (!result) {
-        ElMessage.error('恢复失败')
+        ElMessage.error(t('usePrompt.resetFailed'))
         return false
       }
 
       promptStore.resetSettings()
-      ElMessage.success('已恢复默认配置')
+      ElMessage.success(t('usePrompt.resetToDefault'))
       return true
     } catch (error) {
       console.error('恢复默认提示词配置失败:', error)
-      ElMessage.error('恢复失败')
+      ElMessage.error(t('usePrompt.resetFailed'))
       return false
     }
   }

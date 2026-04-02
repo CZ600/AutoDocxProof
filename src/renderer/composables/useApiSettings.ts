@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { useApiStore } from '../stores/apiStore'
 
 interface ApiSettingItem {
@@ -56,6 +57,7 @@ const maskApiKey = (key: string) => {
 }
 
 export function useApiSettings() {
+  const { t } = useI18n()
   const electronAPI = window.electronAPI
   const apiStore = useApiStore()
 
@@ -145,7 +147,7 @@ export function useApiSettings() {
       const success = isEdit ? result === true : result === 'success'
 
       if (!success) {
-        ElMessage.error(isEdit ? 'API 配置更新失败' : 'API 配置保存失败')
+        ElMessage.error(isEdit ? t('useApiSettings.apiUpdateFailed') : t('useApiSettings.apiSaveFailed'))
         return false
       }
 
@@ -160,11 +162,11 @@ export function useApiSettings() {
         await syncApiSettingsToBackend()
       }
 
-      ElMessage.success(isEdit ? 'API 配置已更新' : 'API 配置已保存')
+      ElMessage.success(isEdit ? t('useApiSettings.apiUpdated') : t('useApiSettings.apiSaved'))
       return true
     } catch (error) {
       console.error(isEdit ? '更新 API 失败:' : '保存 API 失败:', error)
-      ElMessage.error(isEdit ? 'API 配置更新失败' : 'API 配置保存失败')
+      ElMessage.error(isEdit ? t('useApiSettings.apiUpdateFailed') : t('useApiSettings.apiSaveFailed'))
       return false
     }
   }
@@ -173,7 +175,7 @@ export function useApiSettings() {
 
   const updateApi = async (data: ApiFormData) => {
     if (typeof data.id !== 'number') {
-      ElMessage.error('缺少 API 记录 ID，无法更新')
+      ElMessage.error(t('useApiSettings.missingApiId'))
       return false
     }
     return saveApi(data)
@@ -184,13 +186,13 @@ export function useApiSettings() {
       const res = await electronAPI.deleteOneAPI(id)
       if (!res.isSuccess) {
         showAlertError.value = true
-        alertTitle.value = '删除失败'
-        ElMessage.error('删除失败')
+        alertTitle.value = t('useApiSettings.deleteFailed')
+        ElMessage.error(t('useApiSettings.deleteFailed'))
         return false
       }
 
       showAlertSuccess.value = true
-      alertTitle.value = '删除成功'
+      alertTitle.value = t('useApiSettings.deleteSuccess')
       await fetchAllApiSettings()
 
       if (apiStore.selectedApi.id === id) {
@@ -202,7 +204,7 @@ export function useApiSettings() {
       return true
     } catch (error) {
       console.error('删除 API 失败:', error)
-      ElMessage.error('删除失败')
+      ElMessage.error(t('useApiSettings.deleteFailed'))
       return false
     }
   }
@@ -217,7 +219,7 @@ export function useApiSettings() {
     const trimmedModelName = modelName.trim()
 
     if (!trimmedUrl || !trimmedKey || !trimmedModelName) {
-      ElMessage.warning('请先填写完整的 API 地址、密钥和模型名称')
+      ElMessage.warning(t('useApiSettings.pleaseCompleteAPI'))
       return false
     }
 
@@ -226,7 +228,7 @@ export function useApiSettings() {
         buildChatCompletionUrl(trimmedUrl),
         {
           model: trimmedModelName,
-          messages: [{ role: 'user', content: '你好' }]
+          messages: [{ role: 'user', content: 'Hello' }]
         },
         {
           headers: {
@@ -239,11 +241,11 @@ export function useApiSettings() {
 
       const message = response.data?.choices?.[0]?.message
       if (response.status >= 200 && response.status < 300 && message) {
-        ElMessage.success('测试成功')
+        ElMessage.success(t('useApiSettings.testSuccess'))
         return true
       }
 
-      ElMessage.error('测试失败：接口返回格式无效')
+      ElMessage.error(t('useApiSettings.testFailedInvalid'))
       return false
     } catch (error) {
       const axiosError = error as {
@@ -254,7 +256,7 @@ export function useApiSettings() {
         axiosError.response?.data?.error?.message ||
         axiosError.response?.data?.message ||
         axiosError.message ||
-        '未知错误'
+        t('useApiSettings.unknownError')
       console.error('测试 API 失败:', error)
       ElMessage.error(`测试失败：${detail}`)
       return false

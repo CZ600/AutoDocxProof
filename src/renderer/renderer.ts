@@ -1,22 +1,32 @@
-import { createApp } from 'vue'
+import { createApp, computed } from 'vue'
 import App from './App.vue'
 import router from './router'
-// 引入 Element Plus 组件库和样式
 import ElementPlus from 'element-plus'
 import { createPinia } from 'pinia'
 import 'element-plus/dist/index.css'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
-// 引入中文语言包
-import zhCn from 'element-plus/es/locale/lang/zh-cn' // 根据需要选择语言
+import en from 'element-plus/es/locale/lang/en'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import { setupI18n } from './i18n'
+import { useLocaleStore } from './stores/localeStore'
+
 const app = createApp(App)
 const pinia = createPinia()
 pinia.use(piniaPluginPersistedstate)
 
 app.use(router)
 app.use(pinia)
-// 使用 Element Plus
+
+const i18n = setupI18n()
+app.use(i18n)
+
+const localeStore = useLocaleStore()
+const elementLocale = computed(() => {
+  return localeStore.locale === 'en' ? en : zhCn
+})
+
 app.use(ElementPlus, {
-  locale: zhCn
+  locale: elementLocale.value
 })
 
 app.mount('#app')

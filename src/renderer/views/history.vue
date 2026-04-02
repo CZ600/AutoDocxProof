@@ -1,47 +1,49 @@
 <template>
   <div class="table-container">
     <el-table :data="history" max-height="1200" class="table">
-      <el-table-column prop="created_at" label="Date" width="150" />
-      <el-table-column prop="modelName" label="modelName" width="120" />
-      <el-table-column prop="filePath" label="filePath" width="300" />
-      <el-table-column fixed="right" label="Operations" width="200">
+      <el-table-column prop="created_at" :label="t('history.date')" width="150" />
+      <el-table-column prop="modelName" :label="t('history.modelName')" width="120" />
+      <el-table-column prop="filePath" :label="t('history.filePath')" width="300" />
+      <el-table-column fixed="right" :label="t('history.operations')" width="200">
         <template #default="scope">
           <el-button link type="primary" size="small" @click="showDetail(scope.row)">
-            Detail
+            {{ t('history.detail') }}
           </el-button>
           <el-button link type="danger" size="small" @click="deleteHistory(scope.row.id)">
-            Delete
+            {{ t('history.delete') }}
           </el-button>
         </template>
       </el-table-column>
     </el-table>
-    <div style="margin-top: 20px;">
-      <el-button type="danger" @click="deleteAllHistory" :disabled="history.length === 0">Delete All</el-button>
+    <div style="margin-top: 20px">
+      <el-button type="danger" @click="deleteAllHistory" :disabled="history.length === 0">{{
+        t('history.deleteAll')
+      }}</el-button>
     </div>
 
-    <!-- 详情弹窗 -->
-    <el-dialog v-model="dialogVisible" title="校对结果详情" width="60%">
-      <pre style="white-space: pre-wrap; word-wrap: break-word;">{{ detailContent }}</pre>
+    <el-dialog v-model="dialogVisible" :title="t('history.detailTitle')" width="60%">
+      <pre style="white-space: pre-wrap; word-wrap: break-word">{{ detailContent }}</pre>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="dialogVisible = false">关闭</el-button>
+          <el-button @click="dialogVisible = false">{{ t('history.close') }}</el-button>
         </span>
       </template>
     </el-dialog>
   </div>
-
 </template>
 
-<script setup lang='ts'>
+<script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
+
+const { t } = useI18n()
 
 const electronAPI = window.electronAPI
 const history = ref([])
 const dialogVisible = ref(false)
 const detailContent = ref('')
 
-// 展示历史记录中详细的纠错内容
 const showDetail = async (row: any) => {
   try {
     const result = await electronAPI.getHistoryById(row.id)
@@ -49,55 +51,49 @@ const showDetail = async (row: any) => {
       detailContent.value = JSON.stringify(JSON.parse(result.result), null, 2)
       dialogVisible.value = true
     } else {
-      ElMessage.error('未找到详细内容')
+      ElMessage.error(t('history.detailNotFound'))
     }
   } catch (error) {
     console.error('获取详情失败:', error)
-    ElMessage.error('获取详情失败')
+    ElMessage.error(t('history.getDetailFail'))
   }
 }
 
-// 删除所有历史记录
 const deleteAllHistory = async () => {
-  ElMessageBox.confirm(
-    '确定要删除所有历史记录吗？此操作无法撤销。',
-    '警告',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
-    }
-  ).then(async () => {
-    try {
-      const result = await electronAPI.deleteAllHistory()
-      if (result) {
-        ElMessage.success('已清空所有历史记录')
-        await loadHistory()
-      } else {
-        ElMessage.error('删除失败')
-      }
-    } catch (error) {
-      console.error('删除所有历史记录失败:', error)
-      ElMessage.error('删除失败')
-    }
-  }).catch(() => {
-    // 用户取消删除
+  ElMessageBox.confirm(t('history.deleteAllConfirm'), t('history.deleteAllWarning'), {
+    confirmButtonText: t('common.confirm'),
+    cancelButtonText: t('common.cancel'),
+    type: 'warning'
   })
+    .then(async () => {
+      try {
+        const result = await electronAPI.deleteAllHistory()
+        if (result) {
+          ElMessage.success(t('history.allDeleted'))
+          await loadHistory()
+        } else {
+          ElMessage.error(t('history.deleteFail'))
+        }
+      } catch (error) {
+        console.error('删除所有历史记录失败:', error)
+        ElMessage.error(t('history.deleteFail'))
+      }
+    })
+    .catch(() => {})
 }
 
-// 删除指定的条目数据
 const deleteHistory = async (id: number) => {
   try {
     const result = await electronAPI.deleteHistoryById(id)
     if (result) {
-      ElMessage.success('删除成功')
+      ElMessage.success(t('history.deleteSuccess'))
       await loadHistory()
     } else {
-      ElMessage.error('删除失败')
+      ElMessage.error(t('history.deleteFail'))
     }
   } catch (error) {
     console.error('删除历史记录失败:', error)
-    ElMessage.error('删除失败')
+    ElMessage.error(t('history.deleteFail'))
   }
 }
 
@@ -107,7 +103,7 @@ const loadHistory = async () => {
     history.value = result
   } catch (error) {
     console.error('获取历史记录失败:', error)
-    ElMessage.error('获取历史记录失败')
+    ElMessage.error(t('history.loadFail'))
   }
 }
 
@@ -118,12 +114,12 @@ onMounted(() => {
 
 <style>
 .table-container {
-  padding: 20px
+  padding: 20px;
 }
 
 .table {
   border: 1px solid rgb(235, 233, 233);
   border-radius: 8px;
-  width: 100%
+  width: 100%;
 }
 </style>

@@ -23,7 +23,9 @@
               @close="deleteSelectRepository(item)"
               >{{ item }}</el-tag
             >
-            <el-button type="danger" size="small" text @click="deleteAllSelectRepository">清空</el-button>
+            <el-button type="danger" size="small" text @click="deleteAllSelectRepository">{{
+              t('proof.clear')
+            }}</el-button>
           </template>
         </div>
 
@@ -45,13 +47,13 @@
         <!-- 右侧：操作按钮 -->
         <div class="button-group">
           <el-button type="primary" :loading="isLoading" @click="selectFileWithMainProcessRead" size="default">
-            {{ isLoading ? '加载中...' : '选择文件' }}
+            {{ isLoading ? t('proof.loading') : t('proof.selectFile') }}
           </el-button>
 
-          <el-select v-model="form.model" placeholder="校对模式" size="default" class="mode-select">
-            <el-option label="逐句精校" value="wordError" />
-            <el-option label="逐段校正" value="ComprehensiveError" />
-            <el-option label="全文润色" value="polish" />
+          <el-select v-model="form.model" :placeholder="t('proof.modePlaceholder')" size="default" class="mode-select">
+            <el-option :label="t('proof.modeWordError')" value="wordError" />
+            <el-option :label="t('proof.modeComprehensive')" value="ComprehensiveError" />
+            <el-option :label="t('proof.modePolish')" value="polish" />
           </el-select>
 
           <el-dropdown placement="bottom">
@@ -59,7 +61,9 @@
               <el-icon><Collection /></el-icon>
             </el-button>
             <template #dropdown>
-              <el-text style="display: flex; justify-content: center; padding: 8px 0 4px">选择知识库</el-text>
+              <el-text style="display: flex; justify-content: center; padding: 8px 0 4px">{{
+                t('proof.selectKnowledge')
+              }}</el-text>
               <el-dropdown-menu>
                 <el-dropdown-item
                   v-for="value in repositoryList"
@@ -79,7 +83,7 @@
             :disabled="!form.filePath || processing"
             :loading="processing"
           >
-            {{ processing ? '校对中...' : '开始校正' }}
+            {{ processing ? t('proof.proofreading') : t('proof.startProof') }}
           </el-button>
 
           <el-button
@@ -89,7 +93,7 @@
             :disabled="proofreadingResults.length === 0"
             :loading="exporting"
           >
-            导出结果
+            {{ t('proof.exportResult') }}
           </el-button>
         </div>
       </div>
@@ -100,7 +104,7 @@
       <!-- 文档预览区域 -->
       <el-main class="preview-area">
         <div ref="previewContainer" class="preview-container">
-          <el-empty v-if="!fileName" description="选择一个 DOCX 文件进行预览" :image-size="80" />
+          <el-empty v-if="!fileName" :description="t('proof.previewFile')" :image-size="80" />
         </div>
       </el-main>
 
@@ -109,17 +113,17 @@
         <div class="sidebar-header">
           <el-dropdown placement="bottom" trigger="click">
             <el-button type="primary" :disabled="proofreadingResults.length === 0" class="apply-all-button">
-              <span>应用修改</span>
+              <span>{{ t('proof.applyChanges') }}</span>
               <el-icon><ArrowDown /></el-icon>
             </el-button>
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item @click="applyALLCorrection()">
                   <el-icon style="margin-right: 8px"><Select /></el-icon>
-                  应用全部修改 ({{ proofreadingResults.filter(r => !r.applied).length }})
+                  {{ t('proof.applyAllCount', { count: proofreadingResults.filter(r => !r.applied).length }) }}
                 </el-dropdown-item>
                 <el-dropdown-item divided>
-                  <span style="font-weight: 600; color: #606266">按类别应用</span>
+                  <span style="font-weight: 600; color: #606266">{{ t('proof.applyByCategory') }}</span>
                 </el-dropdown-item>
                 <el-dropdown-item
                   v-for="cat in availableCategories"
@@ -153,20 +157,28 @@
               </template>
 
               <div class="correction-content">
-                <div class="original"><strong>原文:</strong> {{ item.original || '无数据' }}</div>
-                <div class="suggested"><strong>建议:</strong> {{ item.suggested || '无数据' }}</div>
-                <div class="reason"><strong>原因:</strong> {{ item.reason || '无数据' }}</div>
+                <div class="original">
+                  <strong>{{ t('proof.original') }}</strong> {{ item.original || t('proof.noData') }}
+                </div>
+                <div class="suggested">
+                  <strong>{{ t('proof.suggested') }}</strong> {{ item.suggested || t('proof.noData') }}
+                </div>
+                <div class="reason">
+                  <strong>{{ t('proof.reason') }}</strong> {{ item.reason || t('proof.noData') }}
+                </div>
                 <div class="actions">
                   <el-button type="primary" size="small" @click.stop="applyCorrection(index)" :disabled="item.applied">
-                    {{ item.applied ? '已应用' : '应用修改' }}
+                    {{ item.applied ? t('proof.applied') : t('proof.applyChanges') }}
                   </el-button>
                   <el-popover placement="bottom-start" width="500px" trigger="click" popper-class="reference-popover">
                     <template #reference>
-                      <el-button type="primary" size="small" style="margin-left: 8px" @click.stop> 查看参考 </el-button>
+                      <el-button type="primary" size="small" style="margin-left: 8px" @click.stop>
+                        {{ t('proof.viewReference') }}
+                      </el-button>
                     </template>
 
                     <div class="reference-content">
-                      <h4>参考内容：</h4>
+                      <h4>{{ t('proof.referenceContent') }}</h4>
                       <div class="reference-list">
                         <div v-for="(reference, refIndex) in item.References" :key="refIndex" class="reference-item">
                           <span class="reference-index">{{ refIndex + 1 }}.</span>
@@ -182,7 +194,7 @@
         </div>
 
         <div v-else class="no-results">
-          <el-empty :description="fileName ? '暂无校对结果' : '请选择文档进行校对'" :image-size="60" />
+          <el-empty :description="fileName ? t('proof.noResults') : t('proof.selectDocToProof')" :image-size="60" />
         </div>
       </el-aside>
     </el-container>
@@ -191,6 +203,8 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 import {
   ElContainer,
   ElHeader,
@@ -267,13 +281,13 @@ const proofreadingResults = computed({
 })
 const progressStageText = computed(() => {
   const stageMap = {
-    splitting: '正在整理信息',
-    theme: '正在分析文档',
-    proofreading: '正在校对',
-    reviewing: '正在审核校对结果',
-    completed: '校对完成'
+    splitting: t('proof.progress.splitting'),
+    theme: t('proof.progress.theme'),
+    proofreading: t('proof.progress.proofreading'),
+    reviewing: t('proof.progress.reviewing'),
+    completed: t('proof.progress.completed')
   }
-  return stageMap[progressStage.value] || '正在校对'
+  return stageMap[progressStage.value] || t('proof.progress.default')
 })
 // rag 多选器 设置选项
 const props = {
@@ -287,13 +301,13 @@ const selectRepository = ref([])
 // 格式化校对类型显示
 const formatCorrectionType = type => {
   const typeMap = {
-    Typo: '错别字',
-    Punctuation: '标点',
-    Grammar: '语法',
-    Consistency: '一致性',
-    wordError: '错别字',
-    ComprehensiveError: '综合错误',
-    polish: '润色建议'
+    Typo: t('proof.correctionTypes.Typo'),
+    Punctuation: t('proof.correctionTypes.Punctuation'),
+    Grammar: t('proof.correctionTypes.Grammar'),
+    Consistency: t('proof.correctionTypes.Consistency'),
+    wordError: t('proof.correctionTypes.wordError'),
+    ComprehensiveError: t('proof.correctionTypes.ComprehensiveError'),
+    polish: t('proof.correctionTypes.polish')
   }
   return typeMap[type] || type
 }
@@ -389,7 +403,7 @@ const pushToDB = async resultCorrect => {
       if (result && result.success === false) {
         console.error('保存历史记录失败:', result.error)
         ElMessage({
-          message: '保存历史记录失败: ' + (result.error || '未知错误'),
+          message: t('proof.messages.saveHistoryFailed') + (result.error || t('proof.messages.unknownError')),
           type: 'error',
           duration: 3000
         })
@@ -398,7 +412,7 @@ const pushToDB = async resultCorrect => {
 
       console.log('历史记录保存成功:', result)
       ElMessage({
-        message: '历史记录保存成功',
+        message: t('proof.messages.saveHistorySuccess'),
         type: 'success',
         duration: 1500
       })
@@ -406,7 +420,7 @@ const pushToDB = async resultCorrect => {
       // IPC调用异常处理
       console.error('IPC调用失败:', ipcError)
       ElMessage({
-        message: '与主进程通信失败，无法保存历史记录',
+        message: t('proof.messages.ipcFailed'),
         type: 'error',
         duration: 3000
       })
@@ -424,7 +438,7 @@ const pushToDB = async resultCorrect => {
     // 外层异常处理
     console.error('保存历史记录时发生未预期错误:', error)
     ElMessage({
-      message: '保存历史记录时发生错误: ' + error.message,
+      message: t('proof.messages.saveHistoryError') + error.message,
       type: 'error',
       duration: 3000
     })
@@ -796,22 +810,22 @@ const applyCorrection = index => {
   highlightCorrections()
 
   if (updated) {
-    ElMessage.success('已应用修改')
+    ElMessage.success(t('proof.messages.applied'))
   } else {
-    ElMessage.warning('未能在预览中定位到该处文本，但导出仍会按原文尝试替换')
+    ElMessage.warning(t('proof.messages.locateFailed'))
   }
 }
 
 // 获取可用的错误类别列表
 const availableCategories = computed(() => {
   const typeMap = {
-    Typo: '错别字',
-    Punctuation: '标点',
-    Grammar: '语法',
-    Consistency: '一致性',
-    wordError: '错别字',
-    ComprehensiveError: '综合错误',
-    polish: '润色建议'
+    Typo: t('proof.correctionTypes.Typo'),
+    Punctuation: t('proof.correctionTypes.Punctuation'),
+    Grammar: t('proof.correctionTypes.Grammar'),
+    Consistency: t('proof.correctionTypes.Consistency'),
+    wordError: t('proof.correctionTypes.wordError'),
+    ComprehensiveError: t('proof.correctionTypes.ComprehensiveError'),
+    polish: t('proof.correctionTypes.polish')
   }
 
   const types = new Set()
@@ -830,14 +844,14 @@ const availableCategories = computed(() => {
 // 获取某个类别的未应用修改数量
 const getCategoryCount = type => {
   const count = proofreadingResults.value.filter(item => !item.applied && item.type === type).length
-  return `${count} 条`
+  return t('proof.messages.countItems', { count })
 }
 
 // 按类别应用修改
 const applyByCategory = type => {
   const applicableResults = proofreadingResults.value.filter(item => !item.applied && item.type === type)
   if (applicableResults.length === 0) {
-    ElMessage.warning('该类别没有待应用的修改')
+    ElMessage.warning(t('proof.messages.noPendingByCategory'))
     return
   }
 
@@ -863,9 +877,11 @@ const applyByCategory = type => {
 
   const typeLabel = formatCorrectionType(type)
   if (replacedCount === applicableResults.length) {
-    ElMessage.success(`已应用全部 ${typeLabel} 修改`)
+    ElMessage.success(t('proof.messages.appliedAllType', { typeLabel }))
   } else {
-    ElMessage.warning(`已应用 ${replacedCount}/${applicableResults.length} 处 ${typeLabel} 修改`)
+    ElMessage.warning(
+      t('proof.messages.appliedPartialType', { replaced: replacedCount, total: applicableResults.length, typeLabel })
+    )
   }
 }
 
@@ -873,7 +889,7 @@ const applyByCategory = type => {
 const applyALLCorrection = () => {
   const applicableResults = proofreadingResults.value.filter(item => !item.applied)
   if (applicableResults.length === 0) {
-    ElMessage.warning('没有待应用的修改')
+    ElMessage.warning(t('proof.messages.noPending'))
     return
   }
 
@@ -892,21 +908,21 @@ const applyALLCorrection = () => {
   })
 
   if (replacedCount === applicableResults.length) {
-    ElMessage.success('已应用全部修改')
+    ElMessage.success(t('proof.messages.appliedAll'))
   } else {
-    ElMessage.warning(`已应用 ${replacedCount}/${applicableResults.length} 处预览修改，其余将在导出时继续尝试替换`)
+    ElMessage.warning(t('proof.messages.appliedPartial', { replaced: replacedCount, total: applicableResults.length }))
   }
 }
 
 // 提交校对请求
 const onSubmit = async () => {
   if (!form.value.filePath) {
-    error.value = '请先选择文档文件'
+    error.value = t('proof.errors.selectDoc')
     return
   }
 
   if (!form.value.model) {
-    error.value = '请选择校对模式'
+    error.value = t('proof.errors.selectMode')
     return
   }
 
@@ -959,7 +975,7 @@ const onSubmit = async () => {
     if (!apiURL || !apiKey || !modelName) {
       console.error('API 设置不完整')
       ElMessage({
-        message: 'API 配置不完整，请重新在设置中选择 API',
+        message: t('proof.errors.apiIncomplete'),
         type: 'error',
         duration: 3000
       })
@@ -1002,7 +1018,7 @@ const onSubmit = async () => {
       if ('message' in preResult) {
         if (preResult.message === 'Please select an API setting!') {
           ElMessage({
-            message: '请先设置API密钥',
+            message: t('proof.errors.apiKeyRequired'),
             type: 'error',
             duration: 1500
           })
@@ -1037,7 +1053,7 @@ const onSubmit = async () => {
       if ('message' in preResult) {
         if (preResult.message === 'Please select an API setting!') {
           ElMessage({
-            message: '请先设置API密钥',
+            message: t('proof.errors.apiKeyRequired'),
             type: 'error',
             duration: 1500
           })
@@ -1054,7 +1070,7 @@ const onSubmit = async () => {
     apiSettingsStore.addTotalTokens(token_usage) // 将本次使用的token加入到总的token消耗量中
 
     ElMessage({
-      message: '处理成功,本次任务消耗token: ' + toString(token_usage),
+      message: t('proof.messages.processSuccess', { tokens: token_usage }),
       type: 'success',
       duration: 2000
     })
@@ -1107,10 +1123,10 @@ const onSubmit = async () => {
     clearCloseProgressTimer()
     progressDialogVisible.value = false
     progressDetail.value = ''
-    error.value = `校对处理失败: ${err.message}`
+    error.value = t('proof.errors.processFailed', { message: err.message })
     console.error('校对处理异常:', err)
     ElMessage({
-      message: '校对处理失败: ' + err.message,
+      message: t('proof.errors.processFailed', { message: err.message }),
       type: 'error',
       duration: 3000
     })
@@ -1129,10 +1145,10 @@ const renderDocx = async file => {
       // 渲染 DOCX 文件
       await renderAsync(file, previewContainer.value)
     } else {
-      throw new Error('预览容器未初始化')
+      throw new Error(t('proof.errors.previewNotInit'))
     }
   } catch (err) {
-    error.value = `文档渲染失败: ${err.message}`
+    error.value = t('proof.errors.renderFailed', { message: err.message })
     console.error('DOCX 渲染错误:', err)
     throw err
   }
@@ -1195,7 +1211,7 @@ const selectFileWithMainProcessRead = async () => {
 
     isLoading.value = false
   } catch (err) {
-    error.value = `文件处理失败: ${err.message}`
+    error.value = t('proof.errors.fileFailed', { message: err.message })
     console.error('文件处理错误:', err)
     isLoading.value = false
   }
@@ -1210,7 +1226,7 @@ const exportToDocx = async () => {
 
     // 获取当前预览内容（包含已应用的修改）
     const container = previewContainer.value
-    if (!container) throw new Error('预览内容为空')
+    if (!container) throw new Error(t('proof.errors.previewEmpty'))
 
     // 创建导出配置，只传递可序列化的数据
     const exportConfig = {
@@ -1235,17 +1251,17 @@ const exportToDocx = async () => {
 
     if (result?.success) {
       ElMessage({
-        message: `\u6587\u4ef6\u5bfc\u51fa\u6210\u529f\uff1a${result.filePath || ''}`,
+        message: t('proof.messages.exportSuccess') + (result.filePath || ''),
         type: 'success',
         duration: 2000
       })
     } else {
-      throw new Error('\u5bfc\u51fa\u8fc7\u7a0b\u672a\u5b8c\u6210')
+      throw new Error(t('proof.messages.exportIncomplete'))
     }
   } catch (err) {
     console.error('导出错误:', err)
     ElMessage({
-      message: `\u5bfc\u51fa\u5931\u8d25: ${err.message}`,
+      message: t('proof.messages.exportFailed') + err.message,
       type: 'error',
       duration: 3000
     })
@@ -1276,7 +1292,7 @@ const initProofreadProgressListener = () => {
 
 onMounted(async () => {
   if (!window.electronAPI) {
-    error.value = 'Electron 环境未正确加载...'
+    error.value = t('proof.errors.electronNotReady')
     return
   }
   initProofreadProgressListener()

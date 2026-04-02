@@ -128,7 +128,12 @@ export async function OpenaiGen(
     })
 
     // 添加健壮性检查
-    if (!chatCompletion || !chatCompletion.choices || !Array.isArray(chatCompletion.choices) || chatCompletion.choices.length === 0) {
+    if (
+      !chatCompletion ||
+      !chatCompletion.choices ||
+      !Array.isArray(chatCompletion.choices) ||
+      chatCompletion.choices.length === 0
+    ) {
       console.error('Invalid API response:', chatCompletion)
       throw new Error('API返回了无效的响应格式，choices字段缺失或为空')
     }
@@ -157,11 +162,16 @@ export async function testAPI(apiURL: string, apiKey: string, modelName: string)
 
     const chatCompletion = await openai.chat.completions.create({
       model: modelName,
-      messages: [{ role: 'user', content: '你好' }]
+      messages: [{ role: 'user', content: 'Hello' }]
     })
 
     // 检查响应有效性
-    if (!chatCompletion || !chatCompletion.choices || !Array.isArray(chatCompletion.choices) || chatCompletion.choices.length === 0) {
+    if (
+      !chatCompletion ||
+      !chatCompletion.choices ||
+      !Array.isArray(chatCompletion.choices) ||
+      chatCompletion.choices.length === 0
+    ) {
       console.error('API test failed - invalid response:', chatCompletion)
       return false
     }

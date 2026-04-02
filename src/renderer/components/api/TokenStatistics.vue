@@ -1,99 +1,100 @@
 <template>
-    <el-card class="setting-card token-card" shadow="hover">
-        <template #header>
-            <div class="card-header">
-                <el-icon>
-                    <DataLine />
-                </el-icon>
-                <span>使用统计</span>
-            </div>
+  <el-card class="setting-card token-card" shadow="hover">
+    <template #header>
+      <div class="card-header">
+        <el-icon>
+          <DataLine />
+        </el-icon>
+        <span>{{ t('tokenStats.title') }}</span>
+      </div>
+    </template>
+    <div class="token-stats">
+      <el-statistic :value="totalTokens" class="statistic">
+        <template #title>
+          <div class="statistic-title">
+            <span>{{ t('tokenStats.totalTokens') }}</span>
+            <el-tooltip effect="dark" :content="t('tokenStats.tooltip')" placement="top">
+              <el-icon class="tooltip-icon">
+                <QuestionFilled />
+              </el-icon>
+            </el-tooltip>
+          </div>
         </template>
-        <div class="token-stats">
-            <el-statistic :value="totalTokens" class="statistic">
-                <template #title>
-                    <div class="statistic-title">
-                        <span>累计Token使用量</span>
-                        <el-tooltip effect="dark" content="数据存放于缓存中，清空缓存则清零重置" placement="top">
-                            <el-icon class="tooltip-icon">
-                                <QuestionFilled />
-                            </el-icon>
-                        </el-tooltip>
-                    </div>
-                </template>
-            </el-statistic>
-            <el-button type="danger" :icon="Delete" @click="handleReset" class="btn-reset">
-                清空统计
-            </el-button>
-        </div>
-    </el-card>
+      </el-statistic>
+      <el-button type="danger" :icon="Delete" @click="handleReset" class="btn-reset">
+        {{ t('tokenStats.clearStats') }}
+      </el-button>
+    </div>
+  </el-card>
 </template>
 
-<script setup lang='ts'>
+<script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { Delete, DataLine, QuestionFilled } from '@element-plus/icons-vue'
 import { useToken } from '../../composables/useToken'
 
-// 直接使用 composable，无需 props 和 events
+const { t } = useI18n()
 const { totalTokens, resetTokens } = useToken()
 
 const handleReset = () => {
-    resetTokens()
+  resetTokens()
 }
 </script>
 
 <style scoped>
 .card-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 600;
-    font-size: 15px;
-    color: var(--el-text-color-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--el-text-color-primary);
 }
 
 .token-card {
-    background-color: var(--el-bg-color-overlay);
-    border: 1px solid var(--el-border-color);
+  background-color: var(--el-bg-color-overlay);
+  border: 1px solid var(--el-border-color);
 }
 
 .token-stats {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
 }
 
 .statistic {
-    flex: 1;
+  flex: 1;
 }
 
 .statistic-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .tooltip-icon {
-    cursor: help;
-    color: var(--el-text-color-secondary);
-    transition: color 0.2s;
+  cursor: help;
+  color: var(--el-text-color-secondary);
+  transition: color 0.2s;
 }
 
 .tooltip-icon:hover {
-    color: var(--el-color-primary);
+  color: var(--el-color-primary);
 }
 
 .btn-reset {
-    white-space: nowrap;
+  white-space: nowrap;
 }
 
 .setting-card {
-    margin-bottom: 24px;
-    border-radius: 8px;
-    transition: all 0.2s ease;
-    border: 1px solid var(--el-border-color);
+  margin-bottom: 24px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  border: 1px solid var(--el-border-color);
 }
 
 .setting-card:hover {
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 </style>

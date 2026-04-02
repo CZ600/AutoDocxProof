@@ -1,7 +1,7 @@
 <template>
   <div class="api-settings-container">
     <el-tabs v-model="activeTab" type="border-card" class="custom-tabs">
-      <el-tab-pane label="API设置" name="api">
+      <el-tab-pane :label="t('apiSettings.tabAPI')" name="api">
         <div class="tab-content">
           <el-alert v-if="showAlertSuccess" type="success" auto-close="4000" show-icon class="fade-slide">
             {{ alertTitle }}
@@ -26,7 +26,7 @@
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="提示词设置" name="prompt">
+      <el-tab-pane :label="t('apiSettings.tabPrompt')" name="prompt">
         <div class="tab-content">
           <PromptSettingsPanel />
           <el-card class="setting-card" shadow="hover">
@@ -35,15 +35,20 @@
                 <el-icon>
                   <CircleCheck />
                 </el-icon>
-                <span>审核模型配置</span>
+                <span>{{ t('apiSettings.reviewModelConfig') }}</span>
               </div>
             </template>
             <div class="review-model-desc">
-              配置用于自动审核校对结果的大模型。校对完成后，将使用该模型过滤不必要的校对建议。默认使用校对模型，如需不同模型请手动选择。
+              {{ t('apiSettings.reviewModelDesc') }}
             </div>
             <el-form label-position="top" class="review-model-form">
-              <el-form-item label="选择审核模型" class="form-item">
-                <el-select v-model="apiStore.reviewModelId" placeholder="默认使用校对模型" class="api-select" clearable>
+              <el-form-item :label="t('apiSettings.selectReviewModel')" class="form-item">
+                <el-select
+                  v-model="apiStore.reviewModelId"
+                  :placeholder="t('apiSettings.reviewModelPlaceholder')"
+                  class="api-select"
+                  clearable
+                >
                   <el-option v-for="item in apiSettings" :key="item.id" :label="item.modelName" :value="item.id">
                     <div class="api-option">
                       <el-popover placement="bottom-start" trigger="hover" :width="320">
@@ -56,9 +61,15 @@
                           </div>
                         </template>
                         <div class="api-detail-list">
-                          <div><strong>模型:</strong> {{ item.modelName }}</div>
-                          <div class="api-url-line"><strong>地址:</strong> {{ item.apiURL }}</div>
-                          <div><strong>密钥:</strong> {{ maskApiKey(item.apiKey) }}</div>
+                          <div>
+                            <strong>{{ t('apiSettings.model') }}</strong> {{ item.modelName }}
+                          </div>
+                          <div class="api-url-line">
+                            <strong>{{ t('apiSettings.address') }}</strong> {{ item.apiURL }}
+                          </div>
+                          <div>
+                            <strong>{{ t('apiSettings.apiKey') }}</strong> {{ maskApiKey(item.apiKey) }}
+                          </div>
                         </div>
                       </el-popover>
                     </div>
@@ -66,20 +77,36 @@
                 </el-select>
               </el-form-item>
               <div class="button-group">
-                <el-button @click="handleClearReviewModel" type="default" :icon="Delete">恢复默认</el-button>
+                <el-button @click="handleClearReviewModel" type="default" :icon="Delete">{{
+                  t('apiSettings.restoreDefault')
+                }}</el-button>
               </div>
             </el-form>
           </el-card>
         </div>
       </el-tab-pane>
     </el-tabs>
+
+    <el-card class="setting-card" shadow="hover">
+      <template #header>
+        <div class="card-header">
+          <el-icon><Connection /></el-icon>
+          <span>{{ t('apiSettings.languageLabel') }}</span>
+        </div>
+      </template>
+      <el-select v-model="currentLocale" @change="handleLocaleChange">
+        <el-option label="简体中文" value="zh-CN" />
+        <el-option label="English" value="en" />
+      </el-select>
+    </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { CircleCheck, Cpu, Select, Delete } from '@element-plus/icons-vue'
+import { CircleCheck, Cpu, Select, Delete, Connection } from '@element-plus/icons-vue'
 import ApiSelector from '../components/api/ApiSelector.vue'
 import AddApiDialog from '../components/api/AddApiDialog.vue'
 import TokenStatistics from '../components/api/TokenStatistics.vue'
@@ -89,6 +116,15 @@ import ProxySettings from '../components/api/ProxySettings.vue'
 import PromptSettingsPanel from '../components/prompt/PromptSettingsPanel.vue'
 import { useApiSettings, type ApiFormData } from '../composables/useApiSettings'
 import { useApiStore } from '../stores/apiStore'
+import { useLocaleStore } from '../stores/localeStore'
+
+const { t } = useI18n()
+const localeStore = useLocaleStore()
+
+const currentLocale = computed(() => localeStore.currentLocale)
+const handleLocaleChange = (val: 'zh-CN' | 'en') => {
+  localeStore.setLocale(val)
+}
 
 const activeTab = ref('api')
 const dialogVisible = ref(false)
@@ -130,15 +166,15 @@ const handleSubmitApi = async (data: ApiFormData) => {
 
 const handleSaveReviewModel = () => {
   if (apiStore.reviewModelId === null) {
-    ElMessage.warning('请选择审核模型')
+    ElMessage.warning(t('apiSettings.pleaseSelectReviewModel'))
     return
   }
-  ElMessage.success('审核模型配置已保存')
+  ElMessage.success(t('apiSettings.reviewModelSaved'))
 }
 
 const handleClearReviewModel = () => {
   apiStore.clearReviewModel()
-  ElMessage.success('已恢复默认（与校对模型一致）')
+  ElMessage.success(t('apiSettings.restoredToDefault'))
 }
 
 onMounted(async () => {

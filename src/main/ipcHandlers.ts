@@ -12,7 +12,8 @@ import {
   getEffectivePrompt,
   resetPromptSettings,
   reviewCorrections,
-  getCurrentBackgroundInstruction
+  getCurrentBackgroundInstruction,
+  setLocale
 } from './proof'
 import { deleteDocumentByName, listFilenamesInRepository } from './lancedb'
 import { Mode } from '@google/genai'
@@ -792,5 +793,9 @@ export const registerIpcHandlers = () => {
   // 获取当前校对背景信息
   ipcMain.handle('getCurrentBackgroundInstruction', async () => {
     return getCurrentBackgroundInstruction()
+  })
+
+  ipcMain.on('set-locale', (_event, locale: 'zh-CN' | 'en') => {
+    setLocale(locale)
   })
 }

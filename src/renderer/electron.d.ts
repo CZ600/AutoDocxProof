@@ -171,7 +171,10 @@ export default interface ElectronApi {
   getEnvPath: () => Promise<string>
 
   // 代理设置相关接口
-  setProxySettings: (enabled: boolean, port: number) => Promise<{
+  setProxySettings: (
+    enabled: boolean,
+    port: number
+  ) => Promise<{
     success: boolean
     error?: string
   }>
@@ -179,6 +182,8 @@ export default interface ElectronApi {
     enabled: boolean
     port: number
   }>
+
+  sendLocale: (locale: string) => void
 }
 
 declare global {
