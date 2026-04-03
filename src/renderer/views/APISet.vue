@@ -1,6 +1,6 @@
 <template>
   <div class="api-settings-container">
-    <el-tabs v-model="activeTab" type="border-card" class="custom-tabs">
+    <el-tabs v-model="activeTab" class="custom-tabs">
       <el-tab-pane :label="t('apiSettings.tabAPI')" name="api">
         <div class="tab-content">
           <el-alert v-if="showAlertSuccess" type="success" auto-close="4000" show-icon class="fade-slide">
@@ -29,15 +29,11 @@
       <el-tab-pane :label="t('apiSettings.tabPrompt')" name="prompt">
         <div class="tab-content">
           <PromptSettingsPanel />
-          <el-card class="setting-card" shadow="hover">
-            <template #header>
-              <div class="card-header">
-                <el-icon>
-                  <CircleCheck />
-                </el-icon>
-                <span>{{ t('apiSettings.reviewModelConfig') }}</span>
-              </div>
-            </template>
+          <div class="setting-section">
+            <div class="section-header">
+              <el-icon><CircleCheck /></el-icon>
+              <span>{{ t('apiSettings.reviewModelConfig') }}</span>
+            </div>
             <div class="review-model-desc">
               {{ t('apiSettings.reviewModelDesc') }}
             </div>
@@ -77,28 +73,26 @@
                 </el-select>
               </el-form-item>
               <div class="button-group">
-                <el-button @click="handleClearReviewModel" type="default" :icon="Delete">{{
-                  t('apiSettings.restoreDefault')
-                }}</el-button>
+                <el-button @click="handleClearReviewModel" :icon="Delete" class="btn-subtle">
+                  {{ t('apiSettings.restoreDefault') }}
+                </el-button>
               </div>
             </el-form>
-          </el-card>
+          </div>
         </div>
       </el-tab-pane>
     </el-tabs>
 
-    <el-card class="setting-card" shadow="hover">
-      <template #header>
-        <div class="card-header">
-          <el-icon><Connection /></el-icon>
-          <span>{{ t('apiSettings.languageLabel') }}</span>
-        </div>
-      </template>
+    <div class="setting-section setting-section--lang">
+      <div class="section-header">
+        <el-icon><Connection /></el-icon>
+        <span>{{ t('apiSettings.languageLabel') }}</span>
+      </div>
       <el-select v-model="currentLocale" @change="handleLocaleChange" size="small">
         <el-option label="简体中文" value="zh-CN" />
         <el-option label="English" value="en" />
       </el-select>
-    </el-card>
+    </div>
   </div>
 </template>
 
@@ -176,20 +170,111 @@ onMounted(async () => {
 
 <style scoped>
 .api-settings-container {
-  padding: 12px;
+  padding: 16px 20px;
   height: 100%;
   overflow-y: auto;
+  background: #ffffff;
+  --el-color-primary: #7b9eb8;
+  --el-color-primary-light-3: #a0bdd0;
+  --el-color-primary-light-5: #b8cedb;
+  --el-color-primary-light-7: #d0dfea;
+  --el-color-primary-light-8: #dde8ef;
+  --el-color-primary-light-9: #edf3f7;
+  --el-color-primary-dark-2: #6d8da6;
+}
+
+.api-settings-container :deep(.el-switch.is-checked .el-switch__core) {
+  background-color: #7b9eb8;
+  border-color: #7b9eb8;
+}
+
+.api-settings-container :deep(.el-divider__text) {
+  color: #8a929e;
+  font-size: 13px;
+  background-color: #ffffff;
+}
+
+.api-settings-container :deep(.el-divider) {
+  border-top-color: #edf0f4;
+}
+
+.api-settings-container :deep(.el-form-item__label) {
+  color: #5a6e80;
+  font-weight: 500;
+}
+
+.api-settings-container :deep(.el-input__wrapper) {
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px #dce2e8 inset;
+}
+
+.api-settings-container :deep(.el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #b8c7d4 inset;
+}
+
+.api-settings-container :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #7b9eb8 inset;
+}
+
+.api-settings-container :deep(.el-select .el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #7b9eb8 inset;
+}
+
+.api-settings-container :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
+  background-color: #7b9eb8;
+  border-color: #7b9eb8;
+}
+
+.api-settings-container :deep(.el-checkbox__input.is-checked + .el-checkbox__label) {
+  color: #4a6580;
 }
 
 .custom-tabs {
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid var(--el-border-color);
+  border-radius: 0;
+  overflow: visible;
+  border: none;
+  background: transparent;
+}
+
+.custom-tabs :deep(.el-tabs__header) {
+  background: transparent;
+  border-bottom: 1px solid #e8eaee;
+  margin-bottom: 0;
+}
+
+.custom-tabs :deep(.el-tabs__nav-wrap::after) {
+  display: none;
+}
+
+.custom-tabs :deep(.el-tabs__item) {
+  font-size: 14px;
+  color: #8a929e;
+  font-weight: 500;
+  border: none;
+  padding: 0 20px;
+  height: 42px;
+  line-height: 42px;
+  transition: color 0.25s ease;
+}
+
+.custom-tabs :deep(.el-tabs__item.is-active) {
+  color: #5b7c99;
+  font-weight: 600;
+}
+
+.custom-tabs :deep(.el-tabs__item:hover) {
+  color: #6d92b0;
+}
+
+.custom-tabs :deep(.el-tabs__active-bar) {
+  background-color: #7b9eb8;
+  height: 2px;
+  border-radius: 1px;
 }
 
 .tab-content {
-  padding: 16px;
-  background-color: var(--el-bg-color);
+  padding: 20px 0;
+  background-color: #ffffff;
 }
 
 .fade-slide {
@@ -208,24 +293,30 @@ onMounted(async () => {
   }
 }
 
-.card-header {
+.section-header {
   display: flex;
   align-items: center;
   gap: 8px;
   font-weight: 600;
   font-size: 14px;
-  color: var(--el-text-color-primary);
+  color: #4a6580;
+  margin-bottom: 14px;
+}
+
+.section-header .el-icon {
+  color: #7b9eb8;
+  font-size: 16px;
 }
 
 .review-model-desc {
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-  line-height: 1.6;
+  color: #8a929e;
+  font-size: 13px;
+  line-height: 1.7;
   margin-bottom: 16px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color);
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: #f4f6f9;
+  border: none;
 }
 
 .review-model-form {
@@ -277,14 +368,85 @@ onMounted(async () => {
   flex-wrap: wrap;
 }
 
-.setting-card {
-  margin-top: 16px;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  border: 1px solid var(--el-border-color);
+.btn-subtle {
+  color: #6d8299;
+  border-color: #d5dde5;
+  background: #ffffff;
 }
 
-.setting-card:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+.btn-subtle:hover {
+  color: #5b7c99;
+  border-color: #b8c7d4;
+  background: #f4f6f9;
+}
+
+.setting-section {
+  margin-top: 20px;
+  padding: 16px 18px;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.setting-section--lang {
+  padding: 14px 18px;
+}
+</style>
+
+<style>
+html.dark .api-settings-container {
+  background-color: #000000;
+}
+
+html.dark .api-settings-container :deep(.el-divider__text) {
+  background-color: #000000;
+}
+
+html.dark .api-settings-container :deep(.el-divider) {
+  border-top-color: #2c2e30;
+}
+
+html.dark .tab-content {
+  background-color: #000000;
+}
+
+html.dark .custom-tabs :deep(.el-tabs__header) {
+  border-bottom-color: #2c2e30;
+}
+
+html.dark .custom-tabs :deep(.el-tabs__item) {
+  color: #8a8a8a;
+}
+
+html.dark .custom-tabs :deep(.el-tabs__item.is-active) {
+  color: #e0e0e0;
+}
+
+html.dark .custom-tabs :deep(.el-tabs__item:hover) {
+  color: #c0c0c0;
+}
+
+html.dark .section-header {
+  color: #c0c4cc;
+}
+
+html.dark .review-model-desc {
+  color: #8a8a8a;
+  background: #1a1a1a;
+}
+
+html.dark .btn-subtle {
+  color: #8a8a8a;
+  border-color: #2c2e30;
+  background: #000000;
+}
+
+html.dark .btn-subtle:hover {
+  color: #c0c0c0;
+  border-color: #3c3e40;
+  background: #1a1a1a;
+}
+
+html.dark .setting-section {
+  background: #000000;
 }
 </style>

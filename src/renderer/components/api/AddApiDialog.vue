@@ -8,18 +8,14 @@
   >
     <template #header>
       <div class="dialog-header">
-        <el-icon>
-          <component :is="headerIcon" />
-        </el-icon>
+        <el-icon><component :is="headerIcon" /></el-icon>
         <span>{{ dialogTitle }}</span>
       </div>
     </template>
     <el-form :model="formData" label-position="top" class="dialog-form">
       <el-form-item :label="t('addApiDialog.urlLabel')" class="form-item">
         <div class="input-tip">
-          <el-icon class="tip-icon">
-            <InfoFilled />
-          </el-icon>
+          <el-icon class="tip-icon"><InfoFilled /></el-icon>
           <span>{{ t('addApiDialog.formatExample') }}</span>
         </div>
         <el-input v-model="formData.URL" :placeholder="t('addApiDialog.urlPlaceholder')" :prefix-icon="Link" />
@@ -42,7 +38,7 @@
         <el-button @click="handleReset">{{ t('addApiDialog.reset') }}</el-button>
         <el-button @click="handleClose">{{ t('addApiDialog.cancel') }}</el-button>
         <el-button :loading="testing" @click="handleTest">{{ t('addApiDialog.testConnection') }}</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleSubmit">
+        <el-button type="primary" :loading="submitting" @click="handleSubmit" class="btn-primary">
           {{ mode === 'edit' ? t('addApiDialog.saveEdit') : t('addApiDialog.save') }}
         </el-button>
       </span>
@@ -174,7 +170,23 @@ const handleTest = async () => {
 
 <style scoped>
 .api-dialog {
-  border-radius: 12px;
+  border-radius: 10px;
+}
+
+.api-dialog :deep(.el-dialog) {
+  border-radius: 10px;
+  border: none;
+  box-shadow: 0 4px 24px rgba(75, 100, 130, 0.12);
+}
+
+.api-dialog :deep(.el-dialog__header) {
+  border-bottom: 1px solid #edf0f4;
+  padding-bottom: 16px;
+}
+
+.api-dialog :deep(.el-dialog__footer) {
+  border-top: 1px solid #edf0f4;
+  padding-top: 16px;
 }
 
 .dialog-header {
@@ -182,15 +194,33 @@ const handleTest = async () => {
   align-items: center;
   gap: 10px;
   font-weight: 600;
-  font-size: 18px;
+  font-size: 16px;
+  color: #4a6580;
+}
+
+.dialog-header .el-icon {
+  color: #7b9eb8;
 }
 
 .dialog-form {
-  padding: 20px 0;
+  padding: 16px 0;
 }
 
 .form-item {
   margin-bottom: 20px;
+}
+
+.input-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #8a929e;
+  margin-bottom: 6px;
+}
+
+.tip-icon {
+  color: #a0b3c4;
 }
 
 .dialog-footer {
@@ -198,5 +228,15 @@ const handleTest = async () => {
   justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.btn-primary {
+  background-color: #7b9eb8;
+  border-color: #7b9eb8;
+}
+
+.btn-primary:hover {
+  background-color: #6d8da6;
+  border-color: #6d8da6;
 }
 </style>

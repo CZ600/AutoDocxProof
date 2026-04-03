@@ -1,21 +1,20 @@
 <template>
-  <el-card class="setting-card" shadow="hover">
-    <template #header>
-      <div class="card-header">
-        <el-icon>
-          <Timer />
-        </el-icon>
-        <span>{{ t('rateLimit.title') }}</span>
-      </div>
-    </template>
-    <div class="setting-section">
+  <div class="setting-section">
+    <div class="section-header">
+      <el-icon><Timer /></el-icon>
+      <span>{{ t('rateLimit.title') }}</span>
+    </div>
+    <div class="setting-body">
       <p class="section-description">
-        <el-icon>
-          <InfoFilled />
-        </el-icon>
+        <el-icon><InfoFilled /></el-icon>
         {{ t('rateLimit.description') }}
       </p>
-      <el-button :type="openTimeLimit ? 'success' : 'primary'" @click="handleToggleLimit" class="toggle-btn">
+      <el-button
+        :type="openTimeLimit ? 'primary' : 'default'"
+        @click="handleToggleLimit"
+        class="toggle-btn"
+        :class="{ 'toggle-btn--active': openTimeLimit }"
+      >
         {{ openTimeLimit ? t('rateLimit.disableLimit') : t('rateLimit.enableLimit') }}
       </el-button>
       <el-slider
@@ -28,7 +27,7 @@
         class="custom-slider"
       />
     </div>
-  </el-card>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -49,17 +48,23 @@ const handleTimeLimitChange = (value: number) => {
 </script>
 
 <style scoped>
-.card-header {
+.section-header {
   display: flex;
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  font-size: 15px;
-  color: var(--el-text-color-primary);
+  font-size: 14px;
+  color: #4a6580;
+  margin-bottom: 14px;
 }
 
-.setting-section {
-  padding: 10px 0;
+.section-header .el-icon {
+  color: #7b9eb8;
+  font-size: 16px;
+}
+
+.setting-body {
+  padding: 4px 0;
 }
 
 .section-description {
@@ -67,16 +72,18 @@ const handleTimeLimitChange = (value: number) => {
   align-items: flex-start;
   gap: 8px;
   margin-bottom: 15px;
-  margin-top: 0px;
-  padding: 8px;
-  background-color: var(--el-fill-color-light);
-  border-radius: 8px;
-  font-size: 14px;
-  line-height: 1.6;
+  margin-top: 0;
+  padding: 10px 14px;
+  background-color: #f4f6f9;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #7a8694;
+  border: none;
 }
 
 .section-description .el-icon {
-  color: var(--el-color-primary);
+  color: #8eafc4;
   margin-top: 2px;
   flex-shrink: 0;
 }
@@ -85,40 +92,59 @@ const handleTimeLimitChange = (value: number) => {
   min-width: 140px;
   margin-bottom: 20px;
   font-weight: 500;
+  color: #5b7c99;
+  border-color: #c5d3de;
+  background: #ffffff;
+  transition: all 0.25s ease;
+}
+
+.toggle-btn:hover {
+  color: #4a6580;
+  border-color: #a8bfcf;
+  background: #f4f6f9;
+}
+
+.toggle-btn--active {
+  background-color: #7b9eb8;
+  border-color: #7b9eb8;
+  color: #ffffff;
+}
+
+.toggle-btn--active:hover {
+  background-color: #6d8da6;
+  border-color: #6d8da6;
+  color: #ffffff;
 }
 
 .custom-slider {
-  margin: 20px 0;
+  margin: 16px 0;
   padding: 10px;
 }
 
 .custom-slider :deep(.el-slider__runway) {
-  height: 6px;
-  border-radius: 3px;
+  height: 4px;
+  border-radius: 2px;
+  background-color: #e4e9ef;
 }
 
 .custom-slider :deep(.el-slider__bar) {
-  height: 6px;
-  border-radius: 3px;
-  background-color: var(--el-color-primary);
+  height: 4px;
+  border-radius: 2px;
+  background-color: #8eafc4;
 }
 
 .custom-slider :deep(.el-slider__button) {
-  width: 16px;
-  height: 16px;
-  background-color: var(--el-color-primary);
-  border: 2px solid white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  width: 14px;
+  height: 14px;
+  background-color: #7b9eb8;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(91, 124, 153, 0.25);
 }
 
-.setting-card {
-  margin-bottom: 24px;
+.setting-section {
+  margin-bottom: 20px;
+  padding: 16px 18px;
   border-radius: 8px;
-  transition: all 0.2s ease;
-  border: 1px solid var(--el-border-color);
-}
-
-.setting-card:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  background: #ffffff;
 }
 </style>

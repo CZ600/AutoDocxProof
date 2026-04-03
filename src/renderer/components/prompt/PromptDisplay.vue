@@ -1,24 +1,20 @@
 <template>
-  <el-card class="setting-card prompt-display-card" shadow="hover">
-    <template #header>
-      <div class="card-header">
-        <el-icon>
-          <DataLine />
-        </el-icon>
-        <span>{{ t('promptDisplay.title') }}</span>
-      </div>
-    </template>
+  <div class="setting-section">
+    <div class="section-header">
+      <el-icon><DataLine /></el-icon>
+      <span>{{ t('promptDisplay.title') }}</span>
+    </div>
     <div class="prompt-content-wrapper">
       <div class="prompt-meta">
         <span class="prompt-label">{{ t('promptDisplay.currentMode') }}</span>
-        <el-tag size="small" type="primary">{{ modeLabel }}</el-tag>
+        <el-tag size="small" class="mode-tag">{{ modeLabel }}</el-tag>
       </div>
       <div class="prompt-label">{{ t('promptDisplay.currentPrompt') }}</div>
       <el-text class="prompt-content">
         {{ effectivePrompt }}
       </el-text>
     </div>
-  </el-card>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -36,17 +32,23 @@ const modeLabel = computed(() =>
 </script>
 
 <style scoped>
-.card-header {
+.section-header {
   display: flex;
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  font-size: 15px;
-  color: var(--el-text-color-primary);
+  font-size: 14px;
+  color: #4a6580;
+  margin-bottom: 14px;
+}
+
+.section-header .el-icon {
+  color: #7b9eb8;
+  font-size: 16px;
 }
 
 .prompt-content-wrapper {
-  padding: 10px 0;
+  padding: 4px 0;
 }
 
 .prompt-meta {
@@ -60,13 +62,19 @@ const modeLabel = computed(() =>
   font-weight: 600;
   margin-bottom: 12px;
   font-size: 14px;
-  color: var(--el-text-color-primary);
+  color: #4a6580;
+}
+
+.mode-tag {
+  background-color: #e8eff5;
+  border-color: #d5dde5;
+  color: #5b7c99;
 }
 
 .prompt-content {
   display: block;
-  padding: 15px;
-  background-color: var(--el-fill-color-light);
+  padding: 14px 16px;
+  background-color: #f4f6f9;
   border-radius: 6px;
   white-space: pre-wrap;
   word-break: break-all;
@@ -74,35 +82,32 @@ const modeLabel = computed(() =>
   line-height: 1.8;
   max-height: 260px;
   overflow-y: auto;
-  border: 1px solid var(--el-border-color);
+  border: none;
+  color: #5a6a7a;
 }
 
 .prompt-content::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 .prompt-content::-webkit-scrollbar-track {
-  background: var(--el-fill-color-light);
+  background: transparent;
   border-radius: 3px;
 }
 
 .prompt-content::-webkit-scrollbar-thumb {
-  background: var(--el-border-color);
+  background: #c5d3de;
   border-radius: 3px;
 }
 
 .prompt-content::-webkit-scrollbar-thumb:hover {
-  background: var(--el-text-color-secondary);
+  background: #a8bfcf;
 }
 
-.setting-card {
-  margin-bottom: 24px;
+.setting-section {
+  margin-bottom: 20px;
+  padding: 16px 18px;
   border-radius: 8px;
-  transition: all 0.2s ease;
-  border: 1px solid var(--el-border-color);
-}
-
-.setting-card:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  background: #ffffff;
 }
 </style>

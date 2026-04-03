@@ -1,31 +1,25 @@
 <template>
-  <el-card class="setting-card token-card" shadow="hover">
-    <template #header>
-      <div class="card-header">
-        <el-icon>
-          <DataLine />
-        </el-icon>
-        <span>{{ t('tokenStats.title') }}</span>
-      </div>
-    </template>
+  <div class="setting-section">
+    <div class="section-header">
+      <el-icon><DataLine /></el-icon>
+      <span>{{ t('tokenStats.title') }}</span>
+    </div>
     <div class="token-stats">
       <el-statistic :value="totalTokens" class="statistic">
         <template #title>
           <div class="statistic-title">
             <span>{{ t('tokenStats.totalTokens') }}</span>
             <el-tooltip effect="dark" :content="t('tokenStats.tooltip')" placement="top">
-              <el-icon class="tooltip-icon">
-                <QuestionFilled />
-              </el-icon>
+              <el-icon class="tooltip-icon"><QuestionFilled /></el-icon>
             </el-tooltip>
           </div>
         </template>
       </el-statistic>
-      <el-button type="danger" :icon="Delete" @click="handleReset" class="btn-reset">
+      <el-button :icon="Delete" @click="handleReset" class="btn-reset">
         {{ t('tokenStats.clearStats') }}
       </el-button>
     </div>
-  </el-card>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -42,18 +36,19 @@ const handleReset = () => {
 </script>
 
 <style scoped>
-.card-header {
+.section-header {
   display: flex;
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  font-size: 15px;
-  color: var(--el-text-color-primary);
+  font-size: 14px;
+  color: #4a6580;
+  margin-bottom: 14px;
 }
 
-.token-card {
-  background-color: var(--el-bg-color-overlay);
-  border: 1px solid var(--el-border-color);
+.section-header .el-icon {
+  color: #7b9eb8;
+  font-size: 16px;
 }
 
 .token-stats {
@@ -67,34 +62,45 @@ const handleReset = () => {
   flex: 1;
 }
 
+.statistic :deep(.el-statistic__number) {
+  color: #4a6580;
+  font-weight: 600;
+}
+
 .statistic-title {
   display: flex;
   align-items: center;
   gap: 8px;
+  color: #7a8694;
 }
 
 .tooltip-icon {
   cursor: help;
-  color: var(--el-text-color-secondary);
-  transition: color 0.2s;
+  color: #a0b3c4;
+  transition: color 0.25s;
 }
 
 .tooltip-icon:hover {
-  color: var(--el-color-primary);
+  color: #7b9eb8;
 }
 
 .btn-reset {
   white-space: nowrap;
+  color: #ffffff;
+  border-color: #c28a8a;
+  background-color: #c28a8a;
 }
 
-.setting-card {
-  margin-bottom: 24px;
+.btn-reset:hover {
+  color: #ffffff;
+  border-color: #b07575;
+  background-color: #b07575;
+}
+
+.setting-section {
+  margin-bottom: 20px;
+  padding: 16px 18px;
   border-radius: 8px;
-  transition: all 0.2s ease;
-  border: 1px solid var(--el-border-color);
-}
-
-.setting-card:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  background: #ffffff;
 }
 </style>

@@ -29,14 +29,7 @@
           @click="handleSelect(item)"
         >
           <span class="repo-name">{{ item }}</span>
-          <el-button
-            type="danger"
-            size="small"
-            :icon="Delete"
-            circle
-            @click.stop="deleteSelectRepository(item)"
-            class="delete-btn"
-          />
+          <el-button size="small" :icon="Delete" circle @click.stop="deleteSelectRepository(item)" class="delete-btn" />
         </div>
 
         <div v-if="repositoryList.length === 0" class="empty-state">
@@ -53,7 +46,7 @@
     <div class="panel-section detail-section" v-if="activeIndex">
       <div class="section-header">
         <span>{{ t('dictionary.currentRepo', { name: activeIndex }) }}</span>
-        <el-button type="success" size="small" :icon="FolderAdd" @click="addFile">
+        <el-button size="small" :icon="FolderAdd" @click="addFile" class="btn-success">
           {{ t('dictionary.addFile') }}
         </el-button>
       </div>
@@ -64,7 +57,9 @@
         </el-table-column>
         <el-table-column :label="t('dictionary.operations')" width="70">
           <template #default="{ row }">
-            <el-button type="danger" size="small" @click.stop="deleteFile(row)">{{ t('dictionary.delete') }}</el-button>
+            <el-button size="small" @click.stop="deleteFile(row)" class="btn-danger-sm">
+              {{ t('dictionary.delete') }}
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -80,6 +75,7 @@
     :title="t('dictionary.addRepoDialog.title')"
     width="400"
     :close-on-click-modal="false"
+    class="morandi-dialog"
   >
     <el-form :model="form" label-width="120px">
       <el-form-item :label="t('dictionary.addRepoDialog.nameLabel')" required>
@@ -343,19 +339,19 @@ onMounted(async () => {
 
 <style scoped>
 .dictionary-panel {
-  padding: 12px;
+  padding: 16px 20px;
   height: 100%;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  background: #ffffff;
 }
 
 .panel-section {
-  background: #fff;
+  background: #ffffff;
   border-radius: 8px;
-  border: 1px solid #e4e7ed;
-  padding: 12px;
+  padding: 16px 18px;
 }
 
 .section-header {
@@ -365,12 +361,12 @@ onMounted(async () => {
   gap: 8px;
   font-weight: 600;
   font-size: 14px;
-  color: #303133;
+  color: #4a6580;
   margin-bottom: 12px;
 }
 
 .section-header .el-icon {
-  color: #409eff;
+  color: #7b9eb8;
 }
 
 .repository-list {
@@ -383,22 +379,20 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
+  padding: 10px 14px;
   margin-bottom: 6px;
   border-radius: 6px;
-  background: #f8f9fa;
+  background: #f4f6f9;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .repo-item:hover {
-  background: #f0f5ff;
+  background: #edf3f7;
 }
 
 .repo-item.active {
-  background: #f0f5ff;
-  border: 1px solid #b7dcff;
+  background: #e8eff5;
 }
 
 .repo-name {
@@ -407,11 +401,17 @@ onMounted(async () => {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
+  color: #4a6580;
 }
 
 .delete-btn {
   opacity: 0;
   transition: opacity 0.3s;
+  color: #c28a8a;
+}
+
+.delete-btn:hover {
+  color: #b07575;
 }
 
 .repo-item:hover .delete-btn {
@@ -425,12 +425,23 @@ onMounted(async () => {
 
 .add-repo-btn {
   width: 100%;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .detail-section {
   flex: 1;
   min-height: 0;
+}
+
+.detail-section :deep(.el-table__header th) {
+  background-color: #f4f6f9;
+  color: #4a6580;
+  font-weight: 600;
+  border-bottom: none;
+}
+
+.detail-section :deep(.el-table__row td) {
+  border-bottom: 1px solid #edf0f4;
 }
 
 .welcome-section {
@@ -455,15 +466,90 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
+.btn-success {
+  background-color: #8ab89e;
+  border-color: #8ab89e;
+  color: #ffffff;
+}
+
+.btn-success:hover {
+  background-color: #79a88d;
+  border-color: #79a88d;
+}
+
+.btn-danger-sm {
+  color: #c28a8a;
+  border-color: #dbc5c5;
+  background: #ffffff;
+}
+
+.btn-danger-sm:hover {
+  color: #b07575;
+  border-color: #c9aeae;
+  background: #faf5f5;
+}
+
 .dialog-footer {
   text-align: right;
 }
 
 .repository-list::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 .repository-list::-webkit-scrollbar-thumb {
   border-radius: 3px;
+  background: #c5d3de;
+}
+
+.repository-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+</style>
+
+<style>
+html.dark .dictionary-panel {
+  background-color: #000000;
+}
+
+html.dark .panel-section {
+  background-color: #000000;
+}
+
+html.dark .section-header {
+  color: #c0c4cc;
+}
+
+html.dark .section-header .el-icon {
+  color: #8ec5ff;
+}
+
+html.dark .repo-item {
+  background: #1a1a1a;
+}
+
+html.dark .repo-item:hover {
+  background: #252627;
+}
+
+html.dark .repo-item.active {
+  background: #2a2a2a;
+}
+
+html.dark .repo-name {
+  color: #c0c4cc;
+}
+
+html.dark .detail-section :deep(.el-table__header th) {
+  background-color: #1a1a1a;
+  color: #c0c4cc;
+}
+
+html.dark .detail-section :deep(.el-table__row td) {
+  border-bottom-color: #2c2e30;
+}
+
+html.dark .repository-list::-webkit-scrollbar-thumb {
+  background: #555;
 }
 </style>

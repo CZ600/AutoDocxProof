@@ -114,7 +114,7 @@ getEnv()
   height: 100vh;
   display: flex;
   overflow: hidden;
-  background-color: #f5f5f5;
+  background-color: #ffffff;
 }
 
 .app-layout.dark {
@@ -123,7 +123,7 @@ getEnv()
 
 .sidebar {
   width: 52px;
-  background-color: #1e1e2e;
+  background-color: #2c3a48;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -170,7 +170,7 @@ getEnv()
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: #a0a0b8;
+  color: #8fa3b4;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -178,16 +178,17 @@ getEnv()
   transition: all 0.2s ease;
   -webkit-app-region: no-drag;
   font-size: 18px;
+  position: relative;
 }
 
 .sidebar-btn:hover {
-  background-color: rgba(103, 158, 252, 0.15);
-  color: #669efc;
+  background-color: rgba(123, 158, 184, 0.18);
+  color: #a0bdd0;
 }
 
 .sidebar-btn.active {
-  background-color: rgba(103, 158, 252, 0.2);
-  color: #669efc;
+  background-color: rgba(123, 158, 184, 0.22);
+  color: #a0bdd0;
 }
 
 .sidebar-btn.active::before {
@@ -198,12 +199,8 @@ getEnv()
   transform: translateY(-50%);
   width: 3px;
   height: 20px;
-  background-color: #669efc;
+  background-color: #7b9eb8;
   border-radius: 0 3px 3px 0;
-}
-
-.sidebar-btn {
-  position: relative;
 }
 
 .theme-btn {
@@ -222,8 +219,8 @@ getEnv()
   height: 52px;
   flex-shrink: 0;
   -webkit-app-region: drag;
-  background-color: #fff;
-  border-bottom: 1px solid #e4e7ed;
+  background-color: #ffffff;
+  border-bottom: 1px solid #edf0f4;
 }
 
 .dark .top-toolbar {
@@ -242,7 +239,7 @@ getEnv()
   flex: 1;
   min-width: 0;
   overflow-y: auto;
-  background-color: #f5f5f5;
+  background-color: #ffffff;
 }
 
 .dark .function-panel {
@@ -254,8 +251,8 @@ getEnv()
   flex: 2;
   min-width: 0;
   overflow: hidden;
-  background-color: #fff;
-  border-left: 1px solid #e4e7ed;
+  background-color: #ffffff;
+  border-left: 1px solid #edf0f4;
 }
 
 .dark .preview-panel {

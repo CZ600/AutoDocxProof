@@ -1,18 +1,12 @@
 <template>
-  <el-card class="setting-card" shadow="hover">
-    <template #header>
-      <div class="card-header">
-        <el-icon>
-          <Connection />
-        </el-icon>
-        <span>{{ t('proxy.title') }}</span>
-      </div>
-    </template>
-    <div class="setting-section">
+  <div class="setting-section">
+    <div class="section-header">
+      <el-icon><Connection /></el-icon>
+      <span>{{ t('proxy.title') }}</span>
+    </div>
+    <div class="setting-body">
       <p class="section-description">
-        <el-icon>
-          <InfoFilled />
-        </el-icon>
+        <el-icon><InfoFilled /></el-icon>
         {{ t('proxy.description') }}
       </p>
       <el-form label-width="auto">
@@ -35,7 +29,7 @@
         </el-form-item>
       </el-form>
     </div>
-  </el-card>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -86,17 +80,23 @@ const handleProxyPortChange = (value: number) => {
 </script>
 
 <style scoped>
-.card-header {
+.section-header {
   display: flex;
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  font-size: 15px;
-  color: var(--el-text-color-primary);
+  font-size: 14px;
+  color: #4a6580;
+  margin-bottom: 14px;
 }
 
-.setting-section {
-  padding: 10px 0;
+.section-header .el-icon {
+  color: #7b9eb8;
+  font-size: 16px;
+}
+
+.setting-body {
+  padding: 4px 0;
 }
 
 .section-description {
@@ -104,16 +104,18 @@ const handleProxyPortChange = (value: number) => {
   align-items: flex-start;
   gap: 8px;
   margin-bottom: 15px;
-  margin-top: 0px;
-  padding: 8px;
-  background-color: var(--el-fill-color-light);
-  border-radius: 8px;
-  font-size: 14px;
-  line-height: 1.6;
+  margin-top: 0;
+  padding: 10px 14px;
+  background-color: #f4f6f9;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #7a8694;
+  border: none;
 }
 
 .section-description .el-icon {
-  color: var(--el-color-primary);
+  color: #8eafc4;
   margin-top: 2px;
   flex-shrink: 0;
 }
@@ -122,14 +124,10 @@ const handleProxyPortChange = (value: number) => {
   margin-bottom: 20px;
 }
 
-.setting-card {
-  margin-bottom: 24px;
+.setting-section {
+  margin-bottom: 20px;
+  padding: 16px 18px;
   border-radius: 8px;
-  transition: all 0.2s ease;
-  border: 1px solid var(--el-border-color);
-}
-
-.setting-card:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  background: #ffffff;
 }
 </style>

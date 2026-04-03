@@ -5,13 +5,14 @@
 </template>
 
 <script setup lang="ts">
-import PromptSettingsPanel from '../components/prompt/PromptSettingsPanel.vue'
+import PromptSettingsPanel from '../components/prompt/PromptEditor.vue'
 </script>
 
 <style scoped>
 .proof-set-page {
-  padding: 12px;
+  padding: 16px 20px;
   height: 100%;
   overflow-y: auto;
+  background: #ffffff;
 }
 </style>

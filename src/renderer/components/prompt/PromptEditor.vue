@@ -1,13 +1,9 @@
 <template>
-  <el-card class="setting-card" shadow="hover">
-    <template #header>
-      <div class="card-header">
-        <el-icon>
-          <Setting />
-        </el-icon>
-        <span>{{ t('promptEditor.title') }}</span>
-      </div>
-    </template>
+  <div class="setting-section">
+    <div class="section-header">
+      <el-icon><Setting /></el-icon>
+      <span>{{ t('promptEditor.title') }}</span>
+    </div>
 
     <el-form label-position="top" class="prompt-form">
       <el-form-item :label="t('promptEditor.errorTypes')" class="form-item">
@@ -72,18 +68,18 @@
       </el-form-item>
 
       <div class="button-group">
-        <el-button @click="handleSave" type="primary" :icon="Select" class="btn-save">
+        <el-button @click="handleSave" :icon="Select" class="btn-save">
           {{ t('promptEditor.apply') }}
         </el-button>
-        <el-button @click="resetDraft" type="default" :icon="RefreshLeft">
+        <el-button @click="resetDraft" :icon="RefreshLeft" class="btn-subtle">
           {{ t('promptEditor.undo') }}
         </el-button>
-        <el-button @click="handleReset" type="default" :icon="Warning" class="btn-reset">
+        <el-button @click="handleReset" :icon="Warning" class="btn-subtle">
           {{ t('promptEditor.resetDefault') }}
         </el-button>
       </div>
     </el-form>
-  </el-card>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -128,17 +124,23 @@ const handleReset = async () => {
 </script>
 
 <style scoped>
-.card-header {
+.section-header {
   display: flex;
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  font-size: 15px;
-  color: var(--el-text-color-primary);
+  font-size: 14px;
+  color: #4a6580;
+  margin-bottom: 14px;
+}
+
+.section-header .el-icon {
+  color: #7b9eb8;
+  font-size: 16px;
 }
 
 .prompt-form {
-  padding: 10px 0;
+  padding: 4px 0;
 }
 
 .form-item {
@@ -154,7 +156,40 @@ const handleReset = async () => {
 .radio-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 0;
+}
+
+.radio-group :deep(.el-radio-button) {
+  margin-right: -1px;
+}
+
+.radio-group :deep(.el-radio-button__inner) {
+  border-color: #d5dde5;
+  color: #6d8299;
+  background: #ffffff;
+  font-weight: 500;
+  box-shadow: none;
+  transition: all 0.2s ease;
+}
+
+.radio-group :deep(.el-radio-button__inner:hover) {
+  color: #4a6580;
+  background: #f4f6f9;
+}
+
+.radio-group :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+  background-color: #7b9eb8;
+  border-color: #7b9eb8;
+  color: #ffffff;
+  box-shadow: -1px 0 0 0 #7b9eb8;
+}
+
+.radio-group :deep(.el-radio-button:first-child .el-radio-button__inner) {
+  border-left-color: #d5dde5;
+}
+
+.radio-group :deep(.el-radio-button:first-child .el-radio-button__original-radio:checked + .el-radio-button__inner) {
+  border-left-color: #7b9eb8;
 }
 
 .custom-mode-row {
@@ -163,19 +198,20 @@ const handleReset = async () => {
   align-items: center;
   gap: 16px;
   margin-bottom: 20px;
-  padding: 16px;
-  border: 1px solid var(--el-border-color);
+  padding: 14px 16px;
   border-radius: 8px;
-  background: var(--el-fill-color-light);
+  background: #f4f6f9;
+  border: none;
 }
 
 .custom-mode-title {
   font-weight: 600;
   margin-bottom: 6px;
+  color: #4a6580;
 }
 
 .custom-mode-desc {
-  color: var(--el-text-color-secondary);
+  color: #8a929e;
   line-height: 1.6;
   font-size: 13px;
 }
@@ -193,21 +229,34 @@ const handleReset = async () => {
 
 .btn-save {
   min-width: 140px;
+  background-color: #7b9eb8;
+  border-color: #7b9eb8;
+  color: #ffffff;
 }
 
-.btn-reset {
-  min-width: 140px;
+.btn-save:hover {
+  background-color: #6d8da6;
+  border-color: #6d8da6;
 }
 
-.setting-card {
-  margin-bottom: 24px;
+.btn-subtle {
+  min-width: 100px;
+  color: #6d8299;
+  border-color: #d5dde5;
+  background: #ffffff;
+}
+
+.btn-subtle:hover {
+  color: #4a6580;
+  border-color: #b8c7d4;
+  background: #f4f6f9;
+}
+
+.setting-section {
+  margin-bottom: 20px;
+  padding: 16px 18px;
   border-radius: 8px;
-  transition: all 0.2s ease;
-  border: 1px solid var(--el-border-color);
-}
-
-.setting-card:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  background: #ffffff;
 }
 
 @media (max-width: 768px) {

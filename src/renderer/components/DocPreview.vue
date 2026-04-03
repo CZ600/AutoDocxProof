@@ -5,12 +5,39 @@
     <div class="action-bar">
       <div class="header-content">
         <div class="file-info-container">
+          <el-dropdown placement="bottom" trigger="click" :disabled="proofreadingResults.length === 0">
+            <el-button type="primary" size="default" class="apply-changes-btn">
+              <span>{{ t('proof.applyChanges') }}</span>
+              <el-icon><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item @click="applyALLCorrection()">
+                  <el-icon style="margin-right: 8px"><Select /></el-icon>
+                  {{ t('proof.applyAllCount', { count: proofreadingResults.filter(r => !r.applied).length }) }}
+                </el-dropdown-item>
+                <el-dropdown-item divided>
+                  <span style="font-weight: 600; color: #606266">{{ t('proof.applyByCategory') }}</span>
+                </el-dropdown-item>
+                <el-dropdown-item
+                  v-for="cat in availableCategories"
+                  :key="cat.value"
+                  @click="applyByCategory(cat.value)"
+                >
+                  <span class="category-badge" :class="`category-${cat.value.toLowerCase()}`">{{ cat.label }}</span>
+                  <span style="margin-left: 8px">{{ getCategoryCount(cat.value) }}</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+
           <el-tooltip v-if="fileName" :content="fileName" placement="bottom">
             <span class="file-name-tag">
               <el-icon style="margin-right: 4px"><Document /></el-icon>
               {{ fileName.length > 18 ? fileName.slice(0, 18) + '...' : fileName }}
             </span>
           </el-tooltip>
+
           <template v-if="selectRepository.length > 0">
             <el-tag
               type="success"
@@ -127,7 +154,7 @@ import { renderAsync } from 'docx-preview'
 import { fileInfoStore } from '../stores/store'
 import { useEmbeddingStore } from '../stores/embeddingStore'
 import { useApiStore } from '../stores/apiStore'
-import { Collection, Document } from '@element-plus/icons-vue'
+import { Collection, Document, ArrowDown, Select } from '@element-plus/icons-vue'
 import { useDark } from '@vueuse/core'
 
 const electronAPI = window.electronAPI
@@ -159,7 +186,10 @@ const apiSettingsStore = useApiStore()
 const embeddingStore = useEmbeddingStore()
 
 const fileName = computed(() => fileStore.fileName)
-const proofreadingResults = computed(() => fileStore.results)
+const proofreadingResults = computed({
+  get: () => fileStore.results,
+  set: val => fileStore.setCorrectResult(val)
+})
 const timeLimit =
   apiSettingsStore.selectedApi.TimeLimit && apiSettingsStore.selectedApi.TimeLimit > 0
     ? apiSettingsStore.selectedApi.TimeLimit
@@ -183,6 +213,254 @@ const progressStageText = computed(() => {
 
 const repositoryList = ref([])
 const selectRepository = ref([])
+
+const normalizeCorrectionType = type => {
+  return (type || '').toString().trim().toLowerCase()
+}
+
+const createWhitespaceInsensitiveMatcher = (searchText, flags = 'g') => {
+  const escapedText = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const pattern = escapedText.replace(/\s+/g, '\\s+')
+  return new RegExp(pattern, flags)
+}
+
+const clearHighlights = container => {
+  const existingHighlights = container.querySelectorAll('.highlight-correction')
+  existingHighlights.forEach(el => {
+    const parent = el.parentNode
+    if (!parent) return
+    while (el.firstChild) {
+      parent.insertBefore(el.firstChild, el)
+    }
+    parent.removeChild(el)
+    parent.normalize()
+  })
+}
+
+const buildTextNodeMap = container => {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
+  const segments = []
+  let fullText = ''
+  let currentOffset = 0
+  let node
+  while ((node = walker.nextNode())) {
+    const text = node.textContent || ''
+    if (!text) continue
+    segments.push({
+      node,
+      start: currentOffset,
+      end: currentOffset + text.length
+    })
+    fullText += text
+    currentOffset += text.length
+  }
+  return { fullText, segments }
+}
+
+const getDomPositionFromIndex = (segments, targetIndex, preferEnd = false) => {
+  if (segments.length === 0) return null
+  if (targetIndex <= 0) {
+    return { node: segments[0].node, offset: 0 }
+  }
+  const lastSegment = segments[segments.length - 1]
+  if (targetIndex >= lastSegment.end) {
+    return {
+      node: lastSegment.node,
+      offset: lastSegment.node.textContent.length
+    }
+  }
+  for (const segment of segments) {
+    if (preferEnd) {
+      if (targetIndex >= segment.start && targetIndex <= segment.end) {
+        return {
+          node: segment.node,
+          offset: Math.min(targetIndex - segment.start, segment.node.textContent.length)
+        }
+      }
+    } else if (targetIndex >= segment.start && targetIndex < segment.end) {
+      return {
+        node: segment.node,
+        offset: targetIndex - segment.start
+      }
+    }
+  }
+  return null
+}
+
+const rangesOverlap = (left, right) => !(left.end <= right.start || left.start >= right.end)
+
+const locateCorrectionsInPreview = (container, corrections) => {
+  const { fullText, segments } = buildTextNodeMap(container)
+  const occupiedRanges = []
+  const matches = []
+  corrections.forEach(({ item, index }) => {
+    const originalText = item.original?.trim()
+    if (!originalText) return
+    const regex = createWhitespaceInsensitiveMatcher(originalText)
+    let match
+    while ((match = regex.exec(fullText))) {
+      const start = match.index
+      const end = start + match[0].length
+      const range = { start, end }
+      if (!occupiedRanges.some(existing => rangesOverlap(existing, range))) {
+        occupiedRanges.push(range)
+        matches.push({
+          index,
+          item,
+          start,
+          end
+        })
+        break
+      }
+      if (match[0].length === 0) {
+        regex.lastIndex += 1
+      }
+    }
+  })
+  return { matches, segments }
+}
+
+const highlightCorrections = () => {
+  const container = previewContainer.value
+  if (!container) return
+  clearHighlights(container)
+  const pendingCorrections = proofreadingResults.value
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => !item.applied)
+  if (pendingCorrections.length === 0) return
+  const { matches, segments } = locateCorrectionsInPreview(container, pendingCorrections)
+  matches
+    .map(match => ({ ...match, segments }))
+    .sort((a, b) => b.start - a.start)
+    .forEach(match => {
+      const { segments: segs, start, end, item, index } = match
+      const startPos = getDomPositionFromIndex(segs, start, false)
+      const endPos = getDomPositionFromIndex(segs, end, true)
+      if (!startPos || !endPos) return
+      const range = document.createRange()
+      range.setStart(startPos.node, startPos.offset)
+      range.setEnd(endPos.node, endPos.offset)
+      const highlightEl = document.createElement('span')
+      const correctionTypeClass = `highlight-type-${normalizeCorrectionType(item.type)}`
+      highlightEl.className = `highlight-correction ${correctionTypeClass}`
+      highlightEl.dataset.correctionId = item.id || `correction-${index}`
+      highlightEl.appendChild(range.extractContents())
+      range.insertNode(highlightEl)
+    })
+}
+
+const replaceCorrectionInPreview = (container, correction) => {
+  clearHighlights(container)
+  const { matches, segments } = locateCorrectionsInPreview(container, [{ item: correction, index: 0 }])
+  const match = matches[0]
+  if (!match) return false
+  const startPos = getDomPositionFromIndex(segments, match.start, false)
+  const endPos = getDomPositionFromIndex(segments, match.end, true)
+  if (!startPos || !endPos) return false
+  const range = document.createRange()
+  range.setStart(startPos.node, startPos.offset)
+  range.setEnd(endPos.node, endPos.offset)
+  range.deleteContents()
+  range.insertNode(document.createTextNode(correction.suggested || ''))
+  container.normalize()
+  return true
+}
+
+const formatCorrectionType = type => {
+  const typeMap = {
+    Typo: t('proof.correctionTypes.Typo'),
+    Punctuation: t('proof.correctionTypes.Punctuation'),
+    Grammar: t('proof.correctionTypes.Grammar'),
+    Consistency: t('proof.correctionTypes.Consistency'),
+    wordError: t('proof.correctionTypes.wordError'),
+    ComprehensiveError: t('proof.correctionTypes.ComprehensiveError'),
+    polish: t('proof.correctionTypes.polish')
+  }
+  return typeMap[type] || type
+}
+
+const availableCategories = computed(() => {
+  const typeMap = {
+    Typo: t('proof.correctionTypes.Typo'),
+    Punctuation: t('proof.correctionTypes.Punctuation'),
+    Grammar: t('proof.correctionTypes.Grammar'),
+    Consistency: t('proof.correctionTypes.Consistency'),
+    wordError: t('proof.correctionTypes.wordError'),
+    ComprehensiveError: t('proof.correctionTypes.ComprehensiveError'),
+    polish: t('proof.correctionTypes.polish')
+  }
+  const types = new Set()
+  proofreadingResults.value.forEach(item => {
+    if (!item.applied && item.type) {
+      types.add(item.type)
+    }
+  })
+  return Array.from(types).map(type => ({
+    value: type,
+    label: typeMap[type] || type
+  }))
+})
+
+const getCategoryCount = type => {
+  const count = proofreadingResults.value.filter(item => !item.applied && item.type === type).length
+  return t('proof.messages.countItems', { count })
+}
+
+const applyByCategory = type => {
+  const applicableResults = proofreadingResults.value.filter(item => !item.applied && item.type === type)
+  if (applicableResults.length === 0) {
+    ElMessage.warning(t('proof.messages.noPendingInCategory'))
+    return
+  }
+  const newResults = proofreadingResults.value.map(item => {
+    if (!item.applied && item.type === type) {
+      return { ...item, applied: true }
+    }
+    return item
+  })
+  proofreadingResults.value = newResults
+  const container = previewContainer.value
+  if (!container) return
+  let replacedCount = 0
+  applicableResults.forEach(item => {
+    if (replaceCorrectionInPreview(container, { ...item, applied: true })) {
+      replacedCount += 1
+    }
+  })
+  highlightCorrections()
+  const typeLabel = formatCorrectionType(type)
+  if (replacedCount === applicableResults.length) {
+    ElMessage.success(t('proof.messages.appliedAllType', { typeLabel }))
+  } else {
+    ElMessage.warning(
+      t('proof.messages.appliedPartialType', { replaced: replacedCount, total: applicableResults.length, typeLabel })
+    )
+  }
+}
+
+const applyALLCorrection = () => {
+  const applicableResults = proofreadingResults.value.filter(item => !item.applied)
+  if (applicableResults.length === 0) {
+    ElMessage.warning(t('proof.messages.noPendingChanges'))
+    return
+  }
+  const newResults = proofreadingResults.value.map(item => ({ ...item, applied: true }))
+  proofreadingResults.value = newResults
+  const container = previewContainer.value
+  if (!container) return
+  clearHighlights(container)
+  let replacedCount = 0
+  applicableResults.forEach(item => {
+    if (replaceCorrectionInPreview(container, { ...item, applied: true })) {
+      replacedCount += 1
+    }
+  })
+  if (replacedCount === applicableResults.length) {
+    ElMessage.success(t('proof.messages.appliedAll'))
+  } else {
+    ElMessage.warning(t('proof.messages.appliedPartial', { replaced: replacedCount, total: applicableResults.length }))
+  }
+}
 
 watch(
   () => form.model,
@@ -663,6 +941,15 @@ const initProofreadProgressListener = () => {
   proofreadProgressUnsubscribe = electronAPI.onProofreadProgress(handleProofreadProgress)
 }
 
+watch(
+  () => fileStore.results,
+  newResults => {
+    if (newResults.length > 0) {
+      nextTick(() => highlightCorrections())
+    }
+  }
+)
+
 onMounted(async () => {
   if (!window.electronAPI) {
     error.value = t('proof.errors.electronNotReady')
@@ -690,6 +977,9 @@ onMounted(async () => {
         type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       })
       await renderDocx(file)
+      if (proofreadingResults.value.length > 0) {
+        nextTick(() => highlightCorrections())
+      }
     } catch (err) {
       console.error('恢复预览失败:', err)
       fileStore.clearAll()
@@ -826,7 +1116,7 @@ html.dark .inline-progress-percent {
 .inline-progress-stage {
   font-size: 12px;
   font-weight: 500;
-  color: #3a8ee6;
+  color: #5b7c99;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -915,15 +1205,7 @@ html.dark .inline-progress-percent {
   align-items: center;
   padding: 4px 10px;
   border-radius: 6px;
-  background-color: #f0f5ff;
-  color: #3a8ee6;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 240px;
-  flex-shrink: 1;
+  background-color: #f4f6f9;
 }
 
 .button-group {

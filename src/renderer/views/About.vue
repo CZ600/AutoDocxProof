@@ -5,15 +5,15 @@
       <p class="subtitle">{{ t('about.subtitle') }}</p>
     </div>
 
-    <el-tabs v-model="activeTab" type="card" class="content-tabs">
+    <el-tabs v-model="activeTab" class="content-tabs">
       <el-tab-pane :label="t('about.tabs.intro')" name="intro">
-        <el-card>
+        <div class="tab-card">
           <h2>{{ t('about.intro.title') }}</h2>
           <p>{{ t('about.intro.desc1') }}</p>
           <p>{{ t('about.intro.desc2') }}</p>
 
           <h3>{{ t('about.intro.coreFeatures') }}</h3>
-          <el-collapse v-model="activeCollapse" accordion>
+          <el-collapse v-model="activeCollapse" accordion class="flat-collapse">
             <el-collapse-item :title="t('about.intro.feature1Title')" name="1">
               <ul>
                 <li>{{ t('about.intro.feature1WordError') }}</li>
@@ -81,11 +81,11 @@
             :closable="false"
             style="margin-top: 8px"
           />
-        </el-card>
+        </div>
       </el-tab-pane>
 
       <el-tab-pane :label="t('about.tabs.tech')" name="tech">
-        <el-card>
+        <div class="tab-card">
           <h2>{{ t('about.tech.title') }}</h2>
           <el-descriptions :column="1" border size="small">
             <el-descriptions-item :label="t('about.tech.framework')">
@@ -119,11 +119,11 @@
               >
             </el-descriptions-item>
           </el-descriptions>
-        </el-card>
+        </div>
       </el-tab-pane>
 
       <el-tab-pane :label="t('about.tabs.start')" name="start">
-        <el-card>
+        <div class="tab-card">
           <h2>{{ t('about.start.title') }}</h2>
           <h3>{{ t('about.start.requirements') }}</h3>
           <ul>
@@ -134,11 +134,11 @@
           <el-code-block lang="bash">npm install</el-code-block>
           <h3>{{ t('about.start.devMode') }}</h3>
           <el-code-block lang="bash">npm run start</el-code-block>
-        </el-card>
+        </div>
       </el-tab-pane>
 
       <el-tab-pane :label="t('about.tabs.guide')" name="guide">
-        <el-card>
+        <div class="tab-card">
           <h2>{{ t('about.guide.title') }}</h2>
           <el-steps direction="vertical" :active="3">
             <el-step :title="t('about.guide.step1Title')">
@@ -178,11 +178,11 @@
               </template>
             </el-step>
           </el-steps>
-        </el-card>
+        </div>
       </el-tab-pane>
 
       <el-tab-pane :label="t('about.tabs.other')" name="other">
-        <el-card>
+        <div class="tab-card">
           <h2>{{ t('about.other.devPlan') }}</h2>
           <ul>
             <li>{{ t('about.other.devPlanL1') }}</li>
@@ -207,7 +207,7 @@
           </el-link>
           <h2>{{ t('about.other.license') }}</h2>
           <p>{{ t('about.other.licenseDesc') }}</p>
-        </el-card>
+        </div>
       </el-tab-pane>
     </el-tabs>
   </div>
@@ -224,9 +224,10 @@ const activeCollapse = ref('1')
 
 <style scoped>
 .about-container {
-  padding: 12px;
+  padding: 16px 20px;
   height: 100%;
   overflow-y: auto;
+  background: #ffffff;
 }
 
 .logo-section {
@@ -242,23 +243,59 @@ const activeCollapse = ref('1')
 
 .subtitle {
   font-size: 13px;
-  color: #666;
+  color: #8a929e;
 }
 
-.content-tabs :deep(.el-card__body) {
-  padding: 14px;
+.content-tabs :deep(.el-tabs__header) {
+  background: transparent;
+  border-bottom: 1px solid #edf0f4;
+  margin-bottom: 0;
+}
+
+.content-tabs :deep(.el-tabs__nav-wrap::after) {
+  display: none;
+}
+
+.content-tabs :deep(.el-tabs__item) {
+  font-size: 14px;
+  color: #8a929e;
+  font-weight: 500;
+  border: none;
+  padding: 0 16px;
+  height: 40px;
+  line-height: 40px;
+}
+
+.content-tabs :deep(.el-tabs__item.is-active) {
+  color: #5b7c99;
+  font-weight: 600;
+}
+
+.content-tabs :deep(.el-tabs__item:hover) {
+  color: #6d92b0;
+}
+
+.content-tabs :deep(.el-tabs__active-bar) {
+  background-color: #7b9eb8;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.tab-card {
+  padding: 18px;
+  background: #ffffff;
 }
 
 .content-tabs h2 {
   margin-top: 0;
   margin-bottom: 12px;
-  color: #333;
+  color: #4a6580;
   font-size: 16px;
 }
 
 .content-tabs h3 {
   margin: 12px 0 6px;
-  color: #444;
+  color: #5b7c99;
   font-size: 14px;
 }
 
@@ -270,9 +307,78 @@ const activeCollapse = ref('1')
 .content-tabs li {
   margin: 3px 0;
   font-size: 13px;
+  color: #5a6a7a;
 }
 
 .content-tabs p {
   font-size: 13px;
+  color: #5a6a7a;
+  line-height: 1.7;
+}
+
+.flat-collapse :deep(.el-collapse-item__header) {
+  background: transparent;
+  color: #4a6580;
+  font-weight: 500;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.flat-collapse :deep(.el-collapse-item__wrap) {
+  border-bottom: none;
+}
+
+.flat-collapse :deep(.el-collapse-item__content) {
+  padding: 8px 0;
+}
+</style>
+
+<style>
+html.dark .about-container {
+  background-color: #000000;
+}
+
+html.dark .tab-card {
+  background-color: #000000;
+}
+
+html.dark .content-tabs :deep(.el-tabs__header) {
+  border-bottom-color: #2c2e30;
+}
+
+html.dark .content-tabs :deep(.el-tabs__item) {
+  color: #8a8a8a;
+}
+
+html.dark .content-tabs :deep(.el-tabs__item.is-active) {
+  color: #e0e0e0;
+}
+
+html.dark .content-tabs :deep(.el-tabs__item:hover) {
+  color: #c0c0c0;
+}
+
+html.dark .subtitle {
+  color: #8a8a8a;
+}
+
+html.dark .content-tabs h2 {
+  color: #e0e0e0;
+}
+
+html.dark .content-tabs h3 {
+  color: #c0c0c0;
+}
+
+html.dark .content-tabs li {
+  color: #a0a0a0;
+}
+
+html.dark .content-tabs p {
+  color: #a0a0a0;
+}
+
+html.dark .flat-collapse :deep(.el-collapse-item__header) {
+  color: #c0c0c0;
+  border-bottom-color: #2c2e30;
 }
 </style>

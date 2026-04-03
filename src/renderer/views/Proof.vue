@@ -1,29 +1,5 @@
 <template>
   <div class="proof-results-panel">
-    <div class="panel-header">
-      <el-dropdown placement="bottom" trigger="click">
-        <el-button type="primary" :disabled="proofreadingResults.length === 0" class="apply-all-button">
-          <span>{{ t('proof.applyChanges') }}</span>
-          <el-icon><ArrowDown /></el-icon>
-        </el-button>
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item @click="applyALLCorrection()">
-              <el-icon style="margin-right: 8px"><Select /></el-icon>
-              {{ t('proof.applyAllCount', { count: proofreadingResults.filter(r => !r.applied).length }) }}
-            </el-dropdown-item>
-            <el-dropdown-item divided>
-              <span style="font-weight: 600; color: #606266">{{ t('proof.applyByCategory') }}</span>
-            </el-dropdown-item>
-            <el-dropdown-item v-for="cat in availableCategories" :key="cat.value" @click="applyByCategory(cat.value)">
-              <span class="category-badge" :class="`category-${cat.value.toLowerCase()}`">{{ cat.label }}</span>
-              <span style="margin-left: 8px">{{ getCategoryCount(cat.value) }}</span>
-            </el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
-    </div>
-
     <div class="results-container" v-if="proofreadingResults.length > 0">
       <el-collapse v-model="activeNames">
         <el-collapse-item
@@ -90,7 +66,7 @@ import { ref, onMounted, onUnmounted, watch, nextTick, computed, inject } from '
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ElButton, ElEmpty, ElCollapse, ElCollapseItem, ElMessage, ElPopover } from 'element-plus'
-import { ArrowDown, Select } from '@element-plus/icons-vue'
+
 import { scrollTo } from 'vue-scrollto'
 import { fileInfoStore } from '../stores/store'
 
@@ -596,11 +572,6 @@ html.dark .reference-content h4 {
   color: #f2f3f5;
 }
 
-html.dark .panel-header {
-  background-color: #1d1e1f;
-  border-bottom-color: #2c2e30;
-}
-
 html.dark .proof-results-panel {
   background-color: #141414;
 }
@@ -624,38 +595,15 @@ html.dark .proof-results-panel {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background-color: #fafbfc;
+  background-color: #ffffff;
   font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-
-.panel-header {
-  padding: 16px;
-  border-bottom: 1px solid #e4e7ed;
-  background-color: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-  flex-shrink: 0;
-}
-
-.apply-all-button {
-  width: 100%;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.apply-all-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
 }
 
 .results-container {
   flex: 1;
   padding: 12px;
-  overflow-y: auto;
+  overflow-y: scroll;
+  scrollbar-width: none;
 }
 
 .reference-content {
@@ -664,7 +612,7 @@ html.dark .proof-results-panel {
 
 .reference-content h4 {
   margin: 0 0 14px 0;
-  color: #303133;
+  color: #4a6580;
   font-size: 14px;
   font-weight: 600;
   text-align: center;
@@ -680,16 +628,15 @@ html.dark .proof-results-panel {
   align-items: flex-start;
   margin-bottom: 10px;
   padding: 10px 14px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  border-left: 3px solid #409eff;
+  background: #f4f6f9;
+  border-radius: 6px;
+  border-left: 3px solid #7b9eb8;
   line-height: 1.6;
   transition: all 0.2s ease;
 }
 
 .reference-item:hover {
-  background: #f0f2f5;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  background: #edf3f7;
 }
 
 .reference-item:last-child {
@@ -697,7 +644,7 @@ html.dark .proof-results-panel {
 }
 
 .reference-index {
-  color: #409eff;
+  color: #7b9eb8;
   font-weight: 600;
   margin-right: 10px;
   min-width: 22px;
@@ -705,92 +652,89 @@ html.dark .proof-results-panel {
 }
 
 .reference-text {
-  color: #606266;
+  color: #5a6a7a;
   word-break: break-word;
   white-space: pre-wrap;
 }
 
 .reference-list::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 .reference-list::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: transparent;
   border-radius: 3px;
 }
 
 .reference-list::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: #c5d3de;
   border-radius: 3px;
 }
 
 .reference-list::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: #a8bfcf;
 }
 
 .correction-item {
-  margin-bottom: 12px;
-  border-radius: 10px;
+  margin-bottom: 10px;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  border: 1px solid #e4e7ed;
-  background-color: #fff;
-  transition: all 0.2s ease;
+  border: none;
+  background-color: #ffffff;
+  transition: background 0.2s ease;
 }
 
 .correction-item:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  border-color: #c0c4cc;
+  background-color: #f8fafb;
 }
 
 .correction-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 18px;
-  background-color: #fff;
+  padding: 12px 16px;
+  background-color: transparent;
 }
 
 .correction-type {
   display: inline-block;
-  padding: 5px 12px;
-  border-radius: 6px;
+  padding: 4px 10px;
+  border-radius: 5px;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.2px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .correction-count {
   font-size: 12px;
-  color: #909399;
+  color: #8a929e;
   font-weight: 500;
 }
 
 .correction-content {
-  padding: 18px;
-  border-top: 1px solid #e4e7ed;
-  background-color: #fafbfc;
+  padding: 14px 16px;
+  border-top: 1px solid #edf0f4;
+  background-color: #f8fafb;
 }
 
 .correction-content > div {
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   line-height: 1.7;
-  color: #606266;
+  color: #5a6a7a;
 }
 
 .correction-content strong {
-  color: #303133;
+  color: #4a6580;
   min-width: 50px;
   display: inline-block;
   font-weight: 600;
 }
 
 .actions {
-  margin-top: 16px;
+  margin-top: 14px;
   text-align: right;
-  padding-top: 12px;
-  border-top: 1px dashed #e4e7ed;
+  padding-top: 10px;
+  border-top: 1px dashed #edf0f4;
 }
 
 .actions .el-button {
@@ -799,14 +743,14 @@ html.dark .proof-results-panel {
 }
 
 .actions .el-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: none;
+  box-shadow: none;
 }
 
 .no-results {
   padding: 20px;
   text-align: center;
-  color: #909399;
+  color: #8a929e;
 }
 
 .category-badge {
@@ -821,66 +765,66 @@ html.dark .proof-results-panel {
 .category-typo,
 .category-worderror,
 .category-错别字 {
-  background-color: #f56c6c;
+  background-color: #c28a8a;
 }
 
 .category-punctuation,
 .category-标点 {
-  background-color: #e6a23c;
+  background-color: #c2a86a;
 }
 
 .category-grammar,
 .category-语法 {
-  background-color: #409eff;
+  background-color: #7b9eb8;
 }
 
 .category-consistency,
 .category-一致性 {
-  background-color: #909399;
+  background-color: #8a929e;
 }
 
 .category-comprehensiveerror,
 .category-综合错误,
 .category-polish,
 .category-润色建议 {
-  background-color: #67c23a;
+  background-color: #8ab89e;
 }
 
 .type-typo,
 .type-错别字,
 .type-worderror {
-  background-color: rgba(245, 108, 108, 0.12);
-  color: #e36262;
-  border: 1px solid rgba(245, 108, 108, 0.2);
+  background-color: rgba(194, 138, 138, 0.14);
+  color: #a87070;
+  border: none;
 }
 
 .type-punctuation,
 .type-标点 {
-  background-color: rgba(230, 162, 60, 0.12);
-  color: #d89020;
-  border: 1px solid rgba(230, 162, 60, 0.2);
+  background-color: rgba(194, 168, 106, 0.14);
+  color: #a08850;
+  border: none;
 }
 
 .type-grammar,
 .type-语法 {
-  background-color: rgba(64, 158, 255, 0.12);
-  color: #3a8ee6;
-  border: 1px solid rgba(64, 158, 255, 0.2);
+  background-color: rgba(123, 158, 184, 0.14);
+  color: #5b7c99;
+  border: none;
 }
 
 .type-consistency,
 .type-一致性 {
-  background-color: rgba(144, 147, 152, 0.12);
-  color: #828282;
-  border: 1px solid rgba(144, 147, 152, 0.2);
+  background-color: rgba(138, 146, 158, 0.14);
+  color: #6a7380;
+  border: none;
 }
 
 .type-comprehensiveerror,
 .type-综合错误,
 .type-polish,
 .type-润色建议 {
-  background-color: rgba(103, 194, 58, 0.12);
-  color: #5baa3a;
-  border: 1px solid rgba(103, 194, 58, 0.2);
+  background-color: rgba(138, 184, 158, 0.14);
+  color: #5a9070;
+  border: none;
 }
 </style>

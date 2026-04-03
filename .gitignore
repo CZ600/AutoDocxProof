@@ -93,3 +93,7 @@ out/
 
 dist-electron-builder/
 dist/
+
+# opencode
+.opencode/
+.claude/
