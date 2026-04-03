@@ -601,6 +601,11 @@ html.dark .el-collapse-item__wrap {
   background-color: #000000;
 }
 
+html.dark .el-collapse-item__header.is-active {
+  background-color: #1a1a1a;
+  color: #e0e0e0;
+}
+
 .reference-popover {
   max-width: 500px;
   text-align: center;
