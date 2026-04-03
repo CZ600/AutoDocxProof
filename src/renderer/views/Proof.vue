@@ -593,8 +593,12 @@ html.dark .el-collapse-item {
 }
 
 html.dark .el-collapse-item__header {
-  background-color: #000000;
+  background-color: #1a1a1a;
   color: #c0c4cc;
+}
+
+html.dark .el-collapse-item__header:hover {
+  background-color: #252525;
 }
 
 html.dark .el-collapse-item__wrap {
@@ -602,7 +606,7 @@ html.dark .el-collapse-item__wrap {
 }
 
 html.dark .el-collapse-item__header.is-active {
-  background-color: #1a1a1a;
+  background-color: #252525;
   color: #e0e0e0;
 }
 
