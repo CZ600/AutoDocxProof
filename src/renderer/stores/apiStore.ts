@@ -1,12 +1,14 @@
 // stores/apiStore.ts
 import { defineStore } from 'pinia'
 import { reactive, ref } from 'vue'
+import { ModelProvider } from '../../shared/modelProviders'
 
 interface ApiSettings {
   id: number | null
   URL: string
   key: string
   name: string
+  provider: ModelProvider
   time: string
   parallel: number
   TimeLimit: number | null
@@ -17,6 +19,7 @@ interface ApiSettingItem {
   apiURL: string
   apiKey: string
   modelName: string
+  provider: ModelProvider
 }
 
 interface TokenUsage {
@@ -31,6 +34,7 @@ const defaultApiSettings: ApiSettings = {
   URL: '',
   key: '',
   name: '',
+  provider: ModelProvider.OPENAI_COMPATIBLE,
   time: '',
   parallel: 30,
   TimeLimit: null

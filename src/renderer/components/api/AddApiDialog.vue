@@ -3,7 +3,7 @@
     :model-value="visible"
     @update:model-value="handleDialogVisibilityChange"
     :title="dialogTitle"
-    width="500px"
+    width="550px"
     class="api-dialog"
   >
     <template #header>
@@ -13,7 +13,17 @@
       </div>
     </template>
     <el-form :model="formData" label-position="top" class="dialog-form">
-      <el-form-item :label="t('addApiDialog.urlLabel')" class="form-item">
+      <el-form-item :label="t('addApiDialog.providerLabel')" class="form-item">
+        <el-select v-model="formData.provider" @change="handleProviderChange" class="w-full">
+          <el-option
+            v-for="provider in providerOptions"
+            :key="provider.id"
+            :label="provider.name"
+            :value="provider.id"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item v-if="showURLField" :label="t('addApiDialog.urlLabel')" class="form-item">
         <div class="input-tip">
           <el-icon class="tip-icon"><InfoFilled /></el-icon>
           <span>{{ t('addApiDialog.formatExample') }}</span>
@@ -30,6 +40,10 @@
         />
       </el-form-item>
       <el-form-item :label="t('addApiDialog.modelLabel')" class="form-item">
+        <div class="input-tip">
+          <el-icon class="tip-icon"><InfoFilled /></el-icon>
+          <span>{{ t('addApiDialog.defaultModelTip', { model: defaultModelForProvider }) }}</span>
+        </div>
         <el-input v-model="formData.name" :placeholder="t('addApiDialog.modelPlaceholder')" :prefix-icon="Cpu" />
       </el-form-item>
     </el-form>
@@ -51,8 +65,19 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Plus, Edit, Link, Lock, Cpu, InfoFilled } from '@element-plus/icons-vue'
 import { useApiSettings, type ApiFormData } from '../../composables/useApiSettings'
+import {
+  ModelProvider,
+  MODEL_PROVIDERS,
+  getProviderDefaultModel,
+  requiresBaseURL
+} from '../../../shared/modelProviders'
 
 const { t } = useI18n()
+
+const providerOptions = Object.values(MODEL_PROVIDERS).map(p => ({
+  id: p.id,
+  name: p.name
+}))
 
 const props = withDefaults(
   defineProps<{
@@ -77,8 +102,26 @@ const formData = reactive<ApiFormData>({
   id: undefined,
   URL: '',
   key: '',
-  name: ''
+  name: '',
+  provider: ModelProvider.OPENAI_COMPATIBLE
 })
+
+const showURLField = computed(() => {
+  return requiresBaseURL(formData.provider)
+})
+
+const defaultModelForProvider = computed(() => {
+  return getProviderDefaultModel(formData.provider)
+})
+
+const handleProviderChange = (provider: ModelProvider) => {
+  if (!formData.name || formData.name === getProviderDefaultModel(ModelProvider.OPENAI_COMPATIBLE)) {
+    formData.name = getProviderDefaultModel(provider)
+  }
+  if (!requiresBaseURL(provider)) {
+    formData.URL = ''
+  }
+}
 
 const testing = ref(false)
 const submitting = ref(false)
@@ -91,6 +134,7 @@ const resetForm = () => {
   formData.URL = ''
   formData.key = ''
   formData.name = ''
+  formData.provider = ModelProvider.OPENAI_COMPATIBLE
 }
 
 const syncFormData = () => {
@@ -103,6 +147,7 @@ const syncFormData = () => {
     formData.URL = props.initialData.URL || ''
     formData.key = props.initialData.key || ''
     formData.name = props.initialData.name || ''
+    formData.provider = props.initialData.provider || ModelProvider.OPENAI_COMPATIBLE
     return
   }
 
@@ -148,6 +193,7 @@ const handleReset = () => {
     formData.URL = props.initialData.URL || ''
     formData.key = props.initialData.key || ''
     formData.name = props.initialData.name || ''
+    formData.provider = props.initialData.provider || ModelProvider.OPENAI_COMPATIBLE
     return
   }
 
@@ -160,7 +206,8 @@ const handleTest = async () => {
     await testApiConnection({
       url: formData.URL,
       key: formData.key,
-      modelName: formData.name
+      modelName: formData.name,
+      provider: formData.provider
     })
   } finally {
     testing.value = false

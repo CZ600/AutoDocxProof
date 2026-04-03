@@ -338,6 +338,8 @@
     "urlLabel": "API URL",
     "keyLabel": "API KEY",
     "modelLabel": "Model Name",
+    "providerLabel": "Model Provider",
+    "defaultModelTip": "Default model: {model}",
     "reset": "Reset",
     "cancel": "Cancel",
     "testConnection": "Test Connection",

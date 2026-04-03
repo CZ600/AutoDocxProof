@@ -18,6 +18,7 @@
                   <div class="api-option-info">
                     <el-icon><Cpu /></el-icon>
                     <span>{{ item.modelName }}</span>
+                    <el-tag size="small" type="info" class="provider-tag">{{ getProviderName(item.provider) }}</el-tag>
                   </div>
                 </template>
                 <div class="api-detail-list">
@@ -25,7 +26,7 @@
                     <strong>{{ t('apiSelector.model') }}</strong> {{ item.modelName }}
                   </div>
                   <div class="api-url-line">
-                    <strong>{{ t('apiSelector.address') }}</strong> {{ item.apiURL }}
+                    <strong>{{ t('apiSelector.address') }}</strong> {{ item.apiURL || '-' }}
                   </div>
                   <div>
                     <strong>{{ t('apiSelector.apiKey') }}</strong> {{ maskApiKey(item.apiKey) }}
@@ -56,6 +57,7 @@
 import { Delete, Edit, Connection, Plus, Cpu, InfoFilled } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { useApiSettings } from '../../composables/useApiSettings'
+import { ModelProvider, MODEL_PROVIDERS } from '../../../shared/modelProviders'
 
 const { t } = useI18n()
 
@@ -64,14 +66,19 @@ interface ApiSettingItem {
   apiURL: string
   apiKey: string
   modelName: string
+  provider: ModelProvider
 }
 
 const { selectedApi, apiSettings, deleteApi, testApi, maskApiKey } = useApiSettings()
 
 const emit = defineEmits<{
   'add-api': []
-  'edit-api': [item: { id: number; URL: string; key: string; name: string }]
+  'edit-api': [item: { id: number; URL: string; key: string; name: string; provider: ModelProvider }]
 }>()
+
+const getProviderName = (provider: ModelProvider) => {
+  return MODEL_PROVIDERS[provider]?.name || provider
+}
 
 const handleAdd = () => {
   emit('add-api')
@@ -82,7 +89,8 @@ const handleEdit = (item: ApiSettingItem) => {
     id: item.id,
     URL: item.apiURL,
     key: item.apiKey,
-    name: item.modelName
+    name: item.modelName,
+    provider: item.provider || ModelProvider.OPENAI_COMPATIBLE
   })
 }
 
@@ -155,6 +163,10 @@ const handleTest = () => {
   font-size: 14px;
   min-width: 0;
   flex: 1;
+}
+
+.provider-tag {
+  flex-shrink: 0;
 }
 
 .api-option-actions {

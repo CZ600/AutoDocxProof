@@ -6,6 +6,7 @@ import fs from 'fs'
 import { promises } from 'dns'
 import { b } from 'vite/dist/node/types.d-aGj9QkWt'
 import { getEmbedding } from './chat'
+import { ModelProvider } from '../shared/modelProviders'
 
 // 定义数据类型（TypeScript 类型安全）
 export interface User {
@@ -20,6 +21,7 @@ export interface apiSettings {
   apiURL: string
   apiKey: string
   modelName: string
+  provider: ModelProvider
   created_at?: string
 }
 
@@ -61,9 +63,17 @@ export class DB {
           apiURL TEXT NOT NULL,
           apiKey TEXT NOT NULL,
           modelName TEXT NOT NULL,
+          provider TEXT DEFAULT 'openai_compatible',
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `)
+
+      // 为现有表添加provider列（如果不存在）
+      try {
+        await DB.instance.exec(`ALTER TABLE api_settings ADD COLUMN provider TEXT DEFAULT 'openai_compatible'`)
+      } catch (error) {
+        // 忽略列已存在的错误
+      }
       // 创建存储校对历史的表
       await DB.instance.exec(
         `
@@ -106,14 +116,20 @@ export class DB {
    * @param setting apiSettings 对象（不含 id）
    * @returns 新记录的 id
    */
-  static async insertAPISetting(apiURL: string, apiKey: string, modelName: string): Promise<number> {
+  static async insertAPISetting(
+    apiURL: string,
+    apiKey: string,
+    modelName: string,
+    provider: ModelProvider = ModelProvider.OPENAI_COMPATIBLE
+  ): Promise<number> {
     const db = await DB.getInstance()
     try {
       const result = await db.run(
-        `INSERT INTO api_settings (apiURL, apiKey, modelName) VALUES (?, ?, ?)`,
+        `INSERT INTO api_settings (apiURL, apiKey, modelName, provider) VALUES (?, ?, ?, ?)`,
         apiURL,
         apiKey,
-        modelName
+        modelName,
+        provider
       )
       return result.lastID
     } catch (error) {
@@ -122,16 +138,27 @@ export class DB {
     }
   }
 
-  static async updateAPISettingById(id: number, apiURL: string, apiKey: string, modelName: string): Promise<boolean> {
+  static async updateAPISettingById(
+    id: number,
+    apiURL: string,
+    apiKey: string,
+    modelName: string,
+    provider?: ModelProvider
+  ): Promise<boolean> {
     const db = await DB.getInstance()
     try {
-      const result = await db.run(
-        `UPDATE api_settings SET apiURL = ?, apiKey = ?, modelName = ? WHERE id = ?`,
-        apiURL,
-        apiKey,
-        modelName,
-        id
-      )
+      let query = `UPDATE api_settings SET apiURL = ?, apiKey = ?, modelName = ?`
+      const params: any[] = [apiURL, apiKey, modelName]
+
+      if (provider) {
+        query += `, provider = ?`
+        params.push(provider)
+      }
+
+      query += ` WHERE id = ?`
+      params.push(id)
+
+      const result = await db.run(query, ...params)
       return result.changes > 0
     } catch (error) {
       console.error('更新 API 设置失败:', error)
@@ -233,7 +260,6 @@ export class DB {
     )
     return rows
   }
-
 
   static async getALLHistory(): Promise<proofHistory[]> {
     // 获取所有校对记录

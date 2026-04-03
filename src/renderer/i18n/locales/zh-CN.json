@@ -338,6 +338,8 @@
     "urlLabel": "API URL",
     "keyLabel": "API KEY",
     "modelLabel": "模型名称",
+    "providerLabel": "模型提供商",
+    "defaultModelTip": "默认模型：{model}",
     "reset": "重置",
     "cancel": "取消",
     "testConnection": "测试连通性",

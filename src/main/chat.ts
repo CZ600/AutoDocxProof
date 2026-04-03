@@ -8,7 +8,9 @@ import {
   Part
 } from '@google/generative-ai'
 import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 import { basename } from 'path'
+import { ModelProvider, getProviderBaseURL } from '../shared/modelProviders'
 /**
  * 调用 Gemini API 进行单次对话。
  *
@@ -298,4 +300,382 @@ export async function getEmbedding(text: string | string[], modelName: string, a
   }
 
   throw lastError
+}
+
+// ====================== 1. Anthropic (Claude) ======================
+/**
+ * 调用 Anthropic Claude API 进行单次对话（使用官方 SDK）。
+ */
+export async function getAnthropicResponse(
+  systemPrompt: string,
+  userPrompt: string,
+  apiKey: string,
+  modelName: string
+): Promise<{ result: string; total_tokens: number }> {
+  if (!apiKey) throw new Error('API key is missing.')
+
+  try {
+    const anthropic = new Anthropic({ apiKey })
+
+    const message = await anthropic.messages.create({
+      model: modelName,
+      max_tokens: 2048,
+      temperature: 0.7,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }]
+    })
+
+    const result = message.content[0]?.type === 'text' ? message.content[0].text : ''
+    const total_tokens = message.usage?.input_tokens + (message.usage?.output_tokens || 0) || 0
+
+    return { result, total_tokens }
+  } catch (error) {
+    console.error('Anthropic API call failed:', error)
+    if (error instanceof Error) throw new Error(`Anthropic API call failed: ${error.message}`)
+    throw new Error('An unknown error occurred during the Anthropic API call.')
+  }
+}
+
+// ====================== 2. 字节火山方舟 (Doubao / Volcano Ark) ======================
+/**
+ * 调用字节火山方舟 Doubao 大模型接口（OpenAI 兼容）。
+ */
+export async function getDoubaoResponse(
+  systemPrompt: string,
+  userPrompt: string,
+  apiKey: string,
+  modelName: string
+): Promise<{ result: string; total_tokens: number }> {
+  const apiURL = 'https://ark.cn-beijing.volces.com/api/v3'
+  return OpenaiGen(systemPrompt, userPrompt, apiKey, modelName, apiURL)
+}
+
+// ====================== 3. 阿里云 (通义千问 Qwen) ======================
+/**
+ * 调用阿里云百炼通义千问接口（OpenAI 兼容）。
+ */
+export async function getQwenResponse(
+  systemPrompt: string,
+  userPrompt: string,
+  apiKey: string,
+  modelName: string
+): Promise<{ result: string; total_tokens: number }> {
+  const apiURL = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+  return OpenaiGen(systemPrompt, userPrompt, apiKey, modelName, apiURL)
+}
+
+// ====================== 4. 腾讯云 (混元 Hunyuan) ======================
+/**
+ * 调用腾讯云混元大模型接口（OpenAI 兼容）。
+ */
+export async function getHunyuanResponse(
+  systemPrompt: string,
+  userPrompt: string,
+  apiKey: string,
+  modelName: string
+): Promise<{ result: string; total_tokens: number }> {
+  const apiURL = 'https://api.hunyuan.cloud.tencent.com/v1'
+  return OpenaiGen(systemPrompt, userPrompt, apiKey, modelName, apiURL)
+}
+
+// ====================== 5. 百度云 (文心一言 ERNIE / 千帆) ======================
+/**
+ * 调用百度千帆大模型接口（OpenAI 兼容）。
+ */
+export async function getErnieResponse(
+  systemPrompt: string,
+  userPrompt: string,
+  apiKey: string,
+  modelName: string
+): Promise<{ result: string; total_tokens: number }> {
+  const apiURL = 'https://qianfan.baidubce.com/v2'
+  return OpenaiGen(systemPrompt, userPrompt, apiKey, modelName, apiURL)
+}
+
+// ====================== 6. GLM (智谱AI ChatGLM) ======================
+/**
+ * 调用智谱AI GLM 大模型接口（OpenAI 兼容）。
+ */
+export async function getGLMResponse(
+  systemPrompt: string,
+  userPrompt: string,
+  apiKey: string,
+  modelName: string
+): Promise<{ result: string; total_tokens: number }> {
+  const apiURL = 'https://open.bigmodel.cn/api/paas/v4'
+  return OpenaiGen(systemPrompt, userPrompt, apiKey, modelName, apiURL)
+}
+
+// ====================== 7. Minimax ======================
+/**
+ * 调用 Minimax 大模型接口（OpenAI 兼容）。
+ */
+export async function getMinimaxResponse(
+  systemPrompt: string,
+  userPrompt: string,
+  apiKey: string,
+  modelName: string
+): Promise<{ result: string; total_tokens: number }> {
+  const apiURL = 'https://api.minimax.io/v1'
+  return OpenaiGen(systemPrompt, userPrompt, apiKey, modelName, apiURL)
+}
+
+// ====================== 8. Kimi (Moonshot AI) ======================
+/**
+ * 调用 Kimi (Moonshot) 大模型接口（OpenAI 兼容）。
+ */
+export async function getKimiResponse(
+  systemPrompt: string,
+  userPrompt: string,
+  apiKey: string,
+  modelName: string
+): Promise<{ result: string; total_tokens: number }> {
+  const apiURL = 'https://api.moonshot.cn/v1'
+  return OpenaiGen(systemPrompt, userPrompt, apiKey, modelName, apiURL)
+}
+
+// ====================== 9. 模拟 Claude Code ======================
+import { randomUUID } from 'crypto'
+
+function createClaudeCodeClient(apiKey: string, apiURL?: string) {
+  const sessionId = randomUUID()
+  const options: any = {
+    apiKey,
+    defaultHeaders: {
+      'x-app': 'cli',
+      'User-Agent': 'claude-code/1.0.26',
+      'X-Claude-Code-Session-Id': sessionId,
+      'anthropic-client-type': 'cli'
+    }
+  }
+  if (apiURL) options.baseURL = apiURL.trim().replace(/\/+$/, '')
+  return { client: new Anthropic(options), sessionId }
+}
+
+const CLAUDE_CODE_TOOLS = [
+  {
+    name: 'BashTool',
+    description: 'Executes a given bash command in the persistent shell session.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        command: { type: 'string', description: 'The command to execute' },
+        description: { type: 'string', description: 'Clear, concise description of what this command does' }
+      },
+      required: ['command'],
+      additionalProperties: false
+    },
+    cache_control: { type: 'ephemeral' as const }
+  },
+  {
+    name: 'FileReadTool',
+    description: 'Reads a file or directory from the local filesystem.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        file_path: { type: 'string', description: 'The absolute path to the file to read' }
+      },
+      required: ['file_path'],
+      additionalProperties: false
+    },
+    cache_control: { type: 'ephemeral' as const }
+  },
+  {
+    name: 'GlobTool',
+    description: 'Fast file pattern matching tool that works with any codebase size.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        pattern: { type: 'string', description: 'The glob pattern to match files against' }
+      },
+      required: ['pattern'],
+      additionalProperties: false
+    },
+    cache_control: { type: 'ephemeral' as const }
+  }
+]
+
+export async function getClaudeCodeResponse(
+  systemPrompt: string,
+  userPrompt: string,
+  apiKey: string,
+  modelName: string,
+  apiURL?: string
+): Promise<{ result: string; total_tokens: number }> {
+  if (!apiKey) throw new Error('API key is missing.')
+
+  try {
+    const { client, sessionId } = createClaudeCodeClient(apiKey, apiURL)
+    const clientRequestId = randomUUID()
+
+    const params: any = {
+      model: modelName,
+      max_tokens: 16000,
+      stream: true,
+      betas: ['claude-code-20250219', 'interleaved-thinking-2025-05-14', 'prompt-caching-scope-2026-01-05'],
+      system: [
+        {
+          type: 'text',
+          text: systemPrompt,
+          cache_control: { type: 'ephemeral' }
+        }
+      ],
+      messages: [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: userPrompt }]
+        }
+      ],
+      metadata: {
+        user_id: JSON.stringify({
+          device_id: 'auto-docx-proofread',
+          account_uuid: '',
+          session_id: sessionId
+        })
+      },
+      tools: CLAUDE_CODE_TOOLS,
+      _requestHeaders: {
+        'x-client-request-id': clientRequestId
+      }
+    }
+
+    const stream = (await client.beta.messages.create(params as any)) as unknown as AsyncIterable<any>
+
+    let fullText = ''
+    let inputTokens = 0
+    let outputTokens = 0
+
+    for await (const event of stream as AsyncIterable<any>) {
+      switch (event.type) {
+        case 'message_start':
+          inputTokens = event.message?.usage?.input_tokens || 0
+          break
+        case 'content_block_delta':
+          if (event.delta?.type === 'text_delta') {
+            fullText += event.delta.text
+          }
+          break
+        case 'message_delta':
+          outputTokens = event.usage?.output_tokens || 0
+          break
+      }
+    }
+
+    return { result: fullText.trim(), total_tokens: inputTokens + outputTokens }
+  } catch (error) {
+    console.error('Claude Code API call failed:', error)
+    if (error instanceof Error) throw new Error(`Claude Code API call failed: ${error.message}`)
+    throw new Error('An unknown error occurred during the Claude Code API call.')
+  }
+}
+
+// ====================== 统一调用接口 ======================
+/**
+ * 根据模型提供商调用对应的 API
+ */
+export async function getModelResponse(
+  provider: ModelProvider,
+  systemPrompt: string,
+  userPrompt: string,
+  apiKey: string,
+  modelName: string,
+  customBaseURL?: string
+): Promise<{ result: string; total_tokens: number }> {
+  switch (provider) {
+    case ModelProvider.ANTHROPIC:
+      return await getAnthropicResponse(systemPrompt, userPrompt, apiKey, modelName)
+
+    case ModelProvider.GEMINI:
+      const geminiResult = await getGeminiResponse(systemPrompt, userPrompt, apiKey, modelName)
+      return { result: geminiResult, total_tokens: 0 }
+
+    case ModelProvider.DOUBAO:
+      return await getDoubaoResponse(systemPrompt, userPrompt, apiKey, modelName)
+
+    case ModelProvider.QWEN:
+      return await getQwenResponse(systemPrompt, userPrompt, apiKey, modelName)
+
+    case ModelProvider.HUNYUAN:
+      return await getHunyuanResponse(systemPrompt, userPrompt, apiKey, modelName)
+
+    case ModelProvider.ERNIE:
+      return await getErnieResponse(systemPrompt, userPrompt, apiKey, modelName)
+
+    case ModelProvider.GLM:
+      return await getGLMResponse(systemPrompt, userPrompt, apiKey, modelName)
+
+    case ModelProvider.MINIMAX:
+      return await getMinimaxResponse(systemPrompt, userPrompt, apiKey, modelName)
+
+    case ModelProvider.KIMI:
+      return await getKimiResponse(systemPrompt, userPrompt, apiKey, modelName)
+
+    case ModelProvider.CLAUDE_CODE:
+      return await getClaudeCodeResponse(systemPrompt, userPrompt, apiKey, modelName, customBaseURL)
+
+    case ModelProvider.OPENAI_COMPATIBLE:
+    default:
+      if (!customBaseURL) {
+        throw new Error('Custom base URL is required for OpenAI compatible provider')
+      }
+      return await OpenaiGen(systemPrompt, userPrompt, apiKey, modelName, customBaseURL)
+  }
+}
+
+// ====================== 统一测试接口 ======================
+/**
+ * 测试 API 连接（支持所有提供商）
+ */
+export async function testAPIWithProvider(
+  provider: ModelProvider,
+  apiURL: string,
+  apiKey: string,
+  modelName: string
+): Promise<boolean> {
+  try {
+    if (provider === ModelProvider.ANTHROPIC) {
+      const anthropic = new Anthropic({ apiKey })
+      const message = await anthropic.messages.create({
+        model: modelName,
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'Hello' }]
+      })
+      return !!message.content
+    }
+
+    if (provider === ModelProvider.CLAUDE_CODE) {
+      const { client, sessionId } = createClaudeCodeClient(apiKey, apiURL)
+      const testParams: any = {
+        model: modelName,
+        max_tokens: 100,
+        stream: true,
+        betas: ['claude-code-20250219', 'interleaved-thinking-2025-05-14', 'prompt-caching-scope-2026-01-05'],
+        system: [{ type: 'text', text: 'You are a helpful assistant.', cache_control: { type: 'ephemeral' } }],
+        messages: [{ role: 'user', content: [{ type: 'text', text: 'Hi' }] }],
+        metadata: {
+          user_id: JSON.stringify({ device_id: 'auto-docx-proofread', account_uuid: '', session_id: sessionId })
+        },
+        tools: CLAUDE_CODE_TOOLS,
+        _requestHeaders: { 'x-client-request-id': randomUUID() }
+      }
+      const stream = (await client.beta.messages.create(testParams)) as unknown as AsyncIterable<any>
+      for await (const _event of stream) {
+        break
+      }
+      return true
+    }
+
+    if (provider === ModelProvider.GEMINI) {
+      const genAI = new GoogleGenerativeAI(apiKey)
+      const model = genAI.getGenerativeModel({ model: modelName })
+      const result = await model.generateContent('Hello')
+      return !!result.response
+    }
+
+    const baseURL = getProviderBaseURL(provider) || apiURL
+    return await testAPI(baseURL, apiKey, modelName)
+  } catch (error) {
+    console.error('API test failed for provider:', provider, error)
+    return false
+  }
 }

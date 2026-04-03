@@ -35,12 +35,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectDocxFile: () => ipcRenderer.invoke('select-docx-file'),
   // 可选：如果需要主进程读取文件内容
   readDocxFile: (filePath: string) => ipcRenderer.invoke('read-docx-file', filePath),
-  APISettings: (url: string, key: string, modelName: string) => ipcRenderer.invoke('set-api', url, key, modelName),
-  updateAPISetting: (id: number, url: string, key: string, modelName: string) =>
-    ipcRenderer.invoke('update-api', id, url, key, modelName),
+  APISettings: (url: string, key: string, modelName: string, provider?: string) =>
+    ipcRenderer.invoke('set-api', url, key, modelName, provider),
+  updateAPISetting: (id: number, url: string, key: string, modelName: string, provider?: string) =>
+    ipcRenderer.invoke('update-api', id, url, key, modelName, provider),
   getALLAPISettings: () => ipcRenderer.invoke('get-all-api-settings', {}),
   deleteOneAPI: (id: number) => ipcRenderer.invoke('delete-one-api-setting', id),
   testAPI: (url: string, key: string, modelName: string) => ipcRenderer.invoke('test-api', url, key, modelName),
+  testAPIWithProvider: (provider: string, url: string, key: string, modelName: string) =>
+    ipcRenderer.invoke('test-api-with-provider', provider, url, key, modelName),
   selectAPISetting: (url: string, key: string, modelName: string, parallel?: number, TimeLimit?: number | null) =>
     ipcRenderer.invoke('selectAPISetting', url, key, modelName, parallel, TimeLimit),
   getAPISettings: () => ipcRenderer.invoke('get-api-settings', {}),

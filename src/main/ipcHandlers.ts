@@ -2,7 +2,8 @@ import { ipcMain, session } from 'electron'
 import { dialog } from 'electron'
 import * as path from 'path'
 import { DB } from './database'
-import { testAPI } from './chat'
+import { testAPI, testAPIWithProvider } from './chat'
+import { ModelProvider } from '../shared/modelProviders'
 import {
   proofreadDocument,
   getDefaultPrompt,
@@ -39,6 +40,7 @@ export interface apiSettings {
   apiURL: string
   apiKey: string
   modelName: string
+  provider?: ModelProvider
   parallel?: number
   TimeLimit?: number | null
 }
@@ -52,6 +54,7 @@ let api_info: apiSettings = {
   apiURL: '',
   apiKey: '',
   modelName: '',
+  provider: ModelProvider.OPENAI_COMPATIBLE,
   parallel: 30,
   TimeLimit: null
 }
@@ -120,13 +123,13 @@ export const registerIpcHandlers = () => {
     }
   })
 
-  ipcMain.handle('set-api', async (event, URL, Key, modelName) => {
+  ipcMain.handle('set-api', async (event, URL, Key, modelName, provider = ModelProvider.OPENAI_COMPATIBLE) => {
     try {
-      console.log('add a new api setting:', URL, Key, modelName)
+      console.log('add a new api setting:', URL, Key, modelName, provider)
       api_info.apiKey = Key
       api_info.apiURL = URL
       api_info.modelName = modelName
-      const result = await DB.insertAPISetting(URL, Key, modelName)
+      const result = await DB.insertAPISetting(URL, Key, modelName, provider)
       console.log('the result of the new api setting adding:', result)
       if (result) {
         return 'success'
@@ -138,10 +141,10 @@ export const registerIpcHandlers = () => {
     }
   })
   // 获取所有api设置
-  ipcMain.handle('update-api', async (event, id, URL, Key, modelName) => {
+  ipcMain.handle('update-api', async (event, id, URL, Key, modelName, provider) => {
     try {
-      console.log('update api setting:', id, URL, Key, modelName)
-      return await DB.updateAPISettingById(id, URL, Key, modelName)
+      console.log('update api setting:', id, URL, Key, modelName, provider)
+      return await DB.updateAPISettingById(id, URL, Key, modelName, provider)
     } catch (error) {
       console.error('update api setting failed:', error)
       return false
@@ -176,15 +179,30 @@ export const registerIpcHandlers = () => {
     return result
   })
 
-  ipcMain.handle('selectAPISetting', async (event, URL, Key, modelName, parallel = 30, TimeLimit = null) => {
-    api_info.apiKey = Key
-    api_info.apiURL = URL
-    api_info.modelName = modelName
-    api_info.parallel = parallel
-    api_info.TimeLimit = TimeLimit
-    console.log('Selected API:', URL, Key, modelName, parallel, TimeLimit)
-    return true
+  ipcMain.handle('test-api-with-provider', async (event, provider, URL, Key, modelName) => {
+    if (!Key || !modelName) {
+      console.log('Please input all the parameters!')
+      return false
+    } else {
+      console.log('Testing API with provider:', provider, URL, Key, modelName)
+    }
+    const result = await testAPIWithProvider(provider, URL, Key, modelName)
+    return result
   })
+
+  ipcMain.handle(
+    'selectAPISetting',
+    async (event, URL, Key, modelName, parallel = 30, TimeLimit = null, provider = ModelProvider.OPENAI_COMPATIBLE) => {
+      api_info.apiKey = Key
+      api_info.apiURL = URL
+      api_info.modelName = modelName
+      api_info.provider = provider
+      api_info.parallel = parallel
+      api_info.TimeLimit = TimeLimit
+      console.log('Selected API:', URL, Key, modelName, parallel, TimeLimit, provider)
+      return true
+    }
+  )
 
   ipcMain.handle('get-api-settings', async event => {
     return {
@@ -248,7 +266,8 @@ export const registerIpcHandlers = () => {
             embeddingConfig,
             parallelSet,
             setTimeLimit,
-            sendProgress
+            sendProgress,
+            api_info.provider
           )
 
           // 自动审核校对结果
@@ -318,7 +337,8 @@ export const registerIpcHandlers = () => {
             embeddingConfig,
             parallelSet,
             setTimeLimit,
-            sendProgress
+            sendProgress,
+            api_info.provider
           )
 
           // 自动审核校对结果
@@ -388,7 +408,8 @@ export const registerIpcHandlers = () => {
             embeddingConfig,
             parallelSet,
             setTimeLimit,
-            sendProgress
+            sendProgress,
+            api_info.provider
           )
 
           // 自动审核校对结果

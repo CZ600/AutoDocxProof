@@ -84,12 +84,13 @@ export default interface ElectronApi {
     content: string
   }
   // api设置和管理（接入数据库）
-  APISettings: (URL: string, Key: string, modelName: string) => Promise<string>
-  updateAPISetting: (id: number, URL: string, Key: string, modelName: string) => Promise<boolean>
+  APISettings: (URL: string, Key: string, modelName: string, provider?: string) => Promise<string>
+  updateAPISetting: (id: number, URL: string, Key: string, modelName: string, provider?: string) => Promise<boolean>
   getAPISettings: () => Promise<{
     URL: string
     Key: string
     modelName: string
+    provider?: string
     parallel?: number
     TimeLimit?: number | null
   }>
@@ -102,16 +103,19 @@ export default interface ElectronApi {
       apiURL: string
       apiKey: string
       modelName: string
+      provider?: string
       created_at: string
     }[]
   >
   testAPI: (url: string, key: string, modelName: string) => Promise<boolean>
+  testAPIWithProvider: (provider: string, url: string, key: string, modelName: string) => Promise<boolean>
   selectAPISetting: (
     url: string,
     key: string,
     modelName: string,
     parallel?: number,
-    TimeLimit?: number | null
+    TimeLimit?: number | null,
+    provider?: string
   ) => Promise<boolean>
 
   // 文档处理接口

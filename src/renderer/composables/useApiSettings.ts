@@ -3,12 +3,14 @@ import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useApiStore } from '../stores/apiStore'
+import { ModelProvider, getProviderBaseURL } from '../../shared/modelProviders'
 
 interface ApiSettingItem {
   id: number
   apiURL: string
   apiKey: string
   modelName: string
+  provider: ModelProvider
 }
 
 interface BackendApiItem {
@@ -16,6 +18,7 @@ interface BackendApiItem {
   apiURL: string
   apiKey: string
   modelName: string
+  provider: ModelProvider
   created_at: string
 }
 
@@ -24,12 +27,14 @@ export interface ApiFormData {
   URL: string
   key: string
   name: string
+  provider: ModelProvider
 }
 
 interface ApiConnectionPayload {
   url: string
   key: string
   modelName: string
+  provider: ModelProvider
 }
 
 const buildChatCompletionUrl = (url: string) => {
@@ -44,7 +49,8 @@ const normalizeApiPayload = (data: ApiFormData) => ({
   id: data.id,
   URL: data.URL.trim(),
   key: data.key.trim(),
-  name: data.name.trim()
+  name: data.name.trim(),
+  provider: data.provider || ModelProvider.OPENAI_COMPATIBLE
 })
 
 const maskApiKey = (key: string) => {
@@ -95,12 +101,13 @@ export function useApiSettings() {
 
   const fetchAllApiSettings = async () => {
     try {
-      const res: BackendApiItem[] = await electronAPI.getALLAPISettings()
+      const res: any[] = await electronAPI.getALLAPISettings()
       const transformed: ApiSettingItem[] = res.map(item => ({
         id: item.id,
         apiURL: item.apiURL,
         apiKey: item.apiKey,
-        modelName: item.modelName
+        modelName: item.modelName,
+        provider: item.provider || ModelProvider.OPENAI_COMPATIBLE
       }))
       apiStore.setApiSettings(transformed)
     } catch (error) {
@@ -127,6 +134,7 @@ export function useApiSettings() {
       URL: selectedItem.apiURL || '',
       key: selectedItem.apiKey || '',
       name: selectedItem.modelName || '',
+      provider: selectedItem.provider || ModelProvider.OPENAI_COMPATIBLE,
       time: currentSettings.time,
       parallel: currentSettings.parallel || 30,
       TimeLimit: currentSettings.TimeLimit
@@ -141,8 +149,14 @@ export function useApiSettings() {
 
     try {
       const result = isEdit
-        ? await electronAPI.updateAPISetting(payload.id as number, payload.URL, payload.key, payload.name)
-        : await electronAPI.APISettings(payload.URL, payload.key, payload.name)
+        ? await electronAPI.updateAPISetting(
+            payload.id as number,
+            payload.URL,
+            payload.key,
+            payload.name,
+            payload.provider
+          )
+        : await electronAPI.APISettings(payload.URL, payload.key, payload.name, payload.provider)
 
       const success = isEdit ? result === true : result === 'success'
 
@@ -157,7 +171,8 @@ export function useApiSettings() {
         apiStore.setSelectedApi({
           URL: payload.URL,
           key: payload.key,
-          name: payload.name
+          name: payload.name,
+          provider: payload.provider
         })
         await syncApiSettingsToBackend()
       }
@@ -213,52 +228,32 @@ export function useApiSettings() {
     return apiStore.apiSettings.find(item => item.id === id)
   }
 
-  const testApiConnection = async ({ url, key, modelName }: ApiConnectionPayload) => {
+  const testApiConnection = async ({ url, key, modelName, provider }: ApiConnectionPayload) => {
     const trimmedUrl = url.trim()
     const trimmedKey = key.trim()
     const trimmedModelName = modelName.trim()
 
-    if (!trimmedUrl || !trimmedKey || !trimmedModelName) {
+    if (!trimmedKey || !trimmedModelName) {
+      ElMessage.warning(t('useApiSettings.pleaseCompleteAPI'))
+      return false
+    }
+
+    if (provider === ModelProvider.OPENAI_COMPATIBLE && !trimmedUrl) {
       ElMessage.warning(t('useApiSettings.pleaseCompleteAPI'))
       return false
     }
 
     try {
-      const response = await axios.post(
-        buildChatCompletionUrl(trimmedUrl),
-        {
-          model: trimmedModelName,
-          messages: [{ role: 'user', content: 'Hello' }]
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${trimmedKey}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 15000
-        }
-      )
-
-      const message = response.data?.choices?.[0]?.message
-      if (response.status >= 200 && response.status < 300 && message) {
+      const result = await electronAPI.testAPIWithProvider(provider, trimmedUrl, trimmedKey, trimmedModelName)
+      if (result) {
         ElMessage.success(t('useApiSettings.testSuccess'))
         return true
       }
-
       ElMessage.error(t('useApiSettings.testFailedInvalid'))
       return false
     } catch (error) {
-      const axiosError = error as {
-        response?: { data?: any }
-        message?: string
-      }
-      const detail =
-        axiosError.response?.data?.error?.message ||
-        axiosError.response?.data?.message ||
-        axiosError.message ||
-        t('useApiSettings.unknownError')
       console.error('测试 API 失败:', error)
-      ElMessage.error(`测试失败：${detail}`)
+      ElMessage.error(t('useApiSettings.testFailed'))
       return false
     }
   }
@@ -268,7 +263,8 @@ export function useApiSettings() {
     return testApiConnection({
       url: currentSettings.URL,
       key: currentSettings.key,
-      modelName: currentSettings.name
+      modelName: currentSettings.name,
+      provider: currentSettings.provider || ModelProvider.OPENAI_COMPATIBLE
     })
   }
 
@@ -306,7 +302,8 @@ export function useApiSettings() {
         currentSettings.key,
         currentSettings.name,
         currentSettings.parallel,
-        currentSettings.TimeLimit
+        currentSettings.TimeLimit,
+        currentSettings.provider
       )
     } catch (error) {
       console.error('同步 API 设置失败:', error)

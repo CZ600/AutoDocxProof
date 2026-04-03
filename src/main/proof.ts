@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as mammoth from 'mammoth'
-import { OpenaiGen } from './chat'
+import { OpenaiGen, getModelResponse } from './chat'
 import path from 'path'
 import { app } from 'electron'
 import { queryDocuments, getAllDocuments } from './lancedb'
@@ -15,6 +15,7 @@ import {
   buildBackgroundInstruction,
   AppLanguage
 } from '../shared/promptSettings'
+import { ModelProvider } from '../shared/modelProviders'
 import * as zhCNPrompts from '../shared/prompts/zh-CN'
 import * as enPrompts from '../shared/prompts/en'
 
@@ -52,6 +53,24 @@ interface ApiSettings {
   apiKey: string
   apiURL: string
   modelName: string
+  provider?: ModelProvider
+}
+
+async function callModelAPI(
+  systemPrompt: string,
+  userPrompt: string,
+  apiKey: string,
+  modelName: string,
+  apiURL: string,
+  provider?: ModelProvider
+): Promise<{ result: string; total_tokens: number }> {
+  const actualProvider = provider || ModelProvider.OPENAI_COMPATIBLE
+
+  if (actualProvider === ModelProvider.OPENAI_COMPATIBLE) {
+    return await OpenaiGen(systemPrompt, userPrompt, apiKey, modelName, apiURL)
+  }
+
+  return await getModelResponse(actualProvider, systemPrompt, userPrompt, apiKey, modelName, apiURL)
 }
 
 // ====== Locale helpers ======
@@ -366,7 +385,8 @@ async function summarizeDocumentTheme(
   docStructure: DocumentStructure,
   apiKey: string,
   modelName: string,
-  apiURL: string
+  apiURL: string,
+  provider?: ModelProvider
 ): Promise<{
   result: string
   total_tokens: number
@@ -375,7 +395,7 @@ async function summarizeDocumentTheme(
   const userPrompt = buildLocalizedThemeUserPrompt(docStructure.title, docStructure.sections)
 
   try {
-    return await OpenaiGen(systemPrompt, userPrompt, apiKey, modelName, apiURL)
+    return await callModelAPI(systemPrompt, userPrompt, apiKey, modelName, apiURL, provider)
   } catch (error) {
     console.error(getLocalizedConsoleMessages().summarizeThemeError, error)
     return {
@@ -638,7 +658,8 @@ async function proofreadTextWithRAG(
   apiURL: string,
   repositoryNameList?: string[],
   fileName?: string,
-  embeddingConfig?: ApiSettings
+  embeddingConfig?: ApiSettings,
+  provider?: ModelProvider
 ): Promise<{ result: ProofreadingCorrection[]; use_tokens: number }> {
   try {
     let systemPrompt = systemContext
@@ -647,12 +668,13 @@ async function proofreadTextWithRAG(
     if (!repositoryNameList || repositoryNameList.length === 0) {
       console.log('use normal proof without rag:')
       console.log('proof content:', text)
-      const { result, total_tokens } = await OpenaiGen(
+      const { result, total_tokens } = await callModelAPI(
         systemPrompt,
         `${getLocalizedUserPromptText()}:\n${text}`,
         apiKey,
         modelName,
-        apiURL
+        apiURL,
+        provider
       )
       return { result: parseCorrections(result), use_tokens: total_tokens }
     }
@@ -683,12 +705,13 @@ async function proofreadTextWithRAG(
         systemPrompt += ragContext
       }
 
-      const { result, total_tokens } = await OpenaiGen(
+      const { result, total_tokens } = await callModelAPI(
         systemPrompt,
         `${getLocalizedUserPromptText()}:\n${text}`,
         apiKey,
         modelName,
-        apiURL
+        apiURL,
+        provider
       )
       return { result: parseCorrections(result, ragChunks), use_tokens: total_tokens }
     }
@@ -709,7 +732,8 @@ export async function proofreadDocument(
   embeddingConfig?: ApiSettings,
   parallelSet: number = 30,
   setTimeLimit?: number,
-  onProgress?: (payload: ProofreadProgressPayload) => void
+  onProgress?: (payload: ProofreadProgressPayload) => void,
+  provider?: ModelProvider
 ): Promise<{ proofResult: ProofreadingCorrection[]; token_usage: number }> {
   console.log('process mode is:', mode)
   console.log('process api is:', apiURL, modelName)
@@ -746,7 +770,8 @@ export async function proofreadDocument(
         apiURL,
         repositoryNameList,
         fileName,
-        embeddingConfig
+        embeddingConfig,
+        provider
       )
       total_tokens += use_tokens
 
@@ -770,7 +795,7 @@ export async function proofreadDocument(
       mode,
       message: progressMessages.theme
     })
-    const documentTheme = await summarizeDocumentTheme(docStructure, apiKey, modelName, apiURL)
+    const documentTheme = await summarizeDocumentTheme(docStructure, apiKey, modelName, apiURL, provider)
     const nonEmptySections = getSectionsForProofreading(docStructure.sections)
     if (nonEmptySections.length === 0)
       return {
@@ -802,7 +827,8 @@ export async function proofreadDocument(
             apiURL,
             repositoryNameList,
             fileName,
-            embeddingConfig
+            embeddingConfig,
+            provider
           )
         },
         {
@@ -843,7 +869,8 @@ export async function proofreadDocument(
               apiURL,
               repositoryNameList,
               fileName,
-              embeddingConfig
+              embeddingConfig,
+              provider
             )
           })
         }
@@ -924,7 +951,8 @@ export async function reviewCorrections(
   apiKey: string,
   modelName: string,
   apiURL: string,
-  onProgress?: (completed: number, total: number) => void
+  onProgress?: (completed: number, total: number) => void,
+  provider?: ModelProvider
 ): Promise<{ reviewedResult: ProofreadingCorrection[]; token_usage: number }> {
   const filterReasons = getLocalizedReviewFilterReasons()
 
@@ -946,7 +974,14 @@ export async function reviewCorrections(
       const batch = batches[batchIdx]
       const userPrompt = buildReviewUserPrompt(batch)
 
-      const { result, total_tokens } = await OpenaiGen(reviewSystemPrompt, userPrompt, apiKey, modelName, apiURL)
+      const { result, total_tokens } = await callModelAPI(
+        reviewSystemPrompt,
+        userPrompt,
+        apiKey,
+        modelName,
+        apiURL,
+        provider
+      )
       totalTokens += total_tokens
 
       const reviewed = parseCorrections(result)
