@@ -1,10 +1,10 @@
 <template>
   <div class="table-container">
-    <el-table :data="history" max-height="1200" class="table">
-      <el-table-column prop="created_at" :label="t('history.date')" width="150" />
-      <el-table-column prop="modelName" :label="t('history.modelName')" width="120" />
-      <el-table-column prop="filePath" :label="t('history.filePath')" width="300" />
-      <el-table-column fixed="right" :label="t('history.operations')" width="200">
+    <el-table :data="history" max-height="800" class="table" size="small">
+      <el-table-column prop="created_at" :label="t('history.date')" width="130" />
+      <el-table-column prop="modelName" :label="t('history.modelName')" width="100" />
+      <el-table-column prop="filePath" :label="t('history.filePath')" min-width="150" show-overflow-tooltip />
+      <el-table-column fixed="right" :label="t('history.operations')" width="140">
         <template #default="scope">
           <el-button link type="primary" size="small" @click="showDetail(scope.row)">
             {{ t('history.detail') }}
@@ -15,8 +15,8 @@
         </template>
       </el-table-column>
     </el-table>
-    <div style="margin-top: 20px">
-      <el-button type="danger" @click="deleteAllHistory" :disabled="history.length === 0">{{
+    <div style="margin-top: 12px">
+      <el-button type="danger" size="small" @click="deleteAllHistory" :disabled="history.length === 0">{{
         t('history.deleteAll')
       }}</el-button>
     </div>
@@ -112,9 +112,11 @@ onMounted(() => {
 })
 </script>
 
-<style>
+<style scoped>
 .table-container {
-  padding: 20px;
+  padding: 12px;
+  height: 100%;
+  overflow-y: auto;
 }
 
 .table {

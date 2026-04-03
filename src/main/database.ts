@@ -234,14 +234,6 @@ export class DB {
     return rows
   }
 
-  static async getALLHistory(): Promise<proofHistory[]> {
-    // 获取所有校对记录
-    const db = await DB.getInstance()
-    const rows = await db.all<proofHistory[]>(
-      `SELECT id, filePath, apiURL, modelName, created_at, result FROM proof_history ORDER BY created_at DESC`
-    )
-    return rows
-  }
 
   static async getALLHistory(): Promise<proofHistory[]> {
     // 获取所有校对记录

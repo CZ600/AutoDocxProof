@@ -1,62 +1,75 @@
 <template>
-  <div class="navbar-container" :class="{ dark: isDark }">
+  <div class="app-layout" :class="{ dark: isDark }">
     <el-config-provider :locale="elementLocale">
-      <div class="navbar" style="display: flex; align-items: center">
-        <div class="logo">
-          <img src="./assets/logo.png" alt="Logo" class="logo-img" />
-          <span class="logo-text">{{ t('app.title') }}</span>
+      <aside class="sidebar">
+        <div class="sidebar-top">
+          <img src="./assets/logo.png" alt="Logo" class="sidebar-logo" />
         </div>
 
-        <el-menu
-          mode="horizontal"
-          :default-active="currentPath"
-          @select="handleSelect"
-          class="nav-menu"
-          :background-color="isDark ? '#1d1e1f' : '#FFFFFF'"
-          :text-color="isDark ? '#ffffff' : '#333'"
-          :active-text-color="isDark ? '#669efc' : '#669efc'"
-          :ellipsis="false"
-        >
-          <el-menu-item index="/work/proof" class="navbutton">
-            <el-icon><HomeFilled /></el-icon>
-            <span>{{ t('app.nav.proof') }}</span>
-          </el-menu-item>
-          <el-menu-item index="/work/history" class="navbutton">
-            <el-icon><Clock /></el-icon>
-            <span>{{ t('app.nav.history') }}</span>
-          </el-menu-item>
-          <el-menu-item index="/work/dictionary" class="navbutton">
-            <el-icon><Collection /></el-icon>
-            <span>{{ t('app.nav.dictionary') }}</span>
-          </el-menu-item>
-          <el-menu-item index="/work/api" class="navbutton">
-            <el-icon><Setting /></el-icon>
-            <span>{{ t('app.nav.settings') }}</span>
-          </el-menu-item>
-          <el-menu-item index="/about" class="navbutton">
-            <el-icon><InfoFilled /></el-icon>
-            <span>{{ t('app.nav.about') }}</span>
-          </el-menu-item>
-          <el-menu-item class="navbutton">
-            <el-popover placement="bottom">
-              <p style="text-align: center; font-size: 16px">{{ t('app.nav.themeToggle') }}</p>
-              <template #reference>
-                <el-button
-                  @click.stop="toggleDark()"
-                  :style="{ backgroundColor: isDark ? '#1d1e1f' : '#FFFFFF', color: isDark ? '#ffffff' : '#333' }"
-                  circle
-                >
-                  <el-icon v-if="isDark" style="margin-left: 3px"><Moon /></el-icon>
-                  <el-icon v-else style="margin-left: 5px"><Sunny /></el-icon>
-                </el-button>
-              </template>
-            </el-popover>
-          </el-menu-item>
-        </el-menu>
-      </div>
+        <nav class="sidebar-nav">
+          <el-tooltip :content="t('app.nav.proof')" placement="right">
+            <button class="sidebar-btn" :class="{ active: currentPath === '/proof' }" @click="router.push('/proof')">
+              <el-icon><HomeFilled /></el-icon>
+            </button>
+          </el-tooltip>
 
-      <div class="router-view-container">
-        <router-view />
+          <el-tooltip :content="t('app.nav.history')" placement="right">
+            <button
+              class="sidebar-btn"
+              :class="{ active: currentPath === '/history' }"
+              @click="router.push('/history')"
+            >
+              <el-icon><Clock /></el-icon>
+            </button>
+          </el-tooltip>
+
+          <el-tooltip :content="t('app.nav.dictionary')" placement="right">
+            <button
+              class="sidebar-btn"
+              :class="{ active: currentPath === '/dictionary' }"
+              @click="router.push('/dictionary')"
+            >
+              <el-icon><Collection /></el-icon>
+            </button>
+          </el-tooltip>
+
+          <el-tooltip :content="t('app.nav.settings')" placement="right">
+            <button
+              class="sidebar-btn"
+              :class="{ active: currentPath === '/api' || currentPath === '/set' }"
+              @click="router.push('/api')"
+            >
+              <el-icon><Setting /></el-icon>
+            </button>
+          </el-tooltip>
+
+          <el-tooltip :content="t('app.nav.about')" placement="right">
+            <button class="sidebar-btn" :class="{ active: currentPath === '/about' }" @click="router.push('/about')">
+              <el-icon><InfoFilled /></el-icon>
+            </button>
+          </el-tooltip>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <el-tooltip :content="t('app.nav.themeToggle')" placement="right">
+            <button class="sidebar-btn theme-btn" @click="toggleDark()">
+              <el-icon v-if="isDark"><Moon /></el-icon>
+              <el-icon v-else><Sunny /></el-icon>
+            </button>
+          </el-tooltip>
+        </div>
+      </aside>
+
+      <div class="main-area">
+        <div class="top-toolbar"></div>
+        <div class="content-row">
+          <main class="function-panel">
+            <router-view />
+          </main>
+          <section class="preview-panel">
+            <DocPreview />
+          </section>
+        </div>
       </div>
     </el-config-provider>
   </div>
@@ -64,15 +77,16 @@
 
 <script setup>
 import './assets/css/common.css'
-import { computed, onMounted } from 'vue'
+import { computed, ref, provide } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { HomeFilled, Monitor, InfoFilled, Setting, Clock, Collection, Sunny, Moon } from '@element-plus/icons-vue'
+import { HomeFilled, InfoFilled, Setting, Clock, Collection, Sunny, Moon } from '@element-plus/icons-vue'
 import { useDark, useToggle } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { useLocaleStore } from './stores/localeStore'
 import en from 'element-plus/es/locale/lang/en'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import 'element-plus/theme-chalk/dark/css-vars.css'
+import DocPreview from './components/DocPreview.vue'
 
 const electronAPI = window.electronAPI
 const router = useRouter()
@@ -82,12 +96,11 @@ const isDark = useDark()
 const toggleDark = useToggle(isDark)
 const localeStore = useLocaleStore()
 
+const previewContainer = ref(null)
+provide('previewContainer', previewContainer)
+
 const currentPath = computed(() => route.path)
 const elementLocale = computed(() => (localeStore.locale === 'en' ? en : zhCn))
-
-const handleSelect = key => {
-  router.push(key)
-}
 
 const getEnv = async () => {
   const envPath = await electronAPI.getEnvPath()
@@ -97,81 +110,163 @@ getEnv()
 </script>
 
 <style scoped>
-.navbar-container {
+.app-layout {
   height: 100vh;
   display: flex;
-  flex-direction: column;
   overflow: hidden;
+  background-color: #f5f5f5;
 }
 
-.navbar {
-  height: 60px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.app-layout.dark {
+  background-color: #121212;
+}
+
+.sidebar {
+  width: 52px;
+  background-color: #1e1e2e;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  flex-shrink: 0;
   z-index: 100;
   -webkit-app-region: drag;
 }
 
-.navbar.dark {
-  background-color: #1d1e1f;
+.sidebar.dark {
+  background-color: #181825;
 }
 
-.logo {
+.sidebar-top {
+  margin-bottom: 12px;
+  padding: 6px 0;
+}
+
+.sidebar-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.sidebar-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding-top: 8px;
+}
+
+.sidebar-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #a0a0b8;
   display: flex;
   align-items: center;
-  padding: 0 20px;
-  min-width: 150px;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-app-region: no-drag;
+  font-size: 18px;
 }
 
-.logo-img {
-  height: 40px;
-  margin-right: 10px;
-}
-
-.logo-text {
-  font-size: 1.2rem;
-  font-weight: bold;
+.sidebar-btn:hover {
+  background-color: rgba(103, 158, 252, 0.15);
   color: #669efc;
 }
 
-.nav-menu {
+.sidebar-btn.active {
+  background-color: rgba(103, 158, 252, 0.2);
+  color: #669efc;
+}
+
+.sidebar-btn.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background-color: #669efc;
+  border-radius: 0 3px 3px 0;
+}
+
+.sidebar-btn {
+  position: relative;
+}
+
+.theme-btn {
+  margin-top: auto;
+}
+
+.main-area {
   flex: 1;
-  border-bottom: none !important;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
 }
 
-.navbutton {
-  -webkit-app-region: no-drag;
+.top-toolbar {
+  height: 52px;
+  flex-shrink: 0;
+  -webkit-app-region: drag;
+  background-color: #fff;
+  border-bottom: 1px solid #e4e7ed;
 }
 
-:deep(.el-menu--horizontal > .el-menu-item) {
-  height: 60px;
-  line-height: 60px;
-  font-weight: 500;
+.dark .top-toolbar {
+  background-color: #1d1e1f;
+  border-bottom-color: #2c2e30;
 }
 
-:deep(.el-menu--horizontal > .el-menu-item.is-active) {
-  border-bottom: 3px solid #669efc;
-}
-
-.router-view-container {
+.content-row {
   flex: 1;
+  display: flex;
   min-height: 0;
-  padding: 15px;
-  background-color: #f9f9f9;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
-/* 暗黑模式样式 */
-.dark .router-view-container {
-  background-color: #121212;
+.function-panel {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  background-color: #f5f5f5;
+}
+
+.dark .function-panel {
+  background-color: #1a1a2e;
   color: #ffffff;
 }
 
-/* 隐藏滚动条（滚动功能仍保留） */
+.preview-panel {
+  flex: 2;
+  min-width: 0;
+  overflow: hidden;
+  background-color: #fff;
+  border-left: 1px solid #e4e7ed;
+}
+
+.dark .preview-panel {
+  background-color: #1d1e1f;
+  border-left-color: #2c2e30;
+}
+
 ::-webkit-scrollbar {
   display: none;
 }
 
-/* 适用于所有浏览器 */
 body {
   overflow: -moz-scrollbars-none;
   -ms-overflow-style: none;

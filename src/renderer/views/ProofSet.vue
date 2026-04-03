@@ -10,12 +10,8 @@ import PromptSettingsPanel from '../components/prompt/PromptSettingsPanel.vue'
 
 <style scoped>
 .proof-set-page {
-  padding: 20px;
-}
-
-@media (max-width: 768px) {
-  .proof-set-page {
-    padding: 10px;
-  }
+  padding: 12px;
+  height: 100%;
+  overflow-y: auto;
 }
 </style>

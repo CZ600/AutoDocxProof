@@ -1,7 +1,7 @@
 {
   "name": "AutoDocxProofreading",
   "productName": "AutoDocxProofreading",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "An intelligent long-document proofreading software powered by large language models. 基于大模型的简单的docx格式文档的校对",
   "main": ".vite/build/main.js",
   "scripts": {
@@ -58,6 +58,7 @@
   "dependencies": {
     "@google/genai": "^1.17.0",
     "@google/generative-ai": "^0.24.1",
+    "@intlify/unplugin-vue-i18n": "^11.0.7",
     "@lancedb/lancedb": "^0.22.1",
     "@types/node": "^24.3.1",
     "@vueuse/core": "^14.0.0",
@@ -90,7 +91,7 @@
     "uuid": "^13.0.0",
     "vue": "^3.4.27",
     "vue-demi": "^0.14.10",
-    "vue-i18n": "^12.0.0-alpha.3",
+    "vue-i18n": "^11.3.0",
     "vue-markdown": "^2.2.4",
     "vue-router": "^4.5.1",
     "vue-scrollto": "^2.20.0"

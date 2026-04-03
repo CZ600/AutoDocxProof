@@ -51,7 +51,7 @@
                 >
                   <el-option v-for="item in apiSettings" :key="item.id" :label="item.modelName" :value="item.id">
                     <div class="api-option">
-                      <el-popover placement="bottom-start" trigger="hover" :width="320">
+                      <el-popover placement="bottom-start" trigger="hover" :width="280">
                         <template #reference>
                           <div class="api-option-info">
                             <el-icon>
@@ -94,7 +94,7 @@
           <span>{{ t('apiSettings.languageLabel') }}</span>
         </div>
       </template>
-      <el-select v-model="currentLocale" @change="handleLocaleChange">
+      <el-select v-model="currentLocale" @change="handleLocaleChange" size="small">
         <el-option label="简体中文" value="zh-CN" />
         <el-option label="English" value="en" />
       </el-select>
@@ -164,14 +164,6 @@ const handleSubmitApi = async (data: ApiFormData) => {
   }
 }
 
-const handleSaveReviewModel = () => {
-  if (apiStore.reviewModelId === null) {
-    ElMessage.warning(t('apiSettings.pleaseSelectReviewModel'))
-    return
-  }
-  ElMessage.success(t('apiSettings.reviewModelSaved'))
-}
-
 const handleClearReviewModel = () => {
   apiStore.clearReviewModel()
   ElMessage.success(t('apiSettings.restoredToDefault'))
@@ -184,8 +176,9 @@ onMounted(async () => {
 
 <style scoped>
 .api-settings-container {
-  padding: 20px;
-  min-height: 100vh;
+  padding: 12px;
+  height: 100%;
+  overflow-y: auto;
 }
 
 .custom-tabs {
@@ -195,7 +188,7 @@ onMounted(async () => {
 }
 
 .tab-content {
-  padding: 30px;
+  padding: 16px;
   background-color: var(--el-bg-color);
 }
 
@@ -220,27 +213,27 @@ onMounted(async () => {
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--el-text-color-primary);
 }
 
 .review-model-desc {
   color: var(--el-text-color-secondary);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.6;
-  margin-bottom: 20px;
-  padding: 12px 16px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
   border-radius: 8px;
   background: var(--el-fill-color-light);
   border: 1px solid var(--el-border-color);
 }
 
 .review-model-form {
-  padding: 10px 0;
+  padding: 8px 0;
 }
 
 .form-item {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .api-select {
@@ -252,14 +245,14 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  gap: 12px;
+  gap: 10px;
 }
 
 .api-option-info {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 14px;
+  gap: 8px;
+  font-size: 13px;
   min-width: 0;
   flex: 1;
 }
@@ -267,9 +260,10 @@ onMounted(async () => {
 .api-detail-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   line-height: 1.5;
   word-break: break-all;
+  font-size: 12px;
 }
 
 .api-url-line {
@@ -278,17 +272,13 @@ onMounted(async () => {
 
 .button-group {
   display: flex;
-  gap: 12px;
-  margin-top: 24px;
+  gap: 10px;
+  margin-top: 16px;
   flex-wrap: wrap;
 }
 
-.btn-save {
-  min-width: 160px;
-}
-
 .setting-card {
-  margin-top: 24px;
+  margin-top: 16px;
   border-radius: 8px;
   transition: all 0.2s ease;
   border: 1px solid var(--el-border-color);
@@ -296,15 +286,5 @@ onMounted(async () => {
 
 .setting-card:hover {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-}
-
-@media (max-width: 768px) {
-  .api-settings-container {
-    padding: 10px;
-  }
-
-  .tab-content {
-    padding: 15px;
-  }
 }
 </style>

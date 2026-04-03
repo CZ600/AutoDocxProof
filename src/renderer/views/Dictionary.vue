@@ -1,129 +1,84 @@
 <template>
-  <div class="common-layout">
-    <el-container>
-      <el-aside width="260px" class="sidebar">
-        <el-card class="repository-card" shadow="hover">
-          <template #header>
-            <div class="card-header">
-              <span class="header-title">
-                <el-icon>
-                  <Collection />
-                </el-icon>
-                {{ t('dictionary.repoList') }}
-              </span>
-            </div>
+  <div class="dictionary-panel">
+    <div class="panel-section">
+      <div class="section-header">
+        <el-icon><Collection /></el-icon>
+        <span>{{ t('dictionary.repoList') }}</span>
+      </div>
+
+      <el-select
+        v-model="selectform.id"
+        :placeholder="t('dictionary.selectApiModel')"
+        class="api-select"
+        @change="handleApiChange"
+        size="small"
+        style="margin-bottom: 12px; width: 100%"
+      >
+        <el-option v-for="item in apiSettings" :key="item.id" :label="item.modelName" :value="item.id">
+          <div class="api-option">
+            <span class="api-name">{{ item.modelName }}</span>
+          </div>
+        </el-option>
+      </el-select>
+
+      <div class="repository-list">
+        <div
+          v-for="item in repositoryList"
+          :key="item"
+          :class="['repo-item', { active: activeIndex === item }]"
+          @click="handleSelect(item)"
+        >
+          <span class="repo-name">{{ item }}</span>
+          <el-button
+            type="danger"
+            size="small"
+            :icon="Delete"
+            circle
+            @click.stop="deleteSelectRepository(item)"
+            class="delete-btn"
+          />
+        </div>
+
+        <div v-if="repositoryList.length === 0" class="empty-state">
+          <el-empty :description="t('dictionary.noRepos')" :image-size="50" />
+        </div>
+      </div>
+
+      <el-button type="primary" size="small" class="add-repo-btn" @click="dialogFormVisible = true">
+        <el-icon><FolderAdd /></el-icon>
+        {{ t('dictionary.addRepo') }}
+      </el-button>
+    </div>
+
+    <div class="panel-section detail-section" v-if="activeIndex">
+      <div class="section-header">
+        <span>{{ t('dictionary.currentRepo', { name: activeIndex }) }}</span>
+        <el-button type="success" size="small" :icon="FolderAdd" @click="addFile">
+          {{ t('dictionary.addFile') }}
+        </el-button>
+      </div>
+
+      <el-table :data="fileList" size="small" style="width: 100%">
+        <el-table-column :label="t('dictionary.fileName')" show-overflow-tooltip>
+          <template #default="{ row }">{{ row }}</template>
+        </el-table-column>
+        <el-table-column :label="t('dictionary.operations')" width="70">
+          <template #default="{ row }">
+            <el-button type="danger" size="small" @click.stop="deleteFile(row)">{{ t('dictionary.delete') }}</el-button>
           </template>
+        </el-table-column>
+      </el-table>
+    </div>
 
-          <div class="repository-list">
-            <el-menu
-              :default-active="activeIndex"
-              class="el-menu-vertical"
-              @select="handleSelect"
-              active-text-color="#409eff"
-              :unique-opened="true"
-            >
-              <el-menu-item v-for="item in repositoryList" :key="item" :index="item" class="repository-item">
-                <div class="menu-item-content">
-                  <span class="repository-name">{{ item }}</span>
-                  <el-button
-                    type="danger"
-                    size="small"
-                    :icon="Delete"
-                    circle
-                    @click.stop="deleteSelectRepository(item)"
-                    class="delete-btn"
-                  />
-                </div>
-              </el-menu-item>
-            </el-menu>
-
-            <div v-if="repositoryList.length === 0" class="empty-state">
-              <el-empty :description="t('dictionary.noRepos')" :image-size="80" />
-            </div>
-          </div>
-
-          <el-button type="primary" class="add-repo-btn" @click="dialogFormVisible = true">
-            <el-icon>
-              <FolderAdd />
-            </el-icon>
-            {{ t('dictionary.addRepo') }}
-          </el-button>
-        </el-card>
-      </el-aside>
-
-      <el-container class="main-container">
-        <el-header class="header">
-          <div class="header-content">
-            <div class="api-selector">
-              <el-form-item :label="t('dictionary.selectEmbeddingModel')">
-                <el-select
-                  v-model="selectform.id"
-                  :placeholder="t('dictionary.selectApiModel')"
-                  class="api-select"
-                  @change="handleApiChange"
-                >
-                  <el-option v-for="item in apiSettings" :key="item.id" :label="item.modelName" :value="item.id">
-                    <div class="api-option">
-                      <span class="api-name">{{ item.modelName }}</span>
-                    </div>
-                  </el-option>
-                </el-select>
-              </el-form-item>
-            </div>
-          </div>
-        </el-header>
-
-        <el-main class="main-content">
-          <div class="welcome-panel" v-if="!activeIndex">
-            <el-card shadow="never">
-              <div class="welcome-content">
-                <el-icon size="64" color="#409eff">
-                  <Collection />
-                </el-icon>
-                <h2>{{ t('dictionary.welcome') }}</h2>
-                <p>{{ t('dictionary.welcomeHint') }}</p>
-              </div>
-            </el-card>
-          </div>
-
-          <div v-else class="repository-detail">
-            <el-card shadow="never">
-              <template #header>
-                <div class="detail-header">
-                  <span>{{ t('dictionary.currentRepo', { name: activeIndex }) }}</span>
-
-                  <div class="action-buttons">
-                    <el-button type="success" :icon="FolderAdd" @click="addFile">
-                      {{ t('dictionary.addFile') }}
-                    </el-button>
-                  </div>
-                </div>
-              </template>
-              <div class="detail-content">
-                <el-table :data="fileList" style="width: 100%">
-                  <el-table-column :label="t('dictionary.fileName')">
-                    <template #default="{ row }">{{ row }}</template>
-                  </el-table-column>
-                  <el-table-column :label="t('dictionary.operations')">
-                    <template #default="{ row }">
-                      <el-button type="danger" size="small" @click.stop="deleteFile(row)">{{
-                        t('dictionary.delete')
-                      }}</el-button>
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </div>
-            </el-card>
-          </div>
-        </el-main>
-      </el-container>
-    </el-container>
+    <div class="panel-section welcome-section" v-else>
+      <el-empty :description="t('dictionary.welcomeHint')" :image-size="50" />
+    </div>
   </div>
 
   <el-dialog
     v-model="dialogFormVisible"
     :title="t('dictionary.addRepoDialog.title')"
-    width="500"
+    width="400"
     :close-on-click-modal="false"
   >
     <el-form :model="form" label-width="120px">
@@ -147,17 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  HomeFilled,
-  Monitor,
-  InfoFilled,
-  Setting,
-  Clock,
-  Collection,
-  FolderAdd,
-  Edit,
-  Delete
-} from '@element-plus/icons-vue'
+import { Collection, FolderAdd, Delete } from '@element-plus/icons-vue'
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useEmbeddingStore } from '../stores/embeddingStore'
@@ -190,7 +135,6 @@ const selectform = ref({
 
 const handleSelect = (index: string) => {
   activeIndex.value = index
-  console.log('Selected repository:', index)
 }
 
 const handleApiChange = (newId: number | null) => {
@@ -216,38 +160,6 @@ const handleApiChange = (newId: number | null) => {
       apiKey: selectform.value.key,
       modelName: selectform.value.name
     })
-  }
-}
-
-const deleteItem = async (id: number) => {
-  try {
-    await ElMessageBox.confirm(t('dictionary.messages.deleteApiConfirm'), t('dictionary.messages.warning'), {
-      confirmButtonText: t('common.confirm'),
-      cancelButtonText: t('common.cancel'),
-      type: 'warning'
-    })
-
-    const res = await electronAPI.deleteOneAPI(id)
-    if (res) {
-      await getALLAPISettings()
-      ElMessage.success(t('dictionary.messages.deleteSuccess'))
-
-      if (selectform.value.id === id) {
-        selectform.value.id = null
-        selectform.value.URL = ''
-        selectform.value.key = ''
-        selectform.value.name = ''
-        form.apiURL = ''
-        form.apiKey = ''
-        form.modelName = ''
-      }
-    } else {
-      ElMessage.error(t('dictionary.messages.deleteFail'))
-    }
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(t('dictionary.messages.deleteFail'))
-    }
   }
 }
 
@@ -299,22 +211,6 @@ const getRepositories = async () => {
   }
 }
 
-const addOneRepository = async (repositoryName_: string, modelName_: string, apiKey_: string, apiURL_: string) => {
-  try {
-    await electronAPI.createRepository({
-      repositoryName: repositoryName_,
-      modelName: modelName_,
-      apiKey: apiKey_,
-      apiURL: apiURL_
-    })
-    const newRList = await getRepositories()
-    console.log('the new repository list : ', newRList)
-  } catch (error) {
-    console.error('创建知识库失败:', error)
-    throw error
-  }
-}
-
 const addRepositoryWindow = async () => {
   if (!fileStore.isConfigured) {
     ElMessage.error(t('dictionary.messages.selectEmbeddingFirst'))
@@ -324,19 +220,24 @@ const addRepositoryWindow = async () => {
   const config = fileStore.getAPIConfig
 
   if (!form.repositoryName.trim()) {
-    ElMessage.error(t('dictionary.messages.enterRepoName'))
+    ElMessage.error(t('dictionary.messages.pleaseInputName'))
     return
   }
 
   submitting.value = true
   try {
-    await addOneRepository(form.repositoryName, config.modelName, config.apiKey, config.apiURL)
-
+    await electronAPI.createRepository({
+      repositoryName: form.repositoryName,
+      modelName: config.modelName,
+      apiKey: config.apiKey,
+      apiURL: config.apiURL
+    })
+    await getRepositories()
     dialogFormVisible.value = false
     form.repositoryName = ''
-    ElMessage.success(t('dictionary.messages.repoCreated'))
+    ElMessage.success(t('dictionary.messages.createSuccess'))
   } catch (error) {
-    ElMessage.error(t('dictionary.messages.repoCreateFail'))
+    ElMessage.error(t('dictionary.messages.createFailed'))
   } finally {
     submitting.value = false
   }
@@ -345,7 +246,7 @@ const addRepositoryWindow = async () => {
 const deleteSelectRepository = async (repositoryName: string) => {
   try {
     await ElMessageBox.confirm(
-      t('dictionary.messages.deleteRepoConfirm', { name: repositoryName }),
+      t('dictionary.messages.deleteConfirm', { name: repositoryName }),
       t('dictionary.messages.warning'),
       {
         confirmButtonText: t('common.confirm'),
@@ -355,23 +256,18 @@ const deleteSelectRepository = async (repositoryName: string) => {
     )
 
     await electronAPI.deleteRepository(repositoryName)
-    await initRepositories()
+    await getRepositories()
 
     if (activeIndex.value === repositoryName) {
       activeIndex.value = ''
     }
 
     ElMessage.success(t('dictionary.messages.deleteSuccess'))
-    getRepositories()
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error(t('dictionary.messages.deleteFail'))
+      ElMessage.error(t('dictionary.messages.deleteFailed'))
     }
   }
-}
-
-const initRepositories = async () => {
-  await getRepositories()
 }
 
 const fileList = ref<string[]>([])
@@ -389,7 +285,7 @@ const loadFileList = async () => {
 
 const addFile = async () => {
   if (!activeIndex.value) {
-    ElMessage.warning(t('dictionary.messages.selectRepoFirst'))
+    ElMessage.warning(t('dictionary.messages.pleaseSelectRepo'))
     return
   }
   try {
@@ -403,7 +299,7 @@ const addFile = async () => {
     await loadFileList()
     ElMessage.success(t('dictionary.messages.fileAdded'))
   } catch (error) {
-    ElMessage.error(t('dictionary.messages.addFileFail'))
+    ElMessage.error(t('dictionary.messages.addFileFailed'))
     console.error(error)
   }
 }
@@ -424,7 +320,7 @@ const deleteFile = async (filename: string) => {
     ElMessage.success(t('dictionary.messages.deleteSuccess'))
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error(t('dictionary.messages.deleteFail'))
+      ElMessage.error(t('dictionary.messages.deleteFailed'))
     }
   }
 }
@@ -440,68 +336,77 @@ watch(
 )
 
 onMounted(async () => {
-  await Promise.all([initRepositories(), getALLAPISettings()])
+  await Promise.all([getRepositories(), getALLAPISettings()])
   await initSelect()
 })
 </script>
 
 <style scoped>
-.common-layout {
-  height: 100vh;
+.dictionary-panel {
+  padding: 12px;
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.sidebar {
-  background: transparent;
-  padding: 20px;
+.panel-section {
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e4e7ed;
+  padding: 12px;
 }
 
-.repository-card {
-  height: calc(100vh - 40px);
-  border-radius: 12px;
-}
-
-.card-header {
+.section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #303133;
+  margin-bottom: 12px;
 }
 
-.header-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.section-header .el-icon {
+  color: #409eff;
 }
 
 .repository-list {
-  max-height: calc(100vh - 280px);
+  max-height: 200px;
   overflow-y: auto;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
-.el-menu-vertical {
-  border: none;
-}
-
-.menu-item-content {
+.repo-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  width: 100%;
-  box-shadow: 2px 2px 5px rgb(212, 211, 211);
-  margin-bottom: 10px;
-  padding-left: 20px;
-  padding-right: 20px;
-  border-radius: 5px;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  border-radius: 6px;
+  background: #f8f9fa;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-.repository-name {
+.repo-item:hover {
+  background: #f0f5ff;
+}
+
+.repo-item.active {
+  background: #f0f5ff;
+  border: 1px solid #b7dcff;
+}
+
+.repo-name {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 13px;
 }
 
 .delete-btn {
@@ -509,45 +414,30 @@ onMounted(async () => {
   transition: opacity 0.3s;
 }
 
-.el-menu-item:hover .delete-btn {
+.repo-item:hover .delete-btn {
   opacity: 1;
 }
 
 .empty-state {
-  padding: 20px;
+  padding: 12px;
   text-align: center;
 }
 
 .add-repo-btn {
   width: 100%;
   border-radius: 8px;
-  font-weight: 500;
 }
 
-.main-container {
-  padding: 20px;
+.detail-section {
+  flex: 1;
+  min-height: 0;
 }
 
-.header {
-  border-radius: 12px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  padding: 0 24px;
-  height: 64px !important;
-}
-
-.header-content {
+.welcome-section {
+  flex: 1;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  height: 100%;
-}
-
-.api-selector .el-form-item {
-  margin-bottom: 0;
-}
-
-.api-select {
-  width: 280px;
+  justify-content: center;
 }
 
 .api-option {
@@ -565,57 +455,6 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-.delete-api-btn {
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-.el-select:hover .delete-api-btn {
-  opacity: 1;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 12px;
-}
-
-.main-content {
-  padding: 20px;
-  background: transparent;
-}
-
-.welcome-panel,
-.repository-detail {
-  height: 100%;
-}
-
-.welcome-content {
-  text-align: center;
-  padding: 60px 20px;
-}
-
-.welcome-content h2 {
-  margin: 20px 0 12px;
-  color: #303133;
-  font-size: 24px;
-}
-
-.welcome-content p {
-  color: #909399;
-  font-size: 14px;
-}
-
-.detail-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.detail-content {
-  padding: 20px;
-  min-height: 300px;
-}
-
 .dialog-footer {
   text-align: right;
 }
@@ -624,31 +463,7 @@ onMounted(async () => {
   width: 6px;
 }
 
-.repository-list::-webkit-scrollbar-track {
-  border-radius: 3px;
-}
-
 .repository-list::-webkit-scrollbar-thumb {
   border-radius: 3px;
-}
-
-.repository-list::-webkit-scrollbar-thumb:hover {
-  background: #909399;
-}
-
-@media (max-width: 768px) {
-  .sidebar {
-    width: 200px !important;
-  }
-
-  .api-select {
-    width: 200px;
-  }
-
-  .header-content {
-    flex-direction: column;
-    gap: 12px;
-    padding: 12px 0;
-  }
 }
 </style>

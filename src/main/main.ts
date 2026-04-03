@@ -11,7 +11,7 @@ import { initLanceDB } from './lancedb'
 // 为pdf-parse库提供浏览器API的polyfill
 // 为了在nodejs环境下正常使用pdf-parse库而添加的
 if (typeof (global as any).DOMMatrix === 'undefined') {
-  ;(global as any).DOMMatrix = class DOMMatrix {
+  ; (global as any).DOMMatrix = class DOMMatrix {
     constructor() {
       // 空实现
     }
@@ -19,7 +19,7 @@ if (typeof (global as any).DOMMatrix === 'undefined') {
 }
 
 if (typeof (global as any).ImageData === 'undefined') {
-  ;(global as any).ImageData = class ImageData {
+  ; (global as any).ImageData = class ImageData {
     constructor() {
       // 空实现
     }
@@ -27,7 +27,7 @@ if (typeof (global as any).ImageData === 'undefined') {
 }
 
 if (typeof (global as any).Path2D === 'undefined') {
-  ;(global as any).Path2D = class Path2D {
+  ; (global as any).Path2D = class Path2D {
     constructor() {
       // 空实现
     }
@@ -63,7 +63,7 @@ const createWindow = () => {
     titleBarOverlay: {
       color: 'rgba(255, 255, 255, 0)',
       symbolColor: '#807e85ff',
-      height: 60
+      height: 52
     }
   })
 

@@ -21,12 +21,12 @@ const i18n = setupI18n()
 app.use(i18n)
 
 const localeStore = useLocaleStore()
+i18n.global.locale.value = localeStore.locale
+
 const elementLocale = computed(() => {
   return localeStore.locale === 'en' ? en : zhCn
 })
 
-app.use(ElementPlus, {
-  locale: elementLocale.value
-})
+app.use(ElementPlus)
 
 app.mount('#app')
