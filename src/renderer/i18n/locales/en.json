@@ -332,6 +332,7 @@
     "editTitle": "Edit API",
     "addTitle": "Add New API",
     "formatExample": "Format example: https://api.openai.com/v1",
+    "formatExampleClaudeCode": "Please enter the Claude Code API URL provided by the service",
     "urlPlaceholder": "Please enter API address",
     "keyPlaceholder": "Please enter API key",
     "modelPlaceholder": "Please enter model name",

@@ -26,7 +26,11 @@
       <el-form-item v-if="showURLField" :label="t('addApiDialog.urlLabel')" class="form-item">
         <div class="input-tip">
           <el-icon class="tip-icon"><InfoFilled /></el-icon>
-          <span>{{ t('addApiDialog.formatExample') }}</span>
+          <span>{{
+            formData.provider === 'claude_code'
+              ? t('addApiDialog.formatExampleClaudeCode')
+              : t('addApiDialog.formatExample')
+          }}</span>
         </div>
         <el-input v-model="formData.URL" :placeholder="t('addApiDialog.urlPlaceholder')" :prefix-icon="Link" />
       </el-form-item>

@@ -126,7 +126,7 @@ export const MODEL_PROVIDERS: Record<ModelProvider, ModelProviderConfig> = {
     name: '模拟 Claude Code',
     nameEn: 'Simulated Claude Code',
     requiresBaseURL: true,
-    defaultModel: 'claude-sonnet-4-20250514',
+    defaultModel: 'claude-sonnet-4-5-20250929',
     description: '使用 Anthropic Claude API 模拟 Claude Code 风格调用（支持思考模式，需填写 API 地址）',
     descriptionEn: 'Simulated Claude Code style via Anthropic Claude API (with thinking mode)'
   }

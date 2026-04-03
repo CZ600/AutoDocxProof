@@ -332,6 +332,7 @@
     "editTitle": "编辑 API",
     "addTitle": "添加新 API",
     "formatExample": "格式示例：https://api.openai.com/v1",
+    "formatExampleClaudeCode": "请填写提供商建议的 Claude Code 接口地址",
     "urlPlaceholder": "请输入 API 地址",
     "keyPlaceholder": "请输入 API 密钥",
     "modelPlaceholder": "请输入模型名称",
