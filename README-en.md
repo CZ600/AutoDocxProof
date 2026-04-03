@@ -1,5 +1,9 @@
 # AutoDocxProofread - Smart Document Proofreading Assistant
 
+<p align="right">
+  <a href="README.md">中文</a>
+</p>
+
 <p align="center">
   <img src="src/renderer/assets/logo.png" alt="Logo" width="120" />
 </p>
