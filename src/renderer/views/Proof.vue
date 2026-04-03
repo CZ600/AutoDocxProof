@@ -576,6 +576,31 @@ html.dark .proof-results-panel {
   background-color: #141414;
 }
 
+html.dark .correction-item:hover {
+  background-color: #252525;
+}
+
+html.dark .results-container {
+  background-color: #000000;
+}
+
+html.dark .el-collapse {
+  background-color: #000000;
+}
+
+html.dark .el-collapse-item {
+  border-color: #2c2e30;
+}
+
+html.dark .el-collapse-item__header {
+  background-color: #000000;
+  color: #c0c4cc;
+}
+
+html.dark .el-collapse-item__wrap {
+  background-color: #000000;
+}
+
 .reference-popover {
   max-width: 500px;
   text-align: center;

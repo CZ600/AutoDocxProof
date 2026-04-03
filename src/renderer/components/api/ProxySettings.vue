@@ -131,3 +131,26 @@ const handleProxyPortChange = (value: number) => {
   background: #ffffff;
 }
 </style>
+
+<style>
+html.dark .setting-section {
+  background-color: #000000;
+}
+
+html.dark .section-header {
+  color: #c0c4cc;
+}
+
+html.dark .section-header .el-icon {
+  color: #8ec5ff;
+}
+
+html.dark .section-description {
+  background-color: #1a1a1a;
+  color: #a0a0a0;
+}
+
+html.dark .section-description .el-icon {
+  color: #8ec5ff;
+}
+</style>

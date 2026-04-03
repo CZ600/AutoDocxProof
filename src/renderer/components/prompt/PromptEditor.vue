@@ -266,3 +266,52 @@ const handleReset = async () => {
   }
 }
 </style>
+
+<style>
+html.dark .setting-section {
+  background-color: #000000;
+}
+
+html.dark .section-header {
+  color: #c0c4cc;
+}
+
+html.dark .section-header .el-icon {
+  color: #8ec5ff;
+}
+
+html.dark .radio-group :deep(.el-radio-button__inner) {
+  border-color: #2c2e30;
+  color: #8a8a8a;
+  background: #000000;
+}
+
+html.dark .radio-group :deep(.el-radio-button__inner:hover) {
+  color: #c0c0c0;
+  background: #1a1a1a;
+}
+
+html.dark .custom-mode-row {
+  background: #1a1a1a;
+}
+
+html.dark .custom-mode-title {
+  color: #e0e0e0;
+}
+
+html.dark .custom-mode-desc {
+  color: #a0a0a0;
+}
+
+html.dark .btn-subtle {
+  color: #8a8a8a;
+  border-color: #2c2e30;
+  background: #000000;
+}
+
+html.dark .btn-subtle:hover {
+  color: #c0c0c0;
+  border-color: #3c3e40;
+  background: #1a1a1a;
+}
+</style>

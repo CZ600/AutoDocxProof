@@ -240,3 +240,29 @@ const handleTest = async () => {
   border-color: #6d8da6;
 }
 </style>
+
+<style>
+html.dark .api-dialog :deep(.el-dialog__header) {
+  border-bottom-color: #2c2e30;
+}
+
+html.dark .api-dialog :deep(.el-dialog__footer) {
+  border-top-color: #2c2e30;
+}
+
+html.dark .dialog-header {
+  color: #e0e0e0;
+}
+
+html.dark .dialog-header .el-icon {
+  color: #8ec5ff;
+}
+
+html.dark .input-tip {
+  color: #8a8a8a;
+}
+
+html.dark .tip-icon {
+  color: #666666;
+}
+</style>

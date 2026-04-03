@@ -148,3 +148,58 @@ const handleTimeLimitChange = (value: number) => {
   background: #ffffff;
 }
 </style>
+
+<style>
+html.dark .setting-section {
+  background-color: #000000;
+}
+
+html.dark .section-header {
+  color: #c0c4cc;
+}
+
+html.dark .section-header .el-icon {
+  color: #8ec5ff;
+}
+
+html.dark .section-description {
+  background-color: #1a1a1a;
+  color: #a0a0a0;
+}
+
+html.dark .section-description .el-icon {
+  color: #8ec5ff;
+}
+
+html.dark .toggle-btn {
+  color: #8a8a8a;
+  border-color: #2c2e30;
+  background: #000000;
+}
+
+html.dark .toggle-btn:hover {
+  color: #c0c0c0;
+  border-color: #3c3e40;
+  background: #1a1a1a;
+}
+
+html.dark .toggle-btn--active {
+  background-color: #7b9eb8;
+  border-color: #7b9eb8;
+  color: #ffffff;
+}
+
+html.dark .toggle-btn--active:hover {
+  background-color: #6d8da6;
+  border-color: #6d8da6;
+  color: #ffffff;
+}
+
+html.dark .custom-slider :deep(.el-slider__runway) {
+  background-color: #2c2e30;
+}
+
+html.dark .custom-slider :deep(.el-slider__button) {
+  border-color: #1a1a1a;
+}
+</style>

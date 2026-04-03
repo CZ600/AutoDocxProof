@@ -1,8 +1,6 @@
 <template>
   <div class="table-container">
-    <div class="section-header">
-      <span>{{ t('history.date') }}</span>
-    </div>
+
     <el-table :data="history" max-height="800" class="table" size="small">
       <el-table-column prop="created_at" :label="t('history.date')" width="130" />
       <el-table-column prop="modelName" :label="t('history.modelName')" width="100" />
@@ -216,11 +214,19 @@ html.dark .table :deep(.el-table__row td) {
 }
 
 html.dark .table :deep(.el-table__row:hover > td) {
-  background-color: #1a1a1a;
+  background-color: #252525;
 }
 
 html.dark .detail-pre {
   color: #c0c4cc;
   background: #1a1a1a;
+}
+
+html.dark .link-danger {
+  color: #d08888;
+}
+
+html.dark .link-danger:hover {
+  color: #c06666;
 }
 </style>
