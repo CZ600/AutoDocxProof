@@ -29,8 +29,11 @@
               <strong>{{ t('proof.reason') }}</strong> {{ item.reason || t('proof.noData') }}
             </div>
             <div class="actions">
-              <el-button type="primary" size="small" @click.stop="applyCorrection(index)" :disabled="item.applied">
-                {{ item.applied ? t('proof.applied') : t('proof.applyChanges') }}
+              <el-button v-if="!item.applied" type="primary" size="small" @click.stop="applyCorrection(index)">
+                {{ t('proof.applyChanges') }}
+              </el-button>
+              <el-button v-if="item.applied" type="warning" size="small" @click.stop="undoCorrection(index)">
+                {{ t('proof.undo') }}
               </el-button>
               <el-popover placement="bottom-start" width="500px" trigger="click" popper-class="reference-popover">
                 <template #reference>
@@ -318,6 +321,14 @@ const applyCorrection = index => {
   } else {
     ElMessage.warning(t('proof.messages.notLocatedInPreview'))
   }
+}
+
+const undoCorrection = index => {
+  const newResults = [...proofreadingResults.value]
+  newResults[index] = { ...newResults[index], applied: false }
+  proofreadingResults.value = newResults
+  fileStore.triggerRerender()
+  ElMessage.success(t('proof.messages.undoSuccess'))
 }
 
 const availableCategories = computed(() => {

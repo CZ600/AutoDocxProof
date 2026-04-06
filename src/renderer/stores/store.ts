@@ -17,7 +17,8 @@ export const fileInfoStore = defineStore('fileInfo', {
     filePath: '',
     fileName: '',
     proofModel: '',
-    results: [] as CorrectionResult[]
+    results: [] as CorrectionResult[],
+    rerenderVersion: 0
   }),
 
   getters: {
@@ -44,11 +45,15 @@ export const fileInfoStore = defineStore('fileInfo', {
     setCorrectResult(results: CorrectionResult[]) {
       this.results = results
     },
+    triggerRerender() {
+      this.rerenderVersion++
+    },
     clearAll() {
       this.filePath = ''
       this.fileName = ''
       this.proofModel = ''
       this.results = []
+      this.rerenderVersion = 0
     }
   },
 

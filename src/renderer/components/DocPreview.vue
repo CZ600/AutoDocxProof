@@ -27,6 +27,21 @@
                   <span class="category-badge" :class="`category-${cat.value.toLowerCase()}`">{{ cat.label }}</span>
                   <span style="margin-left: 8px">{{ getCategoryCount(cat.value) }}</span>
                 </el-dropdown-item>
+                <el-dropdown-item divided @click="undoAllCorrections()" :disabled="proofreadingResults.filter(r => r.applied).length === 0">
+                  <el-icon style="margin-right: 8px"><RefreshLeft /></el-icon>
+                  {{ t('proof.undoAllCount', { count: proofreadingResults.filter(r => r.applied).length }) }}
+                </el-dropdown-item>
+                <el-dropdown-item divided>
+                  <span style="font-weight: 600; color: #606266">{{ t('proof.undoByCategory') }}</span>
+                </el-dropdown-item>
+                <el-dropdown-item
+                  v-for="cat in appliedCategories"
+                  :key="'undo-' + cat.value"
+                  @click="undoByCategory(cat.value)"
+                >
+                  <span class="category-badge" :class="`category-${cat.value.toLowerCase()}`">{{ cat.label }}</span>
+                  <span style="margin-left: 8px">{{ getAppliedCategoryCount(cat.value) }}</span>
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -154,7 +169,7 @@ import { renderAsync } from 'docx-preview'
 import { fileInfoStore } from '../stores/store'
 import { useEmbeddingStore } from '../stores/embeddingStore'
 import { useApiStore } from '../stores/apiStore'
-import { Collection, Document, ArrowDown, Select } from '@element-plus/icons-vue'
+import { Collection, Document, ArrowDown, Select, RefreshLeft } from '@element-plus/icons-vue'
 import { useDark } from '@vueuse/core'
 
 const electronAPI = window.electronAPI
@@ -180,6 +195,7 @@ const progressBarColor = [
 let fakeProgressTimer = null
 let closeProgressTimer = null
 let proofreadProgressUnsubscribe = null
+let cachedDocxFile = null
 
 const fileStore = fileInfoStore()
 const apiSettingsStore = useApiStore()
@@ -462,6 +478,82 @@ const applyALLCorrection = () => {
   }
 }
 
+const rerenderAndReapply = async () => {
+  if (!cachedDocxFile) return
+  await renderDocx(cachedDocxFile)
+  const container = previewContainer.value
+  if (!container) return
+  const appliedCorrections = proofreadingResults.value.filter(item => item.applied)
+  appliedCorrections.forEach(item => {
+    replaceCorrectionInPreview(container, item)
+  })
+  highlightCorrections()
+}
+
+const appliedCategories = computed(() => {
+  const typeMap = {
+    Typo: t('proof.correctionTypes.Typo'),
+    Punctuation: t('proof.correctionTypes.Punctuation'),
+    Grammar: t('proof.correctionTypes.Grammar'),
+    Consistency: t('proof.correctionTypes.Consistency'),
+    wordError: t('proof.correctionTypes.wordError'),
+    ComprehensiveError: t('proof.correctionTypes.ComprehensiveError'),
+    polish: t('proof.correctionTypes.polish')
+  }
+  const types = new Set()
+  proofreadingResults.value.forEach(item => {
+    if (item.applied && item.type) {
+      types.add(item.type)
+    }
+  })
+  return Array.from(types).map(type => ({
+    value: type,
+    label: typeMap[type] || type
+  }))
+})
+
+const getAppliedCategoryCount = type => {
+  const count = proofreadingResults.value.filter(item => item.applied && item.type === type).length
+  return t('proof.messages.countItems', { count })
+}
+
+const undoByCategory = async type => {
+  const appliedResults = proofreadingResults.value.filter(item => item.applied && item.type === type)
+  if (appliedResults.length === 0) {
+    ElMessage.warning(t('proof.messages.noAppliedChanges'))
+    return
+  }
+  const newResults = proofreadingResults.value.map(item => {
+    if (item.applied && item.type === type) {
+      return { ...item, applied: false }
+    }
+    return item
+  })
+  proofreadingResults.value = newResults
+  await rerenderAndReapply()
+  const typeLabel = formatCorrectionType(type)
+  ElMessage.success(t('proof.messages.undoAllSuccess'))
+}
+
+const undoAllCorrections = async () => {
+  const appliedResults = proofreadingResults.value.filter(item => item.applied)
+  if (appliedResults.length === 0) {
+    ElMessage.warning(t('proof.messages.noAppliedChanges'))
+    return
+  }
+  const newResults = proofreadingResults.value.map(item => ({ ...item, applied: false }))
+  proofreadingResults.value = newResults
+  await rerenderAndReapply()
+  ElMessage.success(t('proof.messages.undoAllSuccess'))
+}
+
+watch(
+  () => fileStore.rerenderVersion,
+  async () => {
+    await rerenderAndReapply()
+  }
+)
+
 watch(
   () => form.model,
   newVal => {
@@ -705,6 +797,7 @@ const selectFileWithMainProcessRead = async () => {
     const file = new File([blob], name, {
       type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     })
+    cachedDocxFile = file
     await renderDocx(file)
     fileStore.setCorrectResult([])
     isLoading.value = false
@@ -976,6 +1069,7 @@ onMounted(async () => {
       const file = new File([blob], fileStore.fileName, {
         type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       })
+      cachedDocxFile = file
       await renderDocx(file)
       if (proofreadingResults.value.length > 0) {
         nextTick(() => highlightCorrections())

@@ -33,6 +33,10 @@
     "applyAll": "应用全部修改",
     "applyByCategory": "按类别应用",
     "applyAllCount": "应用全部修改 ({count})",
+    "undo": "撤销",
+    "undoAll": "撤销全部",
+    "undoByCategory": "按类别撤销",
+    "undoAllCount": "撤销全部修改 ({count})",
     "previewFile": "选择一个 DOCX 文件进行预览",
     "modeWordError": "逐句精校",
     "modeComprehensive": "逐段校正",
@@ -80,7 +84,10 @@
       "exportFailed": "导出失败: ",
       "electronNotLoaded": "Electron 环境未正确加载...",
       "countItems": "{count} 条",
-      "reviewFiltered": "审核已过滤 {count} 条无效建议"
+      "reviewFiltered": "审核已过滤 {count} 条无效建议",
+      "undoSuccess": "已撤销修改",
+      "undoAllSuccess": "已撤销全部修改",
+      "noAppliedChanges": "没有已应用的修改"
     }
   },
   "apiSettings": {

@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(npx vite build:*)",
+      "Bash(npx eslint:*)",
+      "Bash(node:*)"
     ]
   }
 }

@@ -33,6 +33,10 @@
     "applyAll": "Apply All Changes",
     "applyByCategory": "Apply by Category",
     "applyAllCount": "Apply All Changes ({count})",
+    "undo": "Undo",
+    "undoAll": "Undo All",
+    "undoByCategory": "Undo by Category",
+    "undoAllCount": "Undo All Changes ({count})",
     "previewFile": "Select a DOCX file to preview",
     "modeWordError": "Sentence-by-Sentence",
     "modeComprehensive": "Paragraph-by-Paragraph",
@@ -80,7 +84,10 @@
       "exportFailed": "Export failed: ",
       "electronNotLoaded": "Electron environment not loaded correctly...",
       "countItems": "{count} items",
-      "reviewFiltered": "Review filtered {count} invalid suggestions"
+      "reviewFiltered": "Review filtered {count} invalid suggestions",
+      "undoSuccess": "Change reverted",
+      "undoAllSuccess": "All changes reverted",
+      "noAppliedChanges": "No applied changes to undo"
     }
   },
   "apiSettings": {

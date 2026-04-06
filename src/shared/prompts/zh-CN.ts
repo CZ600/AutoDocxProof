@@ -48,7 +48,7 @@ export function buildJsonTypeInstruction(errorTypes: PromptErrorType[]): string 
   return `"type": "错误类型(${modelTypes})"`
 }
 
-export const MASTER_PROMPT_TEMPLATE = `你是一个专业的中文文本校对专家。请根据给定配置仔细检查文本。
+export const MASTER_PROMPT_TEMPLATE = `你是一个专业的中英文文本校对专家。请根据给定配置仔细检查文本。
 要求：
 1. {errorTypeInstruction}
 2. {intensityInstruction}
