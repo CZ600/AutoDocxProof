@@ -41,11 +41,13 @@
     "modeWordError": "逐句精校",
     "modeComprehensive": "逐段校正",
     "modePolish": "全文润色",
+    "modeReduceAI": "降低AI率",
     "progress": {
       "splitting": "正在整理信息",
       "theme": "正在分析文档",
       "proofreading": "正在校对",
       "reviewing": "正在审核校对结果",
+      "reducing": "正在降低AI率",
       "completed": "校对完成",
       "default": "正在校对"
     },
@@ -56,7 +58,8 @@
       "Consistency": "一致性",
       "wordError": "错别字",
       "ComprehensiveError": "综合错误",
-      "polish": "润色建议"
+      "polish": "润色建议",
+      "reduceAI": "AI率降低"
     },
     "messages": {
       "applied": "已应用修改",

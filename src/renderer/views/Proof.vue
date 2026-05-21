@@ -91,7 +91,8 @@ const formatCorrectionType = type => {
     Consistency: t('proof.correctionTypes.Consistency'),
     wordError: t('proof.correctionTypes.wordError'),
     ComprehensiveError: t('proof.correctionTypes.ComprehensiveError'),
-    polish: t('proof.correctionTypes.polish')
+    polish: t('proof.correctionTypes.polish'),
+    reduceAI: t('proof.correctionTypes.reduceAI')
   }
   return typeMap[type] || type
 }
@@ -339,7 +340,8 @@ const availableCategories = computed(() => {
     Consistency: t('proof.correctionTypes.Consistency'),
     wordError: t('proof.correctionTypes.wordError'),
     ComprehensiveError: t('proof.correctionTypes.ComprehensiveError'),
-    polish: t('proof.correctionTypes.polish')
+    polish: t('proof.correctionTypes.polish'),
+    reduceAI: t('proof.correctionTypes.reduceAI')
   }
   const types = new Set()
   proofreadingResults.value.forEach(item => {
@@ -513,6 +515,15 @@ onUnmounted(() => {
   --highlight-bg-focus: rgba(103, 194, 58, 0.48);
   --highlight-border: #5baa3a;
   --highlight-ring: rgba(103, 194, 58, 0.3);
+}
+
+.highlight-type-reduceai,
+.highlight-type-ai率降低 {
+  --highlight-bg: rgba(160, 120, 200, 0.24);
+  --highlight-bg-hover: rgba(160, 120, 200, 0.34);
+  --highlight-bg-focus: rgba(160, 120, 200, 0.48);
+  --highlight-border: #9b6dc6;
+  --highlight-ring: rgba(160, 120, 200, 0.3);
 }
 
 @keyframes correction-highlight-pulse {
@@ -835,6 +846,11 @@ html.dark .el-collapse-item__header.is-active {
   background-color: #8ab89e;
 }
 
+.category-reduceai,
+.category-ai率降低 {
+  background-color: #9b6dc6;
+}
+
 .type-typo,
 .type-错别字,
 .type-worderror {
@@ -870,6 +886,13 @@ html.dark .el-collapse-item__header.is-active {
 .type-润色建议 {
   background-color: rgba(138, 184, 158, 0.14);
   color: #5a9070;
+  border: none;
+}
+
+.type-reduceai,
+.type-ai率降低 {
+  background-color: rgba(160, 120, 200, 0.14);
+  color: #8a5ebf;
   border: none;
 }
 </style>

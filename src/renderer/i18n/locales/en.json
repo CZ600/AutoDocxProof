@@ -41,11 +41,13 @@
     "modeWordError": "Sentence-by-Sentence",
     "modeComprehensive": "Paragraph-by-Paragraph",
     "modePolish": "Full Document Polish",
+    "modeReduceAI": "Reduce AI Detection",
     "progress": {
       "splitting": "Organizing information",
       "theme": "Analyzing document",
       "proofreading": "Proofreading",
       "reviewing": "Reviewing proofreading results",
+      "reducing": "Reducing AI detection rate",
       "completed": "Proofreading completed",
       "default": "Proofreading"
     },
@@ -56,7 +58,8 @@
       "Consistency": "Consistency",
       "wordError": "Typo",
       "ComprehensiveError": "Comprehensive Error",
-      "polish": "Polish Suggestion"
+      "polish": "Polish Suggestion",
+      "reduceAI": "AI Rate Reduced"
     },
     "messages": {
       "applied": "Changes applied",

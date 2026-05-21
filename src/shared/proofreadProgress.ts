@@ -1,4 +1,4 @@
-export type ProofreadStage = 'splitting' | 'theme' | 'proofreading' | 'reviewing' | 'completed'
+export type ProofreadStage = 'splitting' | 'theme' | 'proofreading' | 'reviewing' | 'reducing' | 'completed'
 
 export type ProofreadMode = 'full' | 'section' | 'sentence'
 

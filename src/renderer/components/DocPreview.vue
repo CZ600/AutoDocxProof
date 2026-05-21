@@ -93,6 +93,7 @@
             <el-option :label="t('proof.modeWordError')" value="wordError" />
             <el-option :label="t('proof.modeComprehensive')" value="ComprehensiveError" />
             <el-option :label="t('proof.modePolish')" value="polish" />
+            <el-option :label="t('proof.modeReduceAI')" value="reduceAI" />
           </el-select>
 
           <el-dropdown placement="bottom">
@@ -222,6 +223,7 @@ const progressStageText = computed(() => {
     theme: t('proof.progress.theme'),
     proofreading: t('proof.progress.proofreading'),
     reviewing: t('proof.progress.reviewing'),
+    reducing: t('proof.progress.reducing'),
     completed: t('proof.progress.completed')
   }
   return stageMap[progressStage.value] || t('proof.progress.default')
@@ -390,7 +392,8 @@ const formatCorrectionType = type => {
     Consistency: t('proof.correctionTypes.Consistency'),
     wordError: t('proof.correctionTypes.wordError'),
     ComprehensiveError: t('proof.correctionTypes.ComprehensiveError'),
-    polish: t('proof.correctionTypes.polish')
+    polish: t('proof.correctionTypes.polish'),
+    reduceAI: t('proof.correctionTypes.reduceAI')
   }
   return typeMap[type] || type
 }
@@ -403,7 +406,8 @@ const availableCategories = computed(() => {
     Consistency: t('proof.correctionTypes.Consistency'),
     wordError: t('proof.correctionTypes.wordError'),
     ComprehensiveError: t('proof.correctionTypes.ComprehensiveError'),
-    polish: t('proof.correctionTypes.polish')
+    polish: t('proof.correctionTypes.polish'),
+    reduceAI: t('proof.correctionTypes.reduceAI')
   }
   const types = new Set()
   proofreadingResults.value.forEach(item => {
@@ -498,7 +502,8 @@ const appliedCategories = computed(() => {
     Consistency: t('proof.correctionTypes.Consistency'),
     wordError: t('proof.correctionTypes.wordError'),
     ComprehensiveError: t('proof.correctionTypes.ComprehensiveError'),
-    polish: t('proof.correctionTypes.polish')
+    polish: t('proof.correctionTypes.polish'),
+    reduceAI: t('proof.correctionTypes.reduceAI')
   }
   const types = new Set()
   proofreadingResults.value.forEach(item => {

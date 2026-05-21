@@ -933,9 +933,196 @@ export async function proofreadDocument(
   }
 }
 
+// ====== 降低AI率 ======
+
+function shouldExcludeFromReduceAI(paragraph: string): boolean {
+  const trimmed = paragraph.trim()
+  if (trimmed.length < 20) return true
+  if (/^图\s*[\d.]+/.test(trimmed)) return true
+  if (/^表\s*[\d.]+/.test(trimmed)) return true
+  if (/^Fig\.?\s*\d/i.test(trimmed)) return true
+  if (/^Table\s*\d/i.test(trimmed)) return true
+  if (/^\[\d+\]/.test(trimmed)) return true
+  const tabCount = (trimmed.match(/\t/g) || []).length
+  if (tabCount >= 3) return true
+  const pipeCount = (trimmed.match(/\|/g) || []).length
+  if (pipeCount >= 4) return true
+  return false
+}
+
+function isReferenceSection(title: string): boolean {
+  const t = title.trim().toLowerCase()
+  return /参考文献|references|引文|bibliography|引用文献/.test(t)
+}
+
+function cleanAIResponse(text: string): string {
+  let cleaned = text.trim()
+  cleaned = cleaned.replace(/^```[\w]*\n?/g, '')
+  cleaned = cleaned.replace(/\n?```$/g, '')
+  cleaned = cleaned.replace(/^["'"「」《》]|["'"「」《》]$/g, '')
+  if (cleaned.startsWith('修改后') || cleaned.startsWith('修改后：') || cleaned.startsWith('修改后:')) {
+    cleaned = cleaned.replace(/^修改后[：:]\s*/, '')
+  }
+  if (cleaned.startsWith('改写后') || cleaned.startsWith('改写后：') || cleaned.startsWith('改写后:')) {
+    cleaned = cleaned.replace(/^改写后[：:]\s*/, '')
+  }
+  return cleaned.trim()
+}
+
+export async function reduceAIDetectionDocument(
+  documentPath: string,
+  apiKey: string,
+  modelName: string,
+  apiURL: string,
+  parallelSet: number = 30,
+  setTimeLimit?: number,
+  onProgress?: (payload: ProofreadProgressPayload) => void,
+  provider?: ModelProvider
+): Promise<{ proofResult: ProofreadingCorrection[]; token_usage: number }> {
+  const prompts = getPrompts()
+  const reducePrompt = prompts.REDUCE_AI_RATE_SYSTEM_PROMPT || zhCNPrompts.REDUCE_AI_RATE_SYSTEM_PROMPT
+  const reduceReason = prompts.REDUCE_AI_RATE_REASON || zhCNPrompts.REDUCE_AI_RATE_REASON
+  const reduceProgress = prompts.REDUCE_AI_RATE_PROGRESS_MESSAGES || zhCNPrompts.REDUCE_AI_RATE_PROGRESS_MESSAGES
+  let total_tokens = 0
+
+  const option = setTimeLimit ? { requestsPerMinute: setTimeLimit } : undefined
+
+  try {
+    onProgress?.({
+      stage: 'splitting',
+      mode: 'section',
+      message: reduceProgress.splitting
+    })
+
+    const docStructure = await parseWordDocument(documentPath)
+
+    const nonEmptySections = getSectionsForProofreading(docStructure.sections)
+
+    const validParagraphs: { title: string; content: string }[] = []
+    let inReferenceSection = false
+
+    for (const section of docStructure.sections) {
+      if (isReferenceSection(section.title)) {
+        inReferenceSection = true
+        continue
+      }
+      if (inReferenceSection) {
+        const nextSectionLevel = section.level
+        if (nextSectionLevel <= 1) {
+          inReferenceSection = false
+        } else {
+          continue
+        }
+      }
+      const paragraphs = section.content.split('\n').map(p => p.trim()).filter(p => p.length > 0)
+      for (const para of paragraphs) {
+        if (isLikelyTitle(para)) continue
+        if (shouldExcludeFromReduceAI(para)) continue
+        validParagraphs.push({ title: section.title, content: para })
+      }
+    }
+
+    if (validParagraphs.length === 0) {
+      return { proofResult: [], token_usage: 0 }
+    }
+
+    onProgress?.({
+      stage: 'reducing',
+      mode: 'section',
+      total: validParagraphs.length,
+      completed: 0,
+      percent: 0,
+      message: reduceProgress.reducing
+    })
+
+    const results = await runWithLimits(
+      validParagraphs,
+      parallelSet,
+      async (para) => {
+        const { result, total_tokens: tokens } = await callModelAPI(
+          reducePrompt,
+          para.content,
+          apiKey,
+          modelName,
+          apiURL,
+          provider
+        )
+        const rewritten = cleanAIResponse(result)
+        if (!rewritten || rewritten === para.content.trim()) {
+          return { correction: null, tokens }
+        }
+        return {
+          correction: {
+            original: para.content,
+            suggested: rewritten,
+            reason: reduceReason,
+            type: 'reduceAI'
+          } as ProofreadingCorrection,
+          tokens
+        }
+      },
+      {
+        ...option,
+        onItemCompleted: (completed, total) => {
+          onProgress?.({
+            stage: 'reducing',
+            mode: 'section',
+            total,
+            completed,
+            percent: total > 0 ? Math.min(95, Math.floor((completed / total) * 95)) : 0,
+            message: reduceProgress.reducing
+          })
+        }
+      }
+    )
+
+    const allCorrections: ProofreadingCorrection[] = []
+    for (const r of results) {
+      total_tokens += r.tokens
+      if (r.correction) {
+        allCorrections.push(r.correction)
+      }
+    }
+
+    const serializableCorrections = allCorrections.map(c => ({
+      original: c.original,
+      suggested: c.suggested,
+      reason: c.reason,
+      type: c.type
+    }))
+
+    console.log('降低AI率结果:', serializableCorrections.length, '条改写')
+    onProgress?.({
+      stage: 'completed',
+      mode: 'section',
+      percent: 100,
+      message: reduceProgress.completed
+    })
+
+    return { proofResult: serializableCorrections, token_usage: total_tokens }
+  } catch (error) {
+    console.error('降低AI率处理出错:', error)
+    throw error
+  }
+}
+
 // ====== 校对结果审核 ======
 
 const REVIEW_BATCH_SIZE = 100
+
+const NO_ERROR_REASON_PATTERNS = [
+  /原文无错误/, /无需修改/, /原文正确/, /不存在错误/, /没有错误/, /无需校正/, /无需更正/,
+  /no\s*error/i, /no\s*change/i, /original.*correct/i, /no.*error.*found/i, /correctly\s*written/i, /no\s*correction/i
+]
+
+function isNoErrorReason(reason: string): boolean {
+  if (!reason || typeof reason !== 'string') return false
+  return NO_ERROR_REASON_PATTERNS.some(pattern => pattern.test(reason))
+}
+
+function filterInvalidCorrections(corrections: ProofreadingCorrection[]): ProofreadingCorrection[] {
+  return corrections.filter(c => !c.filtered && !isNoErrorReason(c.reason))
+}
 
 function buildReviewPrompt(backgroundInstruction: string): string {
   return buildLocalizedReviewPrompt(backgroundInstruction)
@@ -1009,7 +1196,7 @@ export async function reviewCorrections(
       }
       allReviewed.push(...batch)
 
-      const batchFiltered = batch.filter(c => c.filtered)
+      const batchFiltered = batch.filter(c => c.filtered || isNoErrorReason(c.reason))
       if (batchFiltered.length > 0) {
         console.log(`[审核] 第${batchIdx + 1}批: 过滤 ${batchFiltered.length}/${batch.length} 条建议`)
         batchFiltered.forEach(c => {
@@ -1026,7 +1213,7 @@ export async function reviewCorrections(
       }
     }
 
-    return { reviewedResult: allReviewed, token_usage: totalTokens }
+    return { reviewedResult: filterInvalidCorrections(allReviewed), token_usage: totalTokens }
   }
 
   const userPrompt = buildReviewUserPrompt(corrections)
@@ -1058,7 +1245,7 @@ export async function reviewCorrections(
     }
   }
 
-  const filtered = corrections.filter(c => c.filtered)
+  const filtered = corrections.filter(c => c.filtered || isNoErrorReason(c.reason))
   if (filtered.length > 0) {
     console.log(`[审核] 过滤 ${filtered.length}/${corrections.length} 条建议`)
     filtered.forEach(c => {
@@ -1068,7 +1255,7 @@ export async function reviewCorrections(
     console.log(`[审核] 保留全部 ${corrections.length} 条建议`)
   }
 
-  return { reviewedResult: corrections, token_usage: totalTokens }
+  return { reviewedResult: filterInvalidCorrections(corrections), token_usage: totalTokens }
 }
 
 export function getCurrentBackgroundInstruction(): string {

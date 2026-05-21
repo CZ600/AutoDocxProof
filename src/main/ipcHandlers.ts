@@ -6,6 +6,7 @@ import { testAPI, testAPIWithProvider } from './chat'
 import { ModelProvider } from '../shared/modelProviders'
 import {
   proofreadDocument,
+  reduceAIDetectionDocument,
   getDefaultPrompt,
   setNewPrompt,
   getPromptSettings,
@@ -462,6 +463,34 @@ export const registerIpcHandlers = () => {
             return result
           } catch (error) {
             console.error('序列化校对结果时出错:', error)
+            return {
+              proofResult: null,
+              token_usage: token_usage
+            }
+          }
+        } else if (Model === 'reduceAI') {
+          console.log('will reduce AI detection rate by model:', api_info.apiKey, api_info.apiURL, api_info.modelName)
+          const sendProgress = (payload: ProofreadProgressPayload) => {
+            event.sender.send(PROOFREAD_PROGRESS_CHANNEL, payload)
+          }
+          const { proofResult, token_usage } = await reduceAIDetectionDocument(
+            filePath,
+            api_info.apiKey,
+            api_info.modelName,
+            api_info.apiURL,
+            parallelSet,
+            setTimeLimit,
+            sendProgress,
+            api_info.provider
+          )
+          try {
+            const result = {
+              proofResult: JSON.parse(JSON.stringify(proofResult)),
+              token_usage: token_usage
+            }
+            return result
+          } catch (error) {
+            console.error('序列化降低AI率结果时出错:', error)
             return {
               proofResult: null,
               token_usage: token_usage
