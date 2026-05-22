@@ -91,6 +91,20 @@
       "undoSuccess": "已撤销修改",
       "undoAllSuccess": "已撤销全部修改",
       "noAppliedChanges": "没有已应用的修改"
+    },
+    "formatClone": {
+      "title": "格式克隆",
+      "backToProof": "校对模式",
+      "selectRef": "选择参考文档",
+      "back": "返回校对",
+      "start": "开始克隆",
+      "export": "导出文件",
+      "failed": "格式克隆失败",
+      "cloneSuccess": "格式克隆完成，可在右侧预览",
+      "extractFailed": "格式提取失败",
+      "paragraphStyle": "段落样式",
+      "runStyle": "文本样式 (Run)",
+      "defaults": "文档默认样式"
     }
   },
   "apiSettings": {
@@ -200,6 +214,14 @@
       "feature6Title": "清晰的历史记录管理",
       "feature6View": "清晰查看历史记录，包括时间、校对模型、校对文件路径和具体的结果",
       "feature6Batch": "支持对结果的批量管理",
+      "feature7Title": "降低AI率",
+      "feature7L1": "对AI生成的文本进行语言风格调整，使其更像人类写作",
+      "feature7L2": "降低文本被AI检测工具识别的概率",
+      "feature7L3": "保持原文意思不变，仅优化表达方式",
+      "feature8Title": "格式克隆",
+      "feature8L1": "从参考文档中提取段落样式和文本样式",
+      "feature8L2": "将提取的格式批量应用到目标文档中",
+      "feature8L3": "支持对格式样式的精细调整，包括字体、颜色、间距等",
       "warningNote": "注意",
       "warningDesc": "校对结果的准确度很大程度上取决于模型能力，软件无法保证校对结果的完全准确，还需要人工再次检验。",
       "tip1Title": "提示1",

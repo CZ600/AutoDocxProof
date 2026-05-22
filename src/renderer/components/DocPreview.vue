@@ -89,6 +89,16 @@
             {{ isLoading ? t('proof.loading') : t('proof.selectFile') }}
           </el-button>
 
+          <el-button
+            :type="activeMode === 'format-clone' ? 'warning' : 'default'"
+            size="default"
+            @click="toggleFormatClone"
+            :disabled="!form.filePath"
+          >
+            {{ activeMode === 'format-clone' ? t('proof.formatClone.backToProof') : t('proof.formatClone.title') }}
+          </el-button>
+
+          <template v-if="activeMode !== 'format-clone'">
           <el-select v-model="form.model" :placeholder="t('proof.modePlaceholder')" size="default" class="mode-select">
             <el-option :label="t('proof.modeWordError')" value="wordError" />
             <el-option :label="t('proof.modeComprehensive')" value="ComprehensiveError" />
@@ -135,6 +145,27 @@
           >
             {{ t('proof.exportResult') }}
           </el-button>
+          </template>
+          <template v-else>
+            <el-button
+              type="primary"
+              size="default"
+              :loading="formatCloneCloning"
+              :disabled="!formatCloneRefFilePath || !formatCloneTargetFilePath"
+              @click="formatCloneDoClone"
+            >
+              {{ t('proof.formatClone.start') }}
+            </el-button>
+            <el-button
+              type="success"
+              size="default"
+              :disabled="!formatCloneClonedFilePath"
+              :loading="formatCloneExporting"
+              @click="formatCloneDoExport"
+            >
+              {{ t('proof.formatClone.export') }}
+            </el-button>
+          </template>
         </div>
       </div>
     </div>
@@ -179,6 +210,15 @@ const { t } = useI18n()
 const isDark = useDark()
 
 const previewContainer = inject('previewContainer')
+const activeMode = inject('activeMode')
+const setActiveMode = inject('setActiveMode')
+const formatCloneClonedFilePath = inject('formatCloneClonedFilePath', ref(''))
+const formatCloneExporting = inject('formatCloneExporting', ref(false))
+const formatCloneDoExport = inject('formatCloneDoExport', () => {})
+const formatCloneCloning = inject('formatCloneCloning', ref(false))
+const formatCloneRefFilePath = inject('formatCloneRefFilePath', ref(''))
+const formatCloneTargetFilePath = inject('formatCloneTargetFilePath', computed(() => ''))
+const formatCloneDoClone = inject('formatCloneDoClone', () => {})
 const isLoading = ref(false)
 const error = ref('')
 const processing = ref(false)
@@ -588,6 +628,10 @@ const deleteSelectRepository = async value => {
 
 const deleteAllSelectRepository = async () => {
   selectRepository.value = []
+}
+
+const toggleFormatClone = () => {
+  setActiveMode(activeMode.value === 'format-clone' ? 'proof' : 'format-clone')
 }
 
 const getRepositories = async () => {

@@ -64,7 +64,8 @@
         <div class="top-toolbar"></div>
         <div class="content-row">
           <main class="function-panel">
-            <router-view />
+            <FormatClone v-if="activeMode === 'format-clone'" @back="activeMode = 'proof'" />
+            <router-view v-else />
           </main>
           <section class="preview-panel">
             <DocPreview />
@@ -87,6 +88,7 @@ import en from 'element-plus/es/locale/lang/en'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 import DocPreview from './components/DocPreview.vue'
+import FormatClone from './views/FormatClone.vue'
 
 const electronAPI = window.electronAPI
 const router = useRouter()
@@ -98,6 +100,10 @@ const localeStore = useLocaleStore()
 
 const previewContainer = ref(null)
 provide('previewContainer', previewContainer)
+
+const activeMode = ref('proof')
+provide('activeMode', activeMode)
+provide('setActiveMode', (mode) => { activeMode.value = mode })
 
 const currentPath = computed(() => route.path)
 const elementLocale = computed(() => (localeStore.locale === 'en' ? en : zhCn))

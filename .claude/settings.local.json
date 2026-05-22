@@ -4,7 +4,11 @@
       "Bash(tree:*)",
       "Bash(npx vite build:*)",
       "Bash(npx eslint:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npx vitest *)",
+      "Bash(npm start *)",
+      "Bash(git checkout *)",
+      "Bash(grep -i -E \"readme|\\\\.md$\")"
     ]
   }
 }

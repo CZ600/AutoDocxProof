@@ -54,6 +54,12 @@ To address the forgetting and hallucination issues that large models experience 
   - Sentence-by-sentence proofreading: Suitable for short texts requiring high-precision proofreading
   - Paragraph-by-paragraph correction: Suitable for proofreading long documents
   - Full-text polishing: Language polishing and optimization for the entire document
+  - Reduce AI Detection Rate: Adjust language style of AI-generated text to lower the probability of being flagged by AI detection tools
+
+- **Format Clone**:
+  - Extract paragraph and text styles from reference documents
+  - Batch apply extracted formatting to target documents
+  - Fine-tune format details including font, color, spacing, and more
 
 - **Intelligent Error Recognition**:
   - Typo detection
@@ -100,6 +106,12 @@ This application also allows browsing and managing proofreading history:
 
 Dark Mode:
 ![Dark Mode](assets/深色模式.png)
+
+Reduce AI Detection Rate feature adjusts the language style of AI-generated text to lower the probability of being flagged by AI detection tools:
+![Reduce AI Rate](assets/降低ai率.png)
+
+Format Clone feature extracts format styles from a reference document and applies them to the target document:
+![Format Clone](assets/格式克隆.png)
 
 > Note: The accuracy of proofreading results depends largely on the model's capabilities. The software cannot guarantee complete accuracy of proofreading results, and manual verification is still required.
 > Tip: The result export function may have omissions; manual verification is recommended.

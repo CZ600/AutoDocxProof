@@ -3093,10 +3093,10 @@ doctrine@^3.0.0:
   dependencies:
     esutils "^2.0.2"
 
-docx-edit@^0.1.0:
-  version "0.1.0"
-  resolved "https://registry.npmjs.org/docx-edit/-/docx-edit-0.1.0.tgz"
-  integrity sha512-JsZ/TrlpG0SwaiVL+V4hy0Ibympr1/vFBRdCv3ZEBYyCQ3DCyaRYfWAUvEYuQmh6l8wGK4Hm+6Tn+eHbEqqJjw==
+docx-edit@^0.2.0:
+  version "0.2.0"
+  resolved "https://registry.npmmirror.com/docx-edit/-/docx-edit-0.2.0.tgz"
+  integrity sha512-R2O/McigjbHNO/B+iuB87juROg7o/2KMC86Xc82xTrFYepLO+OKuL/XFHVNoEwSNzxfJRjXoY2V5/YnxDE8kyQ==
   dependencies:
     "@xmldom/xmldom" "^0.8.11"
     jszip "^3.10.1"

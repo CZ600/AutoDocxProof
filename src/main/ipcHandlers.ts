@@ -21,6 +21,7 @@ import { deleteDocumentByName, listFilenamesInRepository } from './lancedb'
 import { Mode } from '@google/genai'
 import * as mammoth from 'mammoth'
 import { replaceTextInDocx } from './wordProcess'
+import { cloneFormat, extractFormatProfile, cloneFormatWithProfile } from './formatClone'
 import {
   deleteRepository,
   initLanceDB,
@@ -563,6 +564,72 @@ export const registerIpcHandlers = () => {
       throw error
     }
   })
+  // 格式克隆 - 提取参考文档的样式档案
+  ipcMain.handle('get-format-profile', async (event, filePath: string) => {
+    try {
+      const profile = await extractFormatProfile(filePath)
+      return JSON.parse(JSON.stringify(profile))
+    } catch (error) {
+      console.error('提取样式档案失败:', error)
+      throw error
+    }
+  })
+
+  // 格式克隆 - 执行克隆（保存到临时文件用于预览）
+  ipcMain.handle('clone-format', async (event, sourcePath: string, targetPath: string) => {
+    try {
+      const os = require('os')
+      const tmpDir = os.tmpdir()
+      const tmpName = `format_clone_${Date.now()}.docx`
+      const tmpPath = require('path').join(tmpDir, tmpName)
+      await cloneFormat(sourcePath, targetPath, tmpPath)
+      return { success: true, filePath: tmpPath }
+    } catch (error) {
+      console.error('格式克隆失败:', error)
+      throw error
+    }
+  })
+
+  // 格式克隆 - 导出（带保存对话框）
+  // 格式克隆 - 使用自定义样式档案克隆
+  ipcMain.handle('clone-format-with-profile', async (event, profile: any, targetPath: string) => {
+    try {
+      const os = require('os')
+      const tmpDir = os.tmpdir()
+      const tmpName = `format_clone_${Date.now()}.docx`
+      const tmpPath = require('path').join(tmpDir, tmpName)
+      await cloneFormatWithProfile(profile, targetPath, tmpPath)
+      return { success: true, filePath: tmpPath }
+    } catch (error) {
+      console.error('格式克隆失败:', error)
+      throw error
+    }
+  })
+
+  ipcMain.handle('export-format-cloned', async (event, clonedFilePath: string, originalTargetPath: string) => {
+    try {
+      const parsedPath = path.parse(originalTargetPath)
+      const defaultSavePath = path.join(parsedPath.dir, `${parsedPath.name}_formatted.docx`)
+
+      const saveResult = await dialog.showSaveDialog({
+        title: '保存格式克隆后的文档',
+        defaultPath: defaultSavePath,
+        filters: [{ name: 'Word 文档', extensions: ['docx'] }]
+      })
+
+      if (saveResult.canceled || !saveResult.filePath) {
+        return { success: false, canceled: true }
+      }
+
+      const fs = require('fs')
+      fs.copyFileSync(clonedFilePath, saveResult.filePath)
+      return { success: true, canceled: false, filePath: saveResult.filePath }
+    } catch (error) {
+      console.error('导出格式克隆文档失败:', error)
+      throw error
+    }
+  })
+
   // 获取默认提示词
   ipcMain.handle('getDefaultPrompt', async event => {
     const prompt = await getDefaultPrompt()

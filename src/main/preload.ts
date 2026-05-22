@@ -147,6 +147,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 代理设置相关API
   setProxySettings: (enabled: boolean, port: number) => ipcRenderer.invoke('setProxySettings', enabled, port),
   getProxySettings: () => ipcRenderer.invoke('getProxySettings'),
+  // 格式克隆
+  getFormatProfile: (filePath: string) =>
+    ipcRenderer.invoke('get-format-profile', filePath),
+  cloneFormat: (sourcePath: string, targetPath: string) =>
+    ipcRenderer.invoke('clone-format', sourcePath, targetPath),
+  cloneFormatWithProfile: (profile: any, targetPath: string) =>
+    ipcRenderer.invoke('clone-format-with-profile', profile, targetPath),
+  exportFormatCloned: (clonedFilePath: string, originalTargetPath: string) =>
+    ipcRenderer.invoke('export-format-cloned', clonedFilePath, originalTargetPath),
   // 获取当前校对背景信息
   getCurrentBackgroundInstruction: () => ipcRenderer.invoke('getCurrentBackgroundInstruction'),
   sendLocale: (locale: string) => ipcRenderer.send('set-locale', locale)

@@ -91,6 +91,20 @@
       "undoSuccess": "Change reverted",
       "undoAllSuccess": "All changes reverted",
       "noAppliedChanges": "No applied changes to undo"
+    },
+    "formatClone": {
+      "title": "Format Clone",
+      "backToProof": "Proofread Mode",
+      "selectRef": "Select Reference Document",
+      "back": "Back to Proofread",
+      "start": "Start Clone",
+      "export": "Export File",
+      "failed": "Format clone failed",
+      "cloneSuccess": "Format clone completed, preview on the right",
+      "extractFailed": "Format extraction failed",
+      "paragraphStyle": "Paragraph Style",
+      "runStyle": "Run Style",
+      "defaults": "Document Defaults"
     }
   },
   "apiSettings": {
@@ -200,6 +214,14 @@
       "feature6Title": "Clear History Management",
       "feature6View": "Clearly view history including time, proofreading model, file path, and specific results",
       "feature6Batch": "Support batch management of results",
+      "feature7Title": "Reduce AI Detection Rate",
+      "feature7L1": "Adjust language style of AI-generated text to sound more human-written",
+      "feature7L2": "Reduce the probability of text being flagged by AI detection tools",
+      "feature7L3": "Preserve original meaning while optimizing expression style",
+      "feature8Title": "Format Clone",
+      "feature8L1": "Extract paragraph styles and text styles from reference documents",
+      "feature8L2": "Batch apply extracted formatting to target documents",
+      "feature8L3": "Fine-tune format details including font, color, spacing, and more",
       "warningNote": "Note",
       "warningDesc": "The accuracy of proofreading results largely depends on model capabilities. The software cannot guarantee completely accurate proofreading results; manual verification is still required.",
       "tip1Title": "Tip 1",

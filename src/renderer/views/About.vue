@@ -55,6 +55,20 @@
                 <li>{{ t('about.intro.feature6Batch') }}</li>
               </ul>
             </el-collapse-item>
+            <el-collapse-item :title="t('about.intro.feature7Title')" name="7">
+              <ul>
+                <li>{{ t('about.intro.feature7L1') }}</li>
+                <li>{{ t('about.intro.feature7L2') }}</li>
+                <li>{{ t('about.intro.feature7L3') }}</li>
+              </ul>
+            </el-collapse-item>
+            <el-collapse-item :title="t('about.intro.feature8Title')" name="8">
+              <ul>
+                <li>{{ t('about.intro.feature8L1') }}</li>
+                <li>{{ t('about.intro.feature8L2') }}</li>
+                <li>{{ t('about.intro.feature8L3') }}</li>
+              </ul>
+            </el-collapse-item>
           </el-collapse>
 
           <el-alert
