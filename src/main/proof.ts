@@ -290,16 +290,18 @@ function splitSentences(text: string): string[] {
 
 function isLikelyTitle(line: string): boolean {
   const trimmed = line.trim()
-  return (
-    trimmed.length > 0 &&
-    trimmed.length < 100 &&
-    (trimmed.endsWith('章') ||
-      trimmed.endsWith('节') ||
-      trimmed.endsWith('篇') ||
-      /^第[一二三四五六七八九十\d]+[章节篇]/.test(trimmed) ||
-      /^[1-9][.、]\s*\S/.test(trimmed) ||
-      /^[一二三四五六七八九十][.、]\s*\S/.test(trimmed))
-  )
+  if (trimmed.length === 0 || trimmed.length >= 100) return false
+
+  if (trimmed.endsWith('章') || trimmed.endsWith('节') || trimmed.endsWith('篇')) return true
+  if (/^第[一二三四五六七八九十\d]+[章节篇]/.test(trimmed)) return true
+  if (/^(摘要|Abstract|引言|绪论|结论|致谢|附录|目录|前言|导言|Background|Introduction|Conclusion|Acknowledgment|References|Appendix)$/i.test(trimmed)) return true
+  // Numbered patterns: only treat as title if short (real headings are concise)
+  const chineseChars = (trimmed.match(/[一-鿿]/g) || []).length
+  const maxLen = chineseChars > 0 ? 30 : 100
+  if (/^[1-9][.、]\s*\S/.test(trimmed) && trimmed.length <= maxLen) return true
+  if (/^[一二三四五六七八九十][.、]\s*\S/.test(trimmed) && trimmed.length <= 30) return true
+
+  return false
 }
 
 function getHeadingLevel(line: string): number {
@@ -309,6 +311,21 @@ function getHeadingLevel(line: string): number {
   if (/^[1-9]\.\s*\S/.test(trimmed)) return 2
   if (/^[1-9][.1-9]*\s*\S/.test(trimmed)) return 3
   return 2
+}
+
+// ====== 文档格式信息提取 ======
+function extractStyledHeadings(html: string): Map<string, number> {
+  const headings = new Map<string, number>()
+  const pattern = /<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi
+  let match
+  while ((match = pattern.exec(html)) !== null) {
+    const level = parseInt(match[1])
+    const text = match[2].replace(/<[^>]+>/g, '').trim()
+    if (text) {
+      headings.set(text, level)
+    }
+  }
+  return headings
 }
 
 // ====== 文档解析 ======
@@ -337,8 +354,12 @@ function getSectionsForProofreading(sections: DocumentSection[]): DocumentSectio
 
 async function parseWordDocument(documentPath: string): Promise<DocumentStructure> {
   try {
-    const result = await mammoth.extractRawText({ path: documentPath })
-    const text = result.value
+    const [htmlResult, textResult] = await Promise.all([
+      mammoth.convertToHtml({ path: documentPath }),
+      mammoth.extractRawText({ path: documentPath })
+    ])
+    const styledHeadings = extractStyledHeadings(htmlResult.value)
+    const text = textResult.value
     const lines = text.split('\n').filter(line => line.trim().length > 0)
 
     const sections: DocumentSection[] = []
@@ -347,18 +368,22 @@ async function parseWordDocument(documentPath: string): Promise<DocumentStructur
     let documentTitle = ''
 
     for (const line of lines) {
-      if (isLikelyTitle(line)) {
+      const trimmed = line.trim()
+      const styledLevel = styledHeadings.get(trimmed)
+      const isHeading = styledLevel !== undefined || isLikelyTitle(trimmed)
+
+      if (isHeading) {
         if (currentSection && sectionContent.length > 0) {
           currentSection.content = sectionContent.join('\n')
           sections.push(currentSection)
         }
 
-        if (!documentTitle) documentTitle = line.trim()
+        if (!documentTitle) documentTitle = trimmed
 
         currentSection = {
-          title: line.trim(),
+          title: trimmed,
           content: '',
-          level: getHeadingLevel(line)
+          level: styledLevel !== undefined ? styledLevel : getHeadingLevel(trimmed)
         }
         sectionContent = []
       } else if (currentSection) {
@@ -935,6 +960,29 @@ export async function proofreadDocument(
 
 // ====== 降低AI率 ======
 
+function mergeFormulaFragments(lines: string[]): string[] {
+  const trimmed = lines.map(l => l.trim()).filter(l => l.length > 0)
+  const result: string[] = []
+  let buffer = ''
+
+  for (const line of trimmed) {
+    if (line.length <= 3) {
+      buffer += line
+    } else {
+      if (buffer) {
+        buffer += line
+        result.push(buffer)
+        buffer = ''
+      } else {
+        result.push(line)
+      }
+    }
+  }
+  if (buffer) result.push(buffer)
+
+  return result
+}
+
 function shouldExcludeFromReduceAI(paragraph: string): boolean {
   const trimmed = paragraph.trim()
   if (trimmed.length < 20) return true
@@ -942,6 +990,8 @@ function shouldExcludeFromReduceAI(paragraph: string): boolean {
   if (/^表\s*[\d.]+/.test(trimmed)) return true
   if (/^Fig\.?\s*\d/i.test(trimmed)) return true
   if (/^Table\s*\d/i.test(trimmed)) return true
+  if (/^关键词[：:]/.test(trimmed)) return true
+  if (/^Keywords?\s*[:：]/i.test(trimmed)) return true
   if (/^\[\d+\]/.test(trimmed)) return true
   const tabCount = (trimmed.match(/\t/g) || []).length
   if (tabCount >= 3) return true
@@ -1014,7 +1064,7 @@ export async function reduceAIDetectionDocument(
           continue
         }
       }
-      const paragraphs = section.content.split('\n').map(p => p.trim()).filter(p => p.length > 0)
+      const paragraphs = mergeFormulaFragments(section.content.split('\n'))
       for (const para of paragraphs) {
         if (isLikelyTitle(para)) continue
         if (shouldExcludeFromReduceAI(para)) continue
