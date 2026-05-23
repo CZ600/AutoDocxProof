@@ -14,46 +14,63 @@
 
 ## 📝 Project Introduction
 
-AutoDocxProofread is a desktop application designed specifically for long document proofreading. It helps users effectively detect typos, punctuation errors, grammar issues, and text consistency problems in Word documents, while providing modification suggestions.
+AutoDocxProofread (Smart Proofreading) is a desktop application designed specifically for long document proofreading and thesis format optimization. It helps users effectively detect typos, punctuation errors, grammar issues, and text consistency problems in Word documents, while providing modification suggestions. It also supports text polishing to reduce AI detection rates, and offers cross-document format cloning for one-click full-text formatting.
 
 To address the forgetting and hallucination issues that large models experience when processing long documents, the software is designed with a specialized architecture to enhance proofreading accuracy and can export the proofread and modified documents with one click. The software also employs a parallel processing architecture that significantly improves the speed of processing long documents with large models. Additionally, a local knowledge base feature is introduced, supporting RAG functionality to provide reference material for model proofreading.
 
-### Changelog
+For the reduce AI detection rate feature, the software uses segmented parallel operations, dividing documents by natural paragraphs and processing them in parallel with large models.
 
-- v1.1.7
-  - Refactored pages for better user experience
-  - Bilingual support for Chinese and English
-- v1.1.6
-  - Added progress bar for real-time proofreading status
-  - Optimized API settings functionality
-  - Optimized prompt settings for clarity and convenience
-  - Clicking on proofreading results allows direct navigation
-- v1.1.5
-  - Optimized user experience for file export functionality
-  - Optimized file export logic for more accurate error replacement
-- v1.1.4
-  - Added proxy functionality
-- v1.1.3
-  - Added request rate limiting, optimized support for third-party API relays
-  - Optimized dark mode display
-  - Added token usage statistics
-  - Optimized interface effects and interaction logic
-- v1.1.2
-  - Fixed bug in full-text polishing mode where proofreading wouldn't work without RAG
-  - Added day/night mode toggle
-  - Adjustable model concurrency limits to accommodate different API providers' requirements
-- v1.1.1
-  - Fixed RAG functionality availability bug
-- v1.1.0
-  - Refactored interface and optimized usage logic
-  - Improved software usability
 
-### Core Features and Advantages
+
+### Core Advantages
+
+Why use this software?
+1. Compared to using Claude Code with skills for document proofreading, reduce AI detection, and format adjustment, this software provides better visualization, allows intuitive inspection of results, is faster, and saves tokens.
+2. Compared to using ChatGPT, Doubao, and other web AI applications, this project provides a one-click workflow that is convenient to operate, saves the effort of repeatedly communicating with large models, and is faster.
+3. Compared to the built-in proofreading systems in MS Office and WPS, this project is more intelligent and can identify a wider variety of errors.
+4. Format adjustment does not require large models, making it faster.
+
+### Usage Demonstration
+
+Users need to first select a large model in the settings page before starting proofreading. On the document proofreading page, first select the document to proofread, then choose the proofreading mode, select a knowledge base (optional), and start proofreading. The software will display the proofreading results in the right sidebar and highlight them in the text for easy viewing. You can then choose whether to accept these modifications and export the document with accepted changes:
+
+![Document Proofreading Page](assets/新首页.png)
+
+The Reduce AI Detection Rate feature adjusts the language style of AI-generated text to lower the probability of being flagged by AI detection tools. During the process, references, titles, etc. are automatically skipped. This feature also uses segmented parallel processing:
+![Reduce AI Rate](assets/降低ai率.png)
+
+The Format Clone feature extracts format styles from a reference document and applies them to the target document, with fine-tuning options available during application:
+![Format Clone](assets/格式克隆.png)
+
+This application allows custom API settings, compatible with APIs meeting OpenAI specifications. Non-reasoning models are recommended, and you can limit concurrent request count and request rate:
+
+![Settings Interface](assets/设置页面.png)
+
+You can set proofreading error types, strictness level, and text background, or set custom prompts:
+
+![Prompt Settings](assets/提示词设置.png)
+
+This application also allows browsing and managing proofreading history:
+
+![History Interface](assets/历史记录.png)
+
+Dark Mode:
+![Dark Mode](assets/深色模式.png)
+
+### ⚠️ Important Notes!
+- Note: The accuracy of proofreading results depends largely on the model's capabilities. The software cannot guarantee complete accuracy of proofreading results, and manual verification is still required!
+- Note: The reduce AI detection feature is not guaranteed to be effective. Please strictly follow academic ethics and review the results yourself!
+- Note: The format migration feature cannot migrate individually set formats within paragraphs; manual adjustment is required.
+- Tip: The result export function may have omissions; manual verification is recommended.
+- Tip: Based on current large model context memory, top-tier models can directly use full document proofreading for content under 10,000 characters.
+- Tip: For both reduce AI detection and proofreading features, it is recommended to set heading levels in Word first for better document segmentation.
+
+### Main Features
 
 - **Multiple Proofreading Modes**:
   - Sentence-by-sentence proofreading: Suitable for short texts requiring high-precision proofreading
   - Paragraph-by-paragraph correction: Suitable for proofreading long documents
-  - Full-text polishing: Language polishing and optimization for the entire document
+  - Full document proofreading: One-time proofreading for the entire document
   - Reduce AI Detection Rate: Adjust language style of AI-generated text to lower the probability of being flagged by AI detection tools
 
 - **Format Clone**:
@@ -86,36 +103,97 @@ To address the forgetting and hallucination issues that large models experience 
   - Clearly view historical records including time, proofreading model, proofread file path, and specific results
   - Support for batch management of results
 
-### Usage Demonstration
 
-Users need to first select a large model in the settings page before starting proofreading. On the document proofreading page, first select the document to proofread, then choose the proofreading mode, select a knowledge base (optional), and start proofreading. The software will display the proofreading results in the right sidebar and highlight them in the text for easy viewing. You can then choose whether to accept these modifications and export the document with accepted changes:
+## 🎯 Usage Guide
 
-![Document Proofreading Page](assets/新首页.png)
+### 1. Configure API
 
-This application allows custom API settings, compatible with APIs meeting OpenAI specifications. Non-reasoning models are recommended, and you can limit concurrent request count and request rate:
+First-time use requires configuring a supported large language model API:
 
-![Settings Interface](assets/设置页面.png)
+1. Click "Settings"
+2. Click the "API" tab
+3. Fill in the API address, key, and model name
+4. Click "Test Connection" to verify the configuration
+5. Click "Save Configuration" to save settings
 
-You can set proofreading error types, strictness level, and text background, or set custom prompts:
+### 2. Create Knowledge Base
 
-![Prompt Settings](assets/提示词设置.png)
+1. Click "Knowledge Base" in the navigation bar
+2. Select "Embedding Model" (requires selecting a dedicated embedding model)
+3. Click "Add Knowledge Base" button to create a new knowledge base
+4. After selecting a knowledge base, you can add PDF files as reference materials
 
-This application also allows browsing and managing proofreading history:
+### 3. Document Proofreading
 
-![History Interface](assets/历史记录.png)
+1. Select the "Document Proofreading" tab
+2. Click "Select DOCX File" button to choose the Word document to proofread
+3. (Optional) Select a knowledge base to enhance proofreading accuracy
+4. Choose an appropriate proofreading mode:
+   - **Sentence-by-sentence Proofreading**: Suitable for short texts requiring high-precision proofreading
+   - **Paragraph-by-paragraph Correction**: Suitable for proofreading long documents
+   - **Full Document Proofreading**: One-time proofreading for the entire document
+5. Click "Start Proofreading" button to begin the proofreading process
+6. View proofreading results and modification suggestions in the left sidebar
+7. Click "Apply Changes" button to accept suggested modifications (can also undo)
+8. Click "Export Result" button to save the modified document
 
-Dark Mode:
-![Dark Mode](assets/深色模式.png)
+### 4. Correction Parameter Settings
 
-Reduce AI Detection Rate feature adjusts the language style of AI-generated text to lower the probability of being flagged by AI detection tools:
-![Reduce AI Rate](assets/降低ai率.png)
+1. Click prompt settings in the "Feature Settings" page to select different correction parameters such as text background, correction strictness, and error types
+2. You can also use your own prompts; when using custom prompts, the original prompts will be disabled. It is recommended to modify based on the original prompts, otherwise it may affect the display effect
+3. Click "Restore Default Configuration" to reset the above settings
 
-Format Clone feature extracts format styles from a reference document and applies them to the target document:
-![Format Clone](assets/格式克隆.png)
+### 5. Reduce AI Detection Rate
+1. Select an API provider
+2. Click "Reduce AI Detection" in the proofreading mode options
+3. Click "Start Proofreading"
+4. After results are generated, you can choose to accept or reject them
+5. Click "Export Result" to export the results
 
-> Note: The accuracy of proofreading results depends largely on the model's capabilities. The software cannot guarantee complete accuracy of proofreading results, and manual verification is still required.
-> Tip: The result export function may have omissions; manual verification is recommended.
-> Tip: Full-text polishing is suitable for shorter documents. Sentence-by-sentence proofreading consumes a lot of tokens.
+
+### 6. Format Clone
+1. After opening a file, click the "Format Clone" button to switch to format clone mode
+2. Click "Select Reference Document" in the left sidebar to select the reference document
+3. Click the "Start Clone" button in the upper right corner to begin cloning
+4. The left sidebar shows the extracted format information from the reference document, and you can fine-tune parameters like color, font size, and line spacing
+5. Click "Export Result" to export the results
+
+### Changelog
+
+- v1.1.8
+  - Updated the reduce AI detection feature
+  - Updated the format migration feature
+  - Optimized format extraction functionality
+  - Optimized the full-text summarization effect in proofreading
+- v1.1.7
+  - Refactored pages for better user experience
+  - Bilingual support for Chinese and English
+  - Added more API support, including simulated Claude Code API requests
+- v1.1.6
+  - Added progress bar for real-time proofreading status
+  - Optimized API settings functionality
+  - Optimized prompt settings for clarity and convenience
+  - Clicking on proofreading results allows direct navigation
+- v1.1.5
+  - Optimized user experience for file export functionality
+  - Optimized file export logic for more accurate error replacement
+- v1.1.4
+  - Added proxy functionality
+- v1.1.3
+  - Added request rate limiting, optimized support for third-party API relays
+  - Optimized dark mode display
+  - Added token usage statistics
+  - Optimized interface effects and interaction logic
+- v1.1.2
+  - Fixed bug in full-text polishing mode where proofreading wouldn't work without RAG
+  - Added day/night mode toggle
+  - Adjustable model concurrency limits to accommodate different API providers' requirements
+- v1.1.1
+  - Fixed RAG functionality availability bug
+- v1.1.0
+  - Refactored interface and optimized usage logic
+  - Improved software usability
+
 
 ## 🛠 Technology Stack
 
@@ -146,45 +224,6 @@ npm install
 npm run start
 ```
 
-## 🎯 Usage Guide
-
-### 1. Configure API
-
-First-time use requires configuring a supported large language model API:
-
-1. Click "Workspace" in the navigation bar
-2. Select the "API Settings" tab
-3. Fill in the API address, key, and model name
-4. Click "Test Connection" to verify the configuration
-5. Click "Save Configuration" to save settings
-
-### 2. Create Knowledge Base
-
-1. Click "Knowledge Base" in the navigation bar
-2. Select "Embedding Model" (requires selecting a dedicated embedding model)
-3. Click "Add Knowledge Base" button to create a new knowledge base
-4. After selecting a knowledge base, you can add PDF files as reference materials
-
-### 3. Document Proofreading
-
-1. Click "Workspace" in the navigation bar
-2. Select the "Document Proofreading" tab
-3. Click "Select DOCX File" button to choose the Word document to proofread
-4. (Optional) Select a knowledge base to enhance proofreading accuracy
-5. Choose an appropriate proofreading mode:
-   - **Sentence-by-sentence Proofreading**: Suitable for short texts requiring high-precision proofreading
-   - **Paragraph-by-paragraph Correction**: Suitable for proofreading long documents
-   - **Full-text Polishing**: Language polishing and optimization for the entire document
-6. Click "Start Correction" button to begin the proofreading process
-7. View proofreading results and modification suggestions in the right sidebar
-8. Click "Apply Changes" button to accept suggested modifications
-9. Click "Export Result" button to save the modified document
-
-### 4. Correction Parameter Settings
-
-1. Click prompt settings in the "Feature Settings" page to select different correction parameters such as text background, correction strictness, and correction error types
-2. You can also use your own prompts; when using your own prompts, the original prompts will be disabled. It is recommended to modify based on the original prompts, otherwise it may affect the software's display effect
-3. Click "Restore Default Configuration" to reset the above settings
 
 ## 🔧 Development Plan
 
@@ -198,4 +237,5 @@ This project uses the MIT License - see the [LICENSE](LICENSE) file for details
 
 ## 🌺 Acknowledgments
 
-Some code uses night-peiqi's https://github.com/night-peiqi/electron-vue3-typescript-template
+- Some code uses night-peiqi's https://github.com/night-peiqi/electron-vue3-typescript-template
+- The reduce AI detection approach uses the solution provided by linuxdo forum user "Chisaki": https://linux.do/t/topic/620470

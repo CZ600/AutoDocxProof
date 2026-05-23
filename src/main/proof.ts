@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import * as mammoth from 'mammoth'
+const { loadDocx } = require('docx-edit')
 import { OpenaiGen, getModelResponse } from './chat'
 import path from 'path'
 import { app } from 'electron'
@@ -328,6 +329,57 @@ function extractStyledHeadings(html: string): Map<string, number> {
   return headings
 }
 
+// ====== docx-edit 提取标题 ======
+async function extractDocxEditHeadings(documentPath: string): Promise<DocumentStructure | null> {
+  try {
+    const doc = await loadDocx(documentPath)
+    const body = doc.getBody()
+    if (!body) return null
+
+    const paragraphs = body.getParagraphs()
+    const sections: DocumentSection[] = []
+    let currentSection: DocumentSection | null = null
+    let sectionContent: string[] = []
+    let documentTitle = ''
+    let foundHeadings = false
+
+    for (const para of paragraphs) {
+      const text = para.getText().trim()
+      const headingLevel = para.getHeadingLevel()
+
+      if (headingLevel !== null && headingLevel !== undefined && text.length > 0) {
+        foundHeadings = true
+        if (currentSection && sectionContent.length > 0) {
+          currentSection.content = sectionContent.join('\n')
+          sections.push(currentSection)
+        }
+
+        if (!documentTitle) documentTitle = text
+
+        currentSection = {
+          title: text,
+          content: '',
+          level: headingLevel
+        }
+        sectionContent = []
+      } else if (currentSection && text.length > 0) {
+        sectionContent.push(text)
+      }
+    }
+
+    if (currentSection && sectionContent.length > 0) {
+      currentSection.content = sectionContent.join('\n')
+      sections.push(currentSection)
+    }
+
+    if (!foundHeadings) return null
+
+    return { title: documentTitle, sections }
+  } catch {
+    return null
+  }
+}
+
 // ====== 文档解析 ======
 function splitSectionIntoParagraphs(section: DocumentSection): DocumentSection[] {
   const paragraphs = section.content
@@ -354,6 +406,13 @@ function getSectionsForProofreading(sections: DocumentSection[]): DocumentSectio
 
 async function parseWordDocument(documentPath: string): Promise<DocumentStructure> {
   try {
+    const docxEditResult = await extractDocxEditHeadings(documentPath)
+    if (docxEditResult && docxEditResult.sections.length > 0) {
+      console.log(`[大纲提取] 使用 docx-edit 方案，提取到 ${docxEditResult.sections.length} 个章节，文档标题: "${docxEditResult.title}"`)
+      return docxEditResult
+    }
+    console.log('[大纲提取] docx-edit 未提取到标题，回退到 mammoth + 启发式方案')
+
     const [htmlResult, textResult] = await Promise.all([
       mammoth.convertToHtml({ path: documentPath }),
       mammoth.extractRawText({ path: documentPath })

@@ -80,6 +80,22 @@
             style="margin-top: 16px"
           />
           <el-alert
+            :title="t('about.intro.warningNote')"
+            type="warning"
+            :description="t('about.intro.warningDesc2')"
+            show-icon
+            :closable="false"
+            style="margin-top: 8px"
+          />
+          <el-alert
+            :title="t('about.intro.warningNote')"
+            type="warning"
+            :description="t('about.intro.warningDesc3')"
+            show-icon
+            :closable="false"
+            style="margin-top: 8px"
+          />
+          <el-alert
             :title="t('about.intro.tip1Title')"
             type="info"
             :description="t('about.intro.tip1Desc')"
@@ -91,6 +107,14 @@
             :title="t('about.intro.tip2Title')"
             type="info"
             :description="t('about.intro.tip2Desc')"
+            show-icon
+            :closable="false"
+            style="margin-top: 8px"
+          />
+          <el-alert
+            :title="t('about.intro.tip3Title')"
+            type="info"
+            :description="t('about.intro.tip3Desc')"
             show-icon
             :closable="false"
             style="margin-top: 8px"
@@ -154,7 +178,7 @@
       <el-tab-pane :label="t('about.tabs.guide')" name="guide">
         <div class="tab-card">
           <h2>{{ t('about.guide.title') }}</h2>
-          <el-steps direction="vertical" :active="3">
+          <el-steps direction="vertical" :active="6">
             <el-step :title="t('about.guide.step1Title')">
               <template #description>
                 <ol>
@@ -191,6 +215,37 @@
                 </ol>
               </template>
             </el-step>
+            <el-step :title="t('about.guide.step4Title')">
+              <template #description>
+                <ol>
+                  <li>{{ t('about.guide.step4L1') }}</li>
+                  <li>{{ t('about.guide.step4L2') }}</li>
+                  <li>{{ t('about.guide.step4L3') }}</li>
+                </ol>
+              </template>
+            </el-step>
+            <el-step :title="t('about.guide.step5Title')">
+              <template #description>
+                <ol>
+                  <li>{{ t('about.guide.step5L1') }}</li>
+                  <li>{{ t('about.guide.step5L2') }}</li>
+                  <li>{{ t('about.guide.step5L3') }}</li>
+                  <li>{{ t('about.guide.step5L4') }}</li>
+                  <li>{{ t('about.guide.step5L5') }}</li>
+                </ol>
+              </template>
+            </el-step>
+            <el-step :title="t('about.guide.step6Title')">
+              <template #description>
+                <ol>
+                  <li>{{ t('about.guide.step6L1') }}</li>
+                  <li>{{ t('about.guide.step6L2') }}</li>
+                  <li>{{ t('about.guide.step6L3') }}</li>
+                  <li>{{ t('about.guide.step6L4') }}</li>
+                  <li>{{ t('about.guide.step6L5') }}</li>
+                </ol>
+              </template>
+            </el-step>
           </el-steps>
         </div>
       </el-tab-pane>
@@ -218,6 +273,14 @@
             type="primary"
           >
             https://github.com/night-peiqi/electron-vue3-typescript-template
+          </el-link>
+          <p>{{ t('about.other.ackDesc2') }}</p>
+          <el-link
+            href="https://linux.do/t/topic/620470"
+            target="_blank"
+            type="primary"
+          >
+            https://linux.do/t/topic/620470
           </el-link>
           <h2>{{ t('about.other.license') }}</h2>
           <p>{{ t('about.other.licenseDesc') }}</p>
