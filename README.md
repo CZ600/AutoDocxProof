@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  一款基于 Electron、Vue 3 和 TypeScript 构建的智能长文档校对桌面应用程序
+  一款基于 Electron、Vue 3 和 TypeScript 构建的文档校对、格式修改，降低ai率的集成化应用
 </p>
 
 ## 📝 项目简介
