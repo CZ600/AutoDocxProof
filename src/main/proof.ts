@@ -282,6 +282,23 @@ export async function resetPromptSettings(): Promise<boolean> {
   return true
 }
 
+// ====== 脚注占位符转换 ======
+// docx-edit 的 getText() 会将脚注引用输出为 [[FOOTNOTE_REF:id]]
+// 发给 LLM 前替换为 [脚注id]，LLM 返回后还原回 [[FOOTNOTE_REF:id]]
+
+const FOOTNOTE_PLACEHOLDER_RE = /\[\[FOOTNOTE_REF:(\d+)\]\]/g
+const FOOTNOTE_HUMAN_RE = /\[脚注(\d+)\]/g
+
+/** 将 [[FOOTNOTE_REF:1]] 替换为 [脚注1]，发给 LLM 前调用 */
+function footnotePlaceholderToHuman(text: string): string {
+  return text.replace(FOOTNOTE_PLACEHOLDER_RE, '[脚注$1]')
+}
+
+/** 将 [脚注1] 还原为 [[FOOTNOTE_REF:1]]，解析 LLM 返回结果后调用 */
+function footnoteHumanToPlaceholder(text: string): string {
+  return text.replace(FOOTNOTE_HUMAN_RE, '[[FOOTNOTE_REF:$1]]')
+}
+
 // ====== 工具函数 ======
 function splitSentences(text: string): string[] {
   const sentenceRegex = /[^。！？…!?]+[。！？…!?]+|[^。！？…!?]+$/g
@@ -496,10 +513,16 @@ function parseCorrections(result: string, ragChunks?: string[]): ProofreadingCor
     const parsed = JSON.parse(result)
     if (Array.isArray(parsed)) {
       return parsed.map(item => {
-        if (ragChunks) {
-          return { ...item, References: [...ragChunks] }
+        // 还原脚注占位符：[脚注x] → [[FOOTNOTE_REF:x]]
+        const restored = {
+          ...item,
+          suggested: footnoteHumanToPlaceholder(item.suggested || ''),
+          original: footnoteHumanToPlaceholder(item.original || '')
         }
-        return item
+        if (ragChunks) {
+          return { ...restored, References: [...ragChunks] }
+        }
+        return restored
       })
     } else {
       console.warn('cannot analyze the proofreading data from LLM')
@@ -541,10 +564,16 @@ function extractCorrectionsFromText(text: string, ragChunks?: string[]): Proofre
           .map(item => {
             // 验证每个字段的存在性
             if (item.original && item.suggested && item.reason) {
-              if (ragChunks) {
-                return { ...item, References: [...ragChunks] }
+              // 还原脚注占位符：[脚注x] → [[FOOTNOTE_REF:x]]
+              const restored = {
+                ...item,
+                suggested: footnoteHumanToPlaceholder(item.suggested),
+                original: footnoteHumanToPlaceholder(item.original)
               }
-              return item
+              if (ragChunks) {
+                return { ...restored, References: [...ragChunks] }
+              }
+              return restored
             }
             return null
           })
@@ -563,7 +592,13 @@ function extractCorrectionsFromText(text: string, ragChunks?: string[]): Proofre
       if (singleObject && typeof singleObject === 'object' && !Array.isArray(singleObject)) {
         if (singleObject.original && singleObject.suggested && singleObject.reason) {
           console.log('解析到单个校对结果')
-          return ragChunks ? [{ ...singleObject, References: [...ragChunks] }] : [singleObject]
+          // 还原脚注占位符
+          const restored = {
+            ...singleObject,
+            suggested: footnoteHumanToPlaceholder(singleObject.suggested),
+            original: footnoteHumanToPlaceholder(singleObject.original)
+          }
+          return ragChunks ? [{ ...restored, References: [...ragChunks] }] : [restored]
         }
       }
     } catch (e) {
@@ -628,6 +663,9 @@ function parseCorrectionsFromPlainText(text: string, ragChunks?: string[]): Proo
 
       // 如果找到了所有必需字段，添加到结果中
       if (correction.original && correction.suggested && correction.reason) {
+        // 还原脚注占位符
+        correction.original = footnoteHumanToPlaceholder(correction.original)
+        correction.suggested = footnoteHumanToPlaceholder(correction.suggested)
         if (ragChunks) {
           correction.References = [...ragChunks]
         }
@@ -748,13 +786,16 @@ async function proofreadTextWithRAG(
   try {
     let systemPrompt = systemContext
 
+    // 将 [[FOOTNOTE_REF:x]] 替换为 [脚注x]，让 LLM 更容易理解和保留
+    const textForLLM = footnotePlaceholderToHuman(text)
+
     // 如果没有提供 repositoryNameList 或者为空数组，使用正常校对
     if (!repositoryNameList || repositoryNameList.length === 0) {
       console.log('use normal proof without rag:')
-      console.log('proof content:', text)
+      console.log('proof content:', textForLLM)
       const { result, total_tokens } = await callModelAPI(
         systemPrompt,
-        `${getLocalizedUserPromptText()}:\n${text}`,
+        `${getLocalizedUserPromptText()}:\n${textForLLM}`,
         apiKey,
         modelName,
         apiURL,
@@ -791,7 +832,7 @@ async function proofreadTextWithRAG(
 
       const { result, total_tokens } = await callModelAPI(
         systemPrompt,
-        `${getLocalizedUserPromptText()}:\n${text}`,
+        `${getLocalizedUserPromptText()}:\n${textForLLM}`,
         apiKey,
         modelName,
         apiURL,
@@ -1144,19 +1185,23 @@ export async function reduceAIDetectionDocument(
       message: reduceProgress.reducing
     })
 
-    const results = await runWithLimits(
+      const results = await runWithLimits(
       validParagraphs,
       parallelSet,
       async (para) => {
+        // 将 [[FOOTNOTE_REF:x]] 替换为 [脚注x]，让 LLM 保留
+        const contentForLLM = footnotePlaceholderToHuman(para.content)
         const { result, total_tokens: tokens } = await callModelAPI(
           reducePrompt,
-          para.content,
+          contentForLLM,
           apiKey,
           modelName,
           apiURL,
           provider
         )
-        const rewritten = cleanAIResponse(result)
+        let rewritten = cleanAIResponse(result)
+        // 还原脚注占位符
+        rewritten = footnoteHumanToPlaceholder(rewritten)
         if (!rewritten || rewritten === para.content.trim()) {
           return { correction: null, tokens }
         }

@@ -237,6 +237,7 @@ let fakeProgressTimer = null
 let closeProgressTimer = null
 let proofreadProgressUnsubscribe = null
 let cachedDocxFile = null
+let skipWatcherRerender = false
 
 const fileStore = fileInfoStore()
 const apiSettingsStore = useApiStore()
@@ -276,9 +277,27 @@ const normalizeCorrectionType = type => {
   return (type || '').toString().trim().toLowerCase()
 }
 
-const createWhitespaceInsensitiveMatcher = (searchText, flags = 'g') => {
-  const escapedText = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const pattern = escapedText.replace(/\s+/g, '\\s+')
+const FOOTNOTE_PLACEHOLDER_RE = /\[\[FOOTNOTE_REF:\d+\]\]/g
+
+const stripFootnotePlaceholders = text => {
+  return text.replace(FOOTNOTE_PLACEHOLDER_RE, '')
+}
+
+/**
+ * 构建脚注感知的匹配正则。
+ * 将 [[FOOTNOTE_REF:x]] 占位符替换为 \d* 通配符，
+ * 使正则能容忍 DOM 中 docx-preview 渲染出的脚注编号（如 "1"）。
+ *
+ * 例：original = "文本[[FOOTNOTE_REF:0]]内容" → 正则 /文本\d*内容/
+ *     DOM fullText = "文本1内容" → 匹配成功 ✓
+ */
+const createFootnoteAwareMatcher = (searchText, flags = 'g') => {
+  const parts = searchText.split(/\[\[FOOTNOTE_REF:\d+\]\]/)
+  const escapedParts = parts.map(part =>
+    part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')
+  )
+  const pattern = escapedParts.join('\\d*')
+  if (!pattern) return null
   return new RegExp(pattern, flags)
 }
 
@@ -352,9 +371,10 @@ const locateCorrectionsInPreview = (container, corrections) => {
   const occupiedRanges = []
   const matches = []
   corrections.forEach(({ item, index }) => {
-    const originalText = item.original?.trim()
+    const originalText = item.original?.trim() || ''
     if (!originalText) return
-    const regex = createWhitespaceInsensitiveMatcher(originalText)
+    const regex = createFootnoteAwareMatcher(originalText)
+    if (!regex) return
     let match
     while ((match = regex.exec(fullText))) {
       const start = match.index
@@ -419,7 +439,9 @@ const replaceCorrectionInPreview = (container, correction) => {
   range.setStart(startPos.node, startPos.offset)
   range.setEnd(endPos.node, endPos.offset)
   range.deleteContents()
-  range.insertNode(document.createTextNode(correction.suggested || ''))
+  // suggested 中的 [[FOOTNOTE_REF:x]] 在 DOM 中不存在，需要 strip
+  const suggestedForDOM = stripFootnotePlaceholders(correction.suggested || '')
+  range.insertNode(document.createTextNode(suggestedForDOM))
   container.normalize()
   return true
 }
@@ -472,6 +494,7 @@ const applyByCategory = type => {
     ElMessage.warning(t('proof.messages.noPendingInCategory'))
     return
   }
+  skipWatcherRerender = true
   const newResults = proofreadingResults.value.map(item => {
     if (!item.applied && item.type === type) {
       return { ...item, applied: true }
@@ -479,6 +502,7 @@ const applyByCategory = type => {
     return item
   })
   proofreadingResults.value = newResults
+  skipWatcherRerender = false
   const container = previewContainer.value
   if (!container) return
   let replacedCount = 0
@@ -504,8 +528,10 @@ const applyALLCorrection = () => {
     ElMessage.warning(t('proof.messages.noPendingChanges'))
     return
   }
+  skipWatcherRerender = true
   const newResults = proofreadingResults.value.map(item => ({ ...item, applied: true }))
   proofreadingResults.value = newResults
+  skipWatcherRerender = false
   const container = previewContainer.value
   if (!container) return
   clearHighlights(container)
@@ -568,6 +594,7 @@ const undoByCategory = async type => {
     ElMessage.warning(t('proof.messages.noAppliedChanges'))
     return
   }
+  skipWatcherRerender = true
   const newResults = proofreadingResults.value.map(item => {
     if (item.applied && item.type === type) {
       return { ...item, applied: false }
@@ -575,6 +602,7 @@ const undoByCategory = async type => {
     return item
   })
   proofreadingResults.value = newResults
+  skipWatcherRerender = false
   await rerenderAndReapply()
   const typeLabel = formatCorrectionType(type)
   ElMessage.success(t('proof.messages.undoAllSuccess'))
@@ -586,8 +614,10 @@ const undoAllCorrections = async () => {
     ElMessage.warning(t('proof.messages.noAppliedChanges'))
     return
   }
+  skipWatcherRerender = true
   const newResults = proofreadingResults.value.map(item => ({ ...item, applied: false }))
   proofreadingResults.value = newResults
+  skipWatcherRerender = false
   await rerenderAndReapply()
   ElMessage.success(t('proof.messages.undoAllSuccess'))
 }
@@ -1085,9 +1115,12 @@ const initProofreadProgressListener = () => {
 
 watch(
   () => fileStore.results,
-  newResults => {
+  async newResults => {
+    if (skipWatcherRerender) return
     if (newResults.length > 0) {
-      nextTick(() => highlightCorrections())
+      // 重新渲染文档再高亮，与重启时 onMounted 行为一致。
+      // 直接在旧 DOM 上高亮可能导致含脚注段落的 DOM 结构不一致而匹配失败。
+      await rerenderAndReapply()
     }
   }
 )
