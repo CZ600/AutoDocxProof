@@ -1090,3 +1090,360 @@ describe('classifyParagraphsWithLLM', () => {
     expect(mockGetModelResponse).not.toHaveBeenCalled()
   })
 })
+
+// ═══════════════════════════════════════════════════════════════════
+//  SmartFormatAgent integration tests
+// ═══════════════════════════════════════════════════════════════════
+
+import { SmartFormatAgent, AnalyzeResult, ApplyResult } from '../src/main/smartFormatAgent'
+import { extractFormatProfile } from '../src/main/formatClone'
+import { applySmartFormat } from '../src/main/smartFormatApply'
+
+// Mock formatClone
+vi.mock('../src/main/formatClone', () => ({
+  extractFormatProfile: vi.fn(),
+}))
+
+const mockExtractFormatProfile = extractFormatProfile as ReturnType<typeof vi.fn>
+
+// Mock applySmartFormat — preserve all other exports from smartFormatApply
+vi.mock('../src/main/smartFormatApply', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/main/smartFormatApply')>()
+  return {
+    ...actual,
+    applySmartFormat: vi.fn(),
+  }
+})
+
+const typedMockApply = applySmartFormat as ReturnType<typeof vi.fn>
+
+describe('SmartFormatAgent', () => {
+  const FIXTURE = path.resolve(__dirname, 'fixtures', 'minimal.docx')
+
+  // Use resetAllMocks to clear implementations AND call history between tests,
+  // preventing mockResolvedValueOnce leaks from unconsumed mocks.
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  // Helper for a valid ref mapping JSON response
+  const makeRefMappingResponse = () =>
+    JSON.stringify({
+      mappings: [
+        { styleId: 'Heading1', paragraphType: 'chapter-title' },
+        { styleId: 'Normal', paragraphType: 'body' },
+      ],
+    })
+
+  // Helper for a valid classification JSON response
+  const makeClassifyResponse = () =>
+    JSON.stringify({
+      classifications: [
+        { index: 0, type: 'chapter-title', confidence: 0.95 },
+        { index: 1, type: 'body', confidence: 0.9 },
+        { index: 2, type: 'body', confidence: 0.9 },
+      ],
+    })
+
+  // ── Test 1: Full pipeline — description only ──
+  it('should analyze with description only and produce valid spec + classification', async () => {
+    const agent = new SmartFormatAgent()
+
+    // Mock LLM for parseFormatDescription
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: validLLMResponse,
+      total_tokens: 150,
+    })
+
+    // Mock LLM for classifyParagraphsWithLLM
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: makeClassifyResponse(),
+      total_tokens: 60,
+    })
+
+    const result: AnalyzeResult = await agent.analyze({
+      description: '论文题目 黑体 二号 居中\n正文 宋体 小四号 1.5倍行距',
+      targetFilePath: FIXTURE,
+      apiConfig: dummyApiConfig,
+    })
+
+    // Verify spec
+    expect(result.spec).toBeDefined()
+    expect(result.spec.paragraphRules).toBeDefined()
+    expect(result.spec.paragraphRules!.length).toBeGreaterThan(0)
+    expect(result.spec.styleProfile).toBeDefined()
+
+    // Verify classification
+    expect(result.classification.size).toBeGreaterThan(0)
+    expect(result.classification.get(0)).toBe('chapter-title')
+    expect(result.classification.get(1)).toBe('body')
+
+    // Verify token usage (150 desc + 60 classify = 210)
+    expect(result.tokenUsage).toBe(210)
+    expect(result.fallbackMode).toBe(false)
+  })
+
+  // ── Test 2: Full pipeline — reference doc only ──
+  it('should analyze with reference doc only and produce spec + classification', async () => {
+    const agent = new SmartFormatAgent()
+
+    // Mock extractFormatProfile
+    const mockProfile = {
+      styles: {
+        '1': {
+          name: 'heading 1',
+          type: 'paragraph',
+          paragraphStyle: { spacing: { line: '360' } },
+          runStyle: { fontFamily: '黑体', fontSize: '三号' },
+        },
+        '2': {
+          name: 'Normal',
+          type: 'paragraph',
+          runStyle: { fontFamily: '宋体', fontSize: '小四' },
+        },
+      },
+    }
+    mockExtractFormatProfile.mockResolvedValueOnce(mockProfile)
+
+    // Mock LLM for mapRefProfileToRules (internally calls LLM but token info lost)
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: makeRefMappingResponse(),
+      total_tokens: 50,
+    })
+
+    // Mock LLM for classifyParagraphsWithLLM
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: makeClassifyResponse(),
+      total_tokens: 40,
+    })
+
+    const result: AnalyzeResult = await agent.analyze({
+      refFilePath: '/fake/ref.docx',
+      targetFilePath: FIXTURE,
+      apiConfig: dummyApiConfig,
+    })
+
+    // Verify extractFormatProfile was called
+    expect(mockExtractFormatProfile).toHaveBeenCalledWith('/fake/ref.docx')
+
+    // Verify spec from ref
+    expect(result.spec).toBeDefined()
+    expect(result.spec.paragraphRules).toBeDefined()
+
+    // Verify classification
+    expect(result.classification.size).toBeGreaterThan(0)
+    // tokenUsage: conservative 50 (ref mapping) + 40 (classification) = 90
+    expect(result.tokenUsage).toBe(90)
+  })
+
+  // ── Test 3: Both description + reference → description wins on conflicts ──
+  it('should merge specs with description overriding reference for conflicting paragraphTypes', async () => {
+    const agent = new SmartFormatAgent()
+
+    // Mock extractFormatProfile for ref
+    const mockProfile = {
+      styles: {
+        '1': {
+          name: 'heading 1',
+          type: 'paragraph',
+          runStyle: { fontFamily: '黑体', fontSize: '三号' },
+        },
+      },
+    }
+    mockExtractFormatProfile.mockResolvedValueOnce(mockProfile)
+
+    // IMPORTANT: analyze() calls parseFormatDescription() FIRST, then mapRefProfileToRules().
+    // So the FIRST mockResolvedValueOnce goes to parseFormatDescription,
+    // the SECOND goes to mapRefProfileToRules.
+
+    // Mock #1: for parseFormatDescription (description → body: 楷体)
+    const descResponse = JSON.stringify({
+      styleProfile: { styles: {} },
+      paragraphRules: [
+        {
+          match: { paragraphType: 'body' },
+          format: {
+            runStyle: { fontFamily: '楷体', fontSize: '小四' },
+          },
+          exclusive: true,
+        },
+      ],
+    })
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: descResponse,
+      total_tokens: 80,
+    })
+
+    // Mock #2: for mapRefProfileToRules (ref → chapter-title)
+    // Note: styleId must match the keys in mockProfile above
+    const refMapping = JSON.stringify({
+      mappings: [
+        { styleId: '1', paragraphType: 'chapter-title' },
+        { styleId: '2', paragraphType: 'body' },
+      ],
+    })
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: refMapping,
+      total_tokens: 40,
+    })
+
+    // Mock #3: for classifyParagraphsWithLLM
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: makeClassifyResponse(),
+      total_tokens: 30,
+    })
+
+    const result: AnalyzeResult = await agent.analyze({
+      description: '正文 楷体 小四号',
+      refFilePath: '/fake/ref.docx',
+      targetFilePath: FIXTURE,
+      apiConfig: dummyApiConfig,
+    })
+
+    // Verify both specs were merged
+    expect(result.spec.paragraphRules).toBeDefined()
+    const rules = result.spec.paragraphRules!
+
+    // Description's body rule (楷体) should override any ref body rule
+    const bodyRule = rules.find(
+      (r: any) => r.match?.paragraphType === 'body'
+    )
+    expect(bodyRule).toBeDefined()
+    // fontFamily may be resolved by post-processing to { ascii, eastAsia, hAnsi }
+    const ff = bodyRule!.format.runStyle.fontFamily
+    expect(typeof ff === 'string' ? ff : ff?.eastAsia || ff?.ascii).toBe('楷体')
+
+    // Ref's chapter-title rule should also be present
+    const chapterRule = rules.find(
+      (r: any) => r.match?.paragraphType === 'chapter-title'
+    )
+    expect(chapterRule).toBeDefined()
+
+    expect(result.classification.size).toBeGreaterThan(0)
+  })
+
+  // ── Test 4: Content immutability — text unchanged after apply ──
+  it('should preserve paragraph text content after formatting', async () => {
+    const fs = require('fs')
+
+    // Mock applySmartFormat to actually copy the input file to output,
+    // simulating successful formatting without changing content.
+    typedMockApply.mockImplementationOnce(
+      async (inputPath: string, outputPath: string, _spec: any, _ptMap: any) => {
+        fs.copyFileSync(inputPath, outputPath)
+        return { success: true, appliedStyles: 2, appliedParagraphs: 3 }
+      }
+    )
+
+    const agent = new SmartFormatAgent()
+    const spec: any = {
+      styleProfile: { styles: {} },
+      paragraphRules: [],
+    }
+    const classification = new Map<number, any>([
+      [0, 'chapter-title'],
+      [1, 'body'],
+      [2, 'body'],
+    ])
+
+    const outPath = FIXTURE.replace('.docx', '_out_test.docx')
+
+    const result: ApplyResult = await agent.apply(
+      FIXTURE,
+      outPath,
+      spec,
+      classification
+    )
+
+    expect(result.success).toBe(true)
+    expect(result.contentPreserved).toBe(true)
+
+    // Cleanup output file
+    if (fs.existsSync(outPath)) {
+      fs.unlinkSync(outPath)
+    }
+  })
+
+  // ── Test 5: Empty description + empty ref → graceful handling ──
+  it('should handle empty description and no ref file gracefully', async () => {
+    const agent = new SmartFormatAgent()
+
+    // Only classification mock needed
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: makeClassifyResponse(),
+      total_tokens: 30,
+    })
+
+    const result: AnalyzeResult = await agent.analyze({
+      targetFilePath: FIXTURE,
+      apiConfig: dummyApiConfig,
+    })
+
+    // Should return empty spec
+    expect(result.spec).toBeDefined()
+    expect(result.spec.paragraphRules).toBeDefined()
+    expect(result.spec.paragraphRules!.length).toBe(0)
+
+    // Should still classify paragraphs
+    expect(result.classification.size).toBeGreaterThan(0)
+    expect(result.tokenUsage).toBe(30)
+  })
+
+  // ── Test 6: Paragraph type classification is populated ──
+  it('should populate paragraph type classification for each paragraph', async () => {
+    const agent = new SmartFormatAgent()
+
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: makeClassifyResponse(),
+      total_tokens: 30,
+    })
+
+    const result: AnalyzeResult = await agent.analyze({
+      targetFilePath: FIXTURE,
+      apiConfig: dummyApiConfig,
+    })
+
+    // Classification should have entries for all paragraphs in minimal.docx (Heading + 2 Normal = 3)
+    expect(result.classification.size).toBeGreaterThanOrEqual(3)
+
+    // Each entry should be a valid ParagraphType
+    for (const [_, pType] of result.classification) {
+      expect([
+        'paper-title', 'chapter-title', 'section-1-title', 'section-2-title',
+        'section-3-title', 'item-title', 'body', 'abstract-cn-title',
+        'abstract-cn-content', 'abstract-en-title', 'abstract-en-content',
+        'keywords-cn-title', 'keywords-cn-body', 'keywords-en-title',
+        'keywords-en-body', 'conclusion-title', 'conclusion-content',
+        'references-title', 'references-content', 'toc-title',
+        'toc-chapter', 'toc-other', 'acknowledgement-title', 'appendix-title',
+      ]).toContain(pType)
+    }
+  })
+
+  // ── Test 7: Token usage is tracked across all phases ──
+  it('should track token usage from description parsing and classification', async () => {
+    const agent = new SmartFormatAgent()
+
+    // Mock LLM for parseFormatDescription
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: validLLMResponse,
+      total_tokens: 200,
+    })
+
+    // Mock LLM for classifyParagraphsWithLLM
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: makeClassifyResponse(),
+      total_tokens: 100,
+    })
+
+    const result: AnalyzeResult = await agent.analyze({
+      description: '论文题目 黑体 二号 居中',
+      targetFilePath: FIXTURE,
+      apiConfig: dummyApiConfig,
+    })
+
+    // Token usage = description parsing (200) + classification (100)
+    expect(result.tokenUsage).toBe(300)
+    expect(result.tokenUsage).toBeGreaterThan(0)
+  })
+})

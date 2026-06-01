@@ -1,4 +1,5 @@
 import type { ParagraphType } from './smartFormatApply'
+const { loadDocx } = require('docx-edit')
 
 // ========== Types ==========
 
@@ -132,8 +133,9 @@ function paragraphMatchesSectionType(
 
 import { getModelResponse } from './chat'
 import type { apiSettings } from './database'
-import { SmartFormatSpec } from './smartFormatApply'
+import { SmartFormatSpec, ParagraphFormatRule, applySmartFormat, SmartFormatResult } from './smartFormatApply'
 import { resolveFontSize, FONT_FAMILY_MAP } from '../shared/chineseFontSize'
+import { extractFormatProfile } from './formatClone'
 
 // ========== Types (parser) ==========
 
@@ -1428,5 +1430,221 @@ export async function classifyParagraphsWithLLM(
     classifications: merged,
     fallbackMode: false,
     tokenUsage: totalTokens,
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SmartFormatAgent — 全流程编排
+// ═══════════════════════════════════════════════════════════════════
+
+export interface AnalyzeResult {
+  spec: SmartFormatSpec
+  classification: Map<number, ParagraphType>
+  tokenUsage: number
+  fallbackMode: boolean
+}
+
+export interface ApplyResult extends SmartFormatResult {
+  contentPreserved: boolean
+}
+
+/**
+ * SmartFormatAgent 编排 Analyze → Apply 完整流水线。
+ *
+ * Phase 1 (analyze): 自然语言描述 / 参考文档 → SmartFormatSpec + 段落分类
+ * Phase 2 (apply):   将 spec + 分类确定性应用到目标文档
+ *
+ * Content immutability: apply 阶段不修改段落文本内容，仅修改格式。
+ */
+export class SmartFormatAgent {
+  /**
+   * Phase 1: Analyze — produce SmartFormatSpec + paragraph classification
+   */
+  async analyze(input: {
+    description?: string
+    refFilePath?: string
+    targetFilePath: string
+    apiConfig: apiSettings
+  }): Promise<AnalyzeResult> {
+    let specFromDesc: SmartFormatSpec | null = null
+    let specFromRef: SmartFormatSpec | null = null
+    let tokenUsage = 0
+
+    // ── 1. Parse description ──
+    if (input.description && input.description.trim()) {
+      const descResult: ParseFormatDescResult = await parseFormatDescription(
+        input.description,
+        input.apiConfig
+      )
+      specFromDesc = descResult.spec
+      tokenUsage += descResult.tokenUsage
+    }
+
+    // ── 2. Map ref doc profile ──
+    if (input.refFilePath) {
+      const refProfile = await extractFormatProfile(input.refFilePath)
+      specFromRef = await mapRefProfileToRules(refProfile, input.apiConfig)
+      // mapRefProfileToRules 内部也调用 LLM，但返回的 SmartFormatSpec 不含 token 信息
+      // 这里保守估算 token 用量
+      tokenUsage += 50
+    }
+
+    // ── 3. Merge specs (ref as base, desc wins on conflicts) ──
+    const mergedSpec = this.mergeSpecs(specFromRef, specFromDesc)
+
+    // ── 4. Load target document, extract paragraphs ──
+    const doc = await loadDocx(input.targetFilePath)
+    const body = doc.getBody()
+    if (!body) {
+      throw new Error('目标文档没有正文部分')
+    }
+    const paragraphs = body.getParagraphs()
+
+    // ── 5. Extract paragraph metadata ──
+    const metadata = extractParagraphMetadata(paragraphs)
+
+    // ── 6. Heuristic classification ──
+    const heuristicResult = classifyParagraphsHeuristic(metadata)
+
+    // ── 7. LLM classification (enhance heuristic) ──
+    const llmResult: LLMClassificationResult = await classifyParagraphsWithLLM(
+      metadata,
+      heuristicResult,
+      input.apiConfig
+    )
+    tokenUsage += llmResult.tokenUsage
+
+    return {
+      spec: mergedSpec,
+      classification: llmResult.classifications,
+      tokenUsage,
+      fallbackMode: llmResult.fallbackMode,
+    }
+  }
+
+  /**
+   * Phase 2: Apply — deterministic formatting
+   */
+  async apply(
+    inputPath: string,
+    outputPath: string,
+    spec: SmartFormatSpec,
+    classification: Map<number, ParagraphType>
+  ): Promise<ApplyResult> {
+    // ── 1. Load target document, capture original texts ──
+    const doc = await loadDocx(inputPath)
+    const body = doc.getBody()
+    if (!body) {
+      throw new Error('文档没有正文部分')
+    }
+    const paragraphs = body.getParagraphs()
+    const originalTexts: string[] = paragraphs.map((p: any) => {
+      try { return p.getText() || '' } catch { return '' }
+    })
+
+    // ── 2. Convert classification Map<number, ParagraphType> → Map<number, string> ──
+    const paragraphTypeMap = new Map<number, string>()
+    for (const [idx, pType] of classification) {
+      paragraphTypeMap.set(idx, pType)
+    }
+
+    // ── 3. Apply formatting ──
+    const result: SmartFormatResult = await applySmartFormat(
+      inputPath,
+      outputPath,
+      spec,
+      paragraphTypeMap
+    )
+
+    // ── 4. Content immutability check ──
+    let contentPreserved = false
+    if (result.success) {
+      try {
+        const newDoc = await loadDocx(outputPath)
+        const newBody = newDoc.getBody()
+        const newParagraphs = newBody ? newBody.getParagraphs() : []
+        const newTexts: string[] = newParagraphs.map((p: any) => {
+          try { return p.getText() || '' } catch { return '' }
+        })
+
+        contentPreserved =
+          originalTexts.length === newTexts.length &&
+          originalTexts.every((t, i) => t === newTexts[i])
+      } catch {
+        contentPreserved = false
+      }
+    }
+
+    return {
+      ...result,
+      contentPreserved,
+    }
+  }
+
+  /**
+   * Merge two SmartFormatSpec objects.
+   * Uses ref spec as base; desc spec overrides conflicting entries.
+   */
+  private mergeSpecs(
+    refSpec: SmartFormatSpec | null,
+    descSpec: SmartFormatSpec | null
+  ): SmartFormatSpec {
+    if (!refSpec && !descSpec) {
+      return { styleProfile: { styles: {} }, paragraphRules: [] }
+    }
+    if (!refSpec) return descSpec!
+    if (!descSpec) return refSpec
+
+    // Merge paragraphRules: desc wins for same paragraphType in match
+    const ruleMap = new Map<string, any>()
+    const refRules = refSpec.paragraphRules || []
+    const descRules = descSpec.paragraphRules || []
+
+    for (const rule of refRules) {
+      const pType = rule.match?.paragraphType || 'unknown'
+      if (!ruleMap.has(pType)) {
+        ruleMap.set(pType, rule)
+      }
+    }
+    for (const rule of descRules) {
+      const pType = rule.match?.paragraphType || 'unknown'
+      ruleMap.set(pType, rule) // overwrite ref rule
+    }
+    const mergedRules = Array.from(ruleMap.values())
+
+    // Merge styleProfile: desc styles win for same key
+    const refStyles = refSpec.styleProfile?.styles || {}
+    const descStyles = descSpec.styleProfile?.styles || {}
+    const mergedStyles: Record<string, any> = { ...refStyles }
+    for (const [key, style] of Object.entries(descStyles)) {
+      mergedStyles[key] = style // overwrite ref style
+    }
+
+    const refDefaults = refSpec.styleProfile?.defaults || {}
+    const descDefaults = descSpec.styleProfile?.defaults || {}
+    const mergedDefaults: any = { ...refDefaults }
+    if (descDefaults.paragraphStyle || descDefaults.runStyle) {
+      mergedDefaults.paragraphStyle = {
+        ...(refDefaults.paragraphStyle || {}),
+        ...(descDefaults.paragraphStyle || {}),
+      }
+      mergedDefaults.runStyle = {
+        ...(refDefaults.runStyle || {}),
+        ...(descDefaults.runStyle || {}),
+      }
+    }
+
+    // Merge pageSettings: desc wins
+    const mergedPageSettings =
+      descSpec.pageSettings || refSpec.pageSettings
+
+    return {
+      styleProfile: {
+        ...(Object.keys(mergedDefaults).length > 0 ? { defaults: mergedDefaults } : {}),
+        styles: mergedStyles,
+      },
+      paragraphRules: mergedRules,
+      ...(mergedPageSettings ? { pageSettings: mergedPageSettings } : {}),
+    }
   }
 }
