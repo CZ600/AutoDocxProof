@@ -7,6 +7,8 @@ import {
   parseFormatDescription,
   ParseFormatDescResult,
   mapRefProfileToRules,
+  classifyParagraphsWithLLM,
+  LLMClassificationResult,
 } from '../src/main/smartFormatAgent'
 import { ModelProvider } from '../src/shared/modelProviders'
 import type { apiSettings } from '../src/main/database'
@@ -714,5 +716,377 @@ describe('mapRefProfileToRules', () => {
 
     expect(Object.keys(result.styleProfile!.styles!)).toHaveLength(2)
     expect(result.paragraphRules!.length).toBe(2)
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════
+//  classifyParagraphsWithLLM tests
+// ═══════════════════════════════════════════════════════════════════
+
+/** 生成指定数量的模拟段落元数据 */
+function makeMetadata(count: number): ParagraphMetadata[] {
+  const result: ParagraphMetadata[] = []
+  for (let i = 0; i < count; i++) {
+    result.push({
+      index: i,
+      firstChars: `Paragraph ${i} text content here for testing purposes.`,
+      headingLevel: i === 0 ? 1 : i === 2 ? 2 : null,
+      styleId: i === 0 ? 'heading1' : 'Normal',
+      text: `Paragraph ${i} full text content here for testing purposes with more characters.`,
+      isBold: i === 0,
+      sectionType: null,
+    })
+  }
+  return result
+}
+
+/** 生成模拟的启发式分类结果 */
+function makeHeuristicResult(count: number): Map<number, ParagraphType> {
+  const result = new Map<number, ParagraphType>()
+  for (let i = 0; i < count; i++) {
+    if (i === 0) {
+      result.set(i, 'chapter-title')
+    } else if (i === 2) {
+      result.set(i, 'section-1-title')
+    } else {
+      result.set(i, 'body')
+    }
+  }
+  return result
+}
+
+/** 生成 LLM 返回的分类 JSON（全部高置信度） */
+function makeHighConfidenceResponse(indices: number[]): string {
+  const classifications = indices.map((i) => ({
+    index: i,
+    type: i === 0 ? 'chapter-title' : i === 2 ? 'section-1-title' : 'body',
+    confidence: 0.9,
+  }))
+  return JSON.stringify({ classifications })
+}
+
+describe('classifyParagraphsWithLLM', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  // ── Test 1: batch splitting ──
+  it('should split 50 paragraphs into 2 batches of 25', async () => {
+    const metadata = makeMetadata(50)
+    const heuristic = makeHeuristicResult(50)
+
+    // Batch 1 (indices 0-24)
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: makeHighConfidenceResponse(
+        Array.from({ length: 25 }, (_, i) => i)
+      ),
+      total_tokens: 200,
+    })
+    // Batch 2 (indices 25-49)
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: makeHighConfidenceResponse(
+        Array.from({ length: 25 }, (_, i) => i + 25)
+      ),
+      total_tokens: 200,
+    })
+
+    const result = await classifyParagraphsWithLLM(metadata, heuristic, dummyApiConfig)
+
+    expect(result.fallbackMode).toBe(false)
+    expect(result.tokenUsage).toBe(400)
+    expect(result.classifications.size).toBe(50)
+    expect(mockGetModelResponse).toHaveBeenCalledTimes(2)
+  })
+
+  // ── Test 2: empty metadata ──
+  it('should return empty result for empty metadata without LLM calls', async () => {
+    const result = await classifyParagraphsWithLLM([], new Map(), dummyApiConfig)
+
+    expect(result.classifications.size).toBe(0)
+    expect(result.fallbackMode).toBe(false)
+    expect(result.tokenUsage).toBe(0)
+    expect(mockGetModelResponse).not.toHaveBeenCalled()
+  })
+
+  // ── Test 3: high confidence LLM results used ──
+  it('should use LLM classification when confidence >= 0.7', async () => {
+    const metadata = makeMetadata(5)
+    const heuristic = makeHeuristicResult(5)
+
+    // LLM classifies index 1 as 'abstract-cn-content' with high confidence
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: JSON.stringify({
+        classifications: [
+          { index: 0, type: 'chapter-title', confidence: 0.95 },
+          { index: 1, type: 'abstract-cn-content', confidence: 0.85 },
+          { index: 2, type: 'section-1-title', confidence: 0.9 },
+          { index: 3, type: 'keywords-cn-body', confidence: 0.8 },
+          { index: 4, type: 'conclusion-content', confidence: 0.75 },
+        ],
+      }),
+      total_tokens: 100,
+    })
+
+    const result = await classifyParagraphsWithLLM(metadata, heuristic, dummyApiConfig)
+
+    expect(result.fallbackMode).toBe(false)
+    // All LLM results have high confidence → all should be LLM types
+    expect(result.classifications.get(0)).toBe('chapter-title')
+    expect(result.classifications.get(1)).toBe('abstract-cn-content')
+    expect(result.classifications.get(2)).toBe('section-1-title')
+    expect(result.classifications.get(3)).toBe('keywords-cn-body')
+    expect(result.classifications.get(4)).toBe('conclusion-content')
+  })
+
+  // ── Test 4: low confidence LLM → heuristic used ──
+  it('should fall back to heuristic when LLM confidence < 0.7', async () => {
+    const metadata = makeMetadata(3)
+    const heuristic = makeHeuristicResult(3)
+    // heuristic: 0=chapter-title, 2=section-1-title
+
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: JSON.stringify({
+        classifications: [
+          { index: 0, type: 'body', confidence: 0.5 },
+          { index: 1, type: 'abstract-en-content', confidence: 0.3 },
+          { index: 2, type: 'toc-chapter', confidence: 0.6 },
+        ],
+      }),
+      total_tokens: 50,
+    })
+
+    const result = await classifyParagraphsWithLLM(metadata, heuristic, dummyApiConfig)
+
+    expect(result.fallbackMode).toBe(false)
+    // All LLM confidences < 0.7 → all should use heuristic
+    expect(result.classifications.get(0)).toBe('chapter-title')
+    expect(result.classifications.get(1)).toBe('body')
+    expect(result.classifications.get(2)).toBe('section-1-title')
+  })
+
+  // ── Test 5: mixed confidence → hybrid merge ──
+  it('should use LLM for high confidence and heuristic for low confidence', async () => {
+    const metadata = makeMetadata(4)
+    const heuristic = makeHeuristicResult(4)
+    // heuristic: 0=chapter-title, 2=section-1-title, 1=body, 3=body
+
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: JSON.stringify({
+        classifications: [
+          { index: 0, type: 'paper-title', confidence: 0.9 },    // high → LLM
+          { index: 1, type: 'abstract-cn-title', confidence: 0.4 }, // low → heuristic
+          { index: 2, type: 'toc-chapter', confidence: 0.5 },       // low → heuristic
+          { index: 3, type: 'references-content', confidence: 0.8 }, // high → LLM
+        ],
+      }),
+      total_tokens: 80,
+    })
+
+    const result = await classifyParagraphsWithLLM(metadata, heuristic, dummyApiConfig)
+
+    expect(result.classifications.get(0)).toBe('paper-title')       // LLM (0.9)
+    expect(result.classifications.get(1)).toBe('body')             // heuristic (body)
+    expect(result.classifications.get(2)).toBe('section-1-title')  // heuristic
+    expect(result.classifications.get(3)).toBe('references-content') // LLM (0.8)
+  })
+
+  // ── Test 6: LLM network error → fallback ──
+  it('should fallback to heuristic entirely on LLM network error', async () => {
+    const metadata = makeMetadata(10)
+    const heuristic = makeHeuristicResult(10)
+
+    mockGetModelResponse.mockRejectedValueOnce(new Error('Network timeout'))
+
+    const result = await classifyParagraphsWithLLM(metadata, heuristic, dummyApiConfig)
+
+    expect(result.fallbackMode).toBe(true)
+    expect(result.classifications).toBe(heuristic) // same Map reference
+    expect(result.classifications.size).toBe(10)
+    // Should still have heuristic types
+    expect(result.classifications.get(0)).toBe('chapter-title')
+    expect(result.classifications.get(1)).toBe('body')
+  })
+
+  // ── Test 7: LLM returns invalid JSON → fallback ──
+  it('should fallback to heuristic when LLM returns plain text', async () => {
+    const metadata = makeMetadata(5)
+    const heuristic = makeHeuristicResult(5)
+
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: 'This is not JSON, just plain text response.',
+      total_tokens: 10,
+    })
+
+    const result = await classifyParagraphsWithLLM(metadata, heuristic, dummyApiConfig)
+
+    expect(result.fallbackMode).toBe(true)
+    expect(result.classifications.size).toBe(5)
+    expect(result.classifications.get(0)).toBe('chapter-title')
+    expect(result.classifications.get(2)).toBe('section-1-title')
+  })
+
+  // ── Test 8: LLM returns unknown paragraphType → filtered, valid ones used ──
+  it('should skip unknown paragraphType from LLM and use heuristic for those', async () => {
+    const metadata = makeMetadata(3)
+    const heuristic = makeHeuristicResult(3)
+    // heuristic: 0=chapter-title, 2=section-1-title, 1=body
+
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: JSON.stringify({
+        classifications: [
+          { index: 0, type: 'ghost-type', confidence: 0.9 },    // unknown → skipped
+          { index: 1, type: 'abstract-cn-title', confidence: 0.8 }, // valid, high → LLM
+          { index: 2, type: 'invalid-type', confidence: 0.95 },  // unknown → skipped
+        ],
+      }),
+      total_tokens: 40,
+    })
+
+    const result = await classifyParagraphsWithLLM(metadata, heuristic, dummyApiConfig)
+
+    // index 0: LLM type invalid → heuristic chapter-title
+    expect(result.classifications.get(0)).toBe('chapter-title')
+    // index 1: LLM valid high confidence → abstract-cn-title
+    expect(result.classifications.get(1)).toBe('abstract-cn-title')
+    // index 2: LLM type invalid → heuristic section-1-title
+    expect(result.classifications.get(2)).toBe('section-1-title')
+  })
+
+  // ── Test 9: LLM returns JSON inside markdown code block → extract and use ──
+  it('should extract JSON from markdown code block response', async () => {
+    const metadata = makeMetadata(2)
+    const heuristic = makeHeuristicResult(2)
+
+    const jsonContent = JSON.stringify({
+      classifications: [
+        { index: 0, type: 'paper-title', confidence: 0.95 },
+        { index: 1, type: 'abstract-en-title', confidence: 0.9 },
+      ],
+    })
+
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: '```json\n' + jsonContent + '\n```',
+      total_tokens: 60,
+    })
+
+    const result = await classifyParagraphsWithLLM(metadata, heuristic, dummyApiConfig)
+
+    expect(result.fallbackMode).toBe(false)
+    expect(result.classifications.get(0)).toBe('paper-title')
+    expect(result.classifications.get(1)).toBe('abstract-en-title')
+  })
+
+  // ── Test 10: partial batch failure → full fallback ──
+  it('should fallback entirely if any one of multiple batches fails', async () => {
+    const metadata = makeMetadata(50)
+    const heuristic = makeHeuristicResult(50)
+
+    // Batch 1 succeeds
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: makeHighConfidenceResponse(
+        Array.from({ length: 25 }, (_, i) => i)
+      ),
+      total_tokens: 200,
+    })
+    // Batch 2 fails
+    mockGetModelResponse.mockRejectedValueOnce(new Error('API rate limit'))
+
+    const result = await classifyParagraphsWithLLM(metadata, heuristic, dummyApiConfig)
+
+    expect(result.fallbackMode).toBe(true)
+    expect(result.classifications).toBe(heuristic)
+    // Token usage from successful batch still counted
+    expect(result.tokenUsage).toBe(200)
+  })
+
+  // ── Test 11: no LLM entries for some indices → merge falls back to heuristic ──
+  it('should fall back to heuristic for indices not covered by LLM', async () => {
+    const metadata = makeMetadata(5)
+    const heuristic = makeHeuristicResult(5)
+
+    // LLM only returns 2 out of 5 paragraphs
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: JSON.stringify({
+        classifications: [
+          { index: 0, type: 'paper-title', confidence: 0.95 },
+          { index: 3, type: 'conclusion-title', confidence: 0.9 },
+        ],
+      }),
+      total_tokens: 50,
+    })
+
+    const result = await classifyParagraphsWithLLM(metadata, heuristic, dummyApiConfig)
+
+    expect(result.fallbackMode).toBe(false)
+    expect(result.classifications.get(0)).toBe('paper-title')       // LLM high
+    expect(result.classifications.get(1)).toBe('body')             // heuristic
+    expect(result.classifications.get(2)).toBe('section-1-title')  // heuristic
+    expect(result.classifications.get(3)).toBe('conclusion-title') // LLM high
+    expect(result.classifications.get(4)).toBe('body')             // heuristic
+  })
+
+  // ── Test 12: context includes prevTypes from heuristic and nextFirstChars from metadata ──
+  it('should send context with prevTypes from heuristic and nextFirstChars from metadata', async () => {
+    const metadata = makeMetadata(5)
+    const heuristic = makeHeuristicResult(5)
+
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: makeHighConfidenceResponse([0, 1, 2, 3, 4]),
+      total_tokens: 100,
+    })
+
+    await classifyParagraphsWithLLM(metadata, heuristic, dummyApiConfig)
+
+    const userMessage = JSON.parse(mockGetModelResponse.mock.calls[0][2])
+
+    // Check paragraph at index 2
+    const para2 = userMessage.find((p: any) => p.index === 2)
+    expect(para2.context.prevTypes).toEqual(['chapter-title', 'body'])
+    expect(para2.context.nextFirstChars.length).toBe(2)
+
+    // Check paragraph at index 0 (no prev)
+    const para0 = userMessage.find((p: any) => p.index === 0)
+    expect(para0.context.prevTypes).toEqual([null, null])
+
+    // Check paragraph at index 4 (no next)
+    const para4 = userMessage.find((p: any) => p.index === 4)
+    expect(para4.context.nextFirstChars).toEqual(['', ''])
+  })
+
+  // ── Test 13: verify LLM call arguments ──
+  it('should call getModelResponse with correct arguments', async () => {
+    const metadata = makeMetadata(3)
+    const heuristic = makeHeuristicResult(3)
+
+    mockGetModelResponse.mockResolvedValueOnce({
+      result: makeHighConfidenceResponse([0, 1, 2]),
+      total_tokens: 30,
+    })
+
+    await classifyParagraphsWithLLM(metadata, heuristic, dummyApiConfig)
+
+    expect(mockGetModelResponse).toHaveBeenCalledTimes(1)
+    const args = mockGetModelResponse.mock.calls[0]
+
+    expect(args[0]).toBe(ModelProvider.OPENAI_COMPATIBLE)
+    expect(args[1]).toContain('Word 文档段落分类专家')
+    expect(args[2]).toContain('Paragraph 0')
+    expect(args[3]).toBe('sk-test-key')
+    expect(args[4]).toBe('test-model')
+    expect(args[5]).toBe('https://api.example.com')
+  })
+
+  // ── Test 14: null metadata safety ──
+  it('should handle null metadata gracefully', async () => {
+    const result = await classifyParagraphsWithLLM(
+      null as any,
+      new Map(),
+      dummyApiConfig
+    )
+
+    expect(result.classifications.size).toBe(0)
+    expect(result.fallbackMode).toBe(false)
+    expect(result.tokenUsage).toBe(0)
+    expect(mockGetModelResponse).not.toHaveBeenCalled()
   })
 })

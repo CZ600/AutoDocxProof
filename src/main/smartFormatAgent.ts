@@ -1079,3 +1079,354 @@ export function classifyParagraphsHeuristic(
 
   return result
 }
+
+// ═══════════════════════════════════════════════════════════════════
+//  classifyParagraphsWithLLM (LLM-enhanced paragraph classification)
+// ═══════════════════════════════════════════════════════════════════
+
+// ========== Types ==========
+
+export interface LLMClassificationResult {
+  classifications: Map<number, ParagraphType>
+  fallbackMode: boolean
+  tokenUsage: number
+}
+
+interface LLMBatchItem {
+  index: number
+  firstChars: string
+  headingLevel: number | null
+  styleId: string
+  isBold: boolean
+  sectionType: string | null
+  context: {
+    prevTypes: (string | null)[]
+    nextFirstChars: string[]
+  }
+}
+
+interface LLMClassificationResponse {
+  classifications: Array<{
+    index: number
+    type: string
+    confidence: number
+  }>
+}
+
+// ========== System Prompt ==========
+
+const CLASSIFY_SYSTEM_PROMPT = `你是一个专业的 Word 文档段落分类专家。你会收到一批段落的元数据信息，需要根据每个段落的特征和上下文，将其分类为合适的段落类型（ParagraphType）。
+
+## 可用段落类型说明
+
+| paragraphType | 含义 | 典型特征 |
+|---|---|---|
+| paper-title | 论文主标题 | 文档开头、短文本、非标题样式 |
+| chapter-title | 章标题 | headingLevel=1 或文本以"第X章"开头 |
+| section-1-title | 一级节标题 | headingLevel=2 |
+| section-2-title | 二级节标题 | headingLevel=3 |
+| section-3-title | 三级节标题 | headingLevel=4 |
+| item-title | 条目标题 | 枚举格式如"（一）"且加粗 |
+| body | 正文 | 普通段落，非标题、非特殊类型 |
+| abstract-cn-title | 中文摘要标题 | 文本为"摘要" |
+| abstract-cn-content | 中文摘要内容 | sectionType=abstract 且含中文 |
+| abstract-en-title | 英文摘要标题 | 文本为"Abstract" |
+| abstract-en-content | 英文摘要内容 | sectionType=abstract 且主要拉丁字母 |
+| keywords-cn-title | 中文关键词标题 | 以"关键词"开头 |
+| keywords-cn-body | 中文关键词内容 | 在"关键词"标题之后，含中文 |
+| keywords-en-title | 英文关键词标题 | 以"Keywords"或"Key words"开头 |
+| keywords-en-body | 英文关键词内容 | 在英文关键词标题之后，主要拉丁字母 |
+| conclusion-title | 结论标题 | 文本为"结论"或"Conclusion"，或 sectionType=conclusion 且为标题 |
+| conclusion-content | 结论内容 | sectionType=conclusion 且非标题 |
+| references-title | 参考文献标题 | 文本为"参考文献"或"References" |
+| references-content | 参考文献条目 | sectionType=references 且非标题 |
+| toc-title | 目录标题 | 文本为"目录" |
+| toc-chapter | 目录章标题项 | sectionType=toc 且 headingLevel>=1 |
+| toc-other | 目录其他项 | sectionType=toc 且非标题、非章级 |
+| acknowledgement-title | 致谢标题 | 文本为"致谢"或"Acknowledgement" |
+| appendix-title | 附录标题 | 以"附录"或"Appendix"开头 |
+
+## 输入格式
+
+你将收到一个 JSON 数组，每个元素包含一个段落的元数据：
+{
+  "index": 段落位置 (0-based),
+  "firstChars": 段落前80个字符,
+  "headingLevel": Word 标题级别 (1-9, null=非标题),
+  "styleId": Word 样式 ID,
+  "isBold": 是否加粗,
+  "sectionType": 启发式预分类 (abstract|keywords|toc|conclusion|references|acknowledgement|appendix|null),
+  "context": {
+    "prevTypes": [前两个段落的启发式分类类型, 可能为 null],
+    "nextFirstChars": [后两个段落的前80字符, 可能为空字符串]
+  }
+}
+
+## 任务
+
+对每个段落进行分类，输出以下 JSON 格式：
+
+{
+  "classifications": [
+    { "index": 0, "type": "paper-title", "confidence": 0.95 },
+    { "index": 1, "type": "body", "confidence": 0.85 }
+  ]
+}
+
+## 规则
+
+1. confidence 取值范围 0.0~1.0，表示你对分类的置信度
+2. 如果段落特征非常明确（如 headingLevel=1），confidence 应接近 1.0
+3. 如果特征模糊（普通正文），confidence 可以较低（如 0.5~0.7）
+4. 如果完全无法判断，标记为 "body" 并给 confidence 0.3~0.5
+5. 只输出 JSON，不要输出解释文字
+6. 必须对输入中的每个段落都给出分类`
+
+// ========== Constants ==========
+
+const BATCH_SIZE = 25
+const CONFIDENCE_THRESHOLD = 0.7
+
+// ========== Helpers ==========
+
+/**
+ * 从 LLM 回复中提取分类 JSON 字符串
+ */
+function extractClassifyJSON(text: string): string | null {
+  const trimmed = text.trim()
+  if (trimmed.startsWith('{')) {
+    return trimmed
+  }
+  const codeBlockMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)```/)
+  if (codeBlockMatch) {
+    return codeBlockMatch[1].trim()
+  }
+  const firstBrace = trimmed.indexOf('{')
+  const lastBrace = trimmed.lastIndexOf('}')
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    return trimmed.substring(firstBrace, lastBrace + 1)
+  }
+  return null
+}
+
+/**
+ * 为批量段落添加上下文信息
+ */
+function buildBatchItems(
+  metadata: ParagraphMetadata[],
+  heuristicResult: Map<number, ParagraphType>,
+  batchIndices: number[]
+): LLMBatchItem[] {
+  return batchIndices.map((idx) => {
+    const para = metadata[idx]
+
+    const prevTypes: (string | null)[] = []
+    for (let offset = 2; offset >= 1; offset--) {
+      const prevIdx = idx - offset
+      if (prevIdx >= 0) {
+        prevTypes.push(heuristicResult.get(prevIdx) || null)
+      } else {
+        prevTypes.push(null)
+      }
+    }
+
+    const nextFirstChars: string[] = []
+    for (let offset = 1; offset <= 2; offset++) {
+      const nextIdx = idx + offset
+      if (nextIdx < metadata.length) {
+        nextFirstChars.push(metadata[nextIdx].firstChars)
+      } else {
+        nextFirstChars.push('')
+      }
+    }
+
+    return {
+      index: para.index,
+      firstChars: para.firstChars,
+      headingLevel: para.headingLevel,
+      styleId: para.styleId,
+      isBold: para.isBold,
+      sectionType: para.sectionType,
+      context: {
+        prevTypes,
+        nextFirstChars,
+      },
+    }
+  })
+}
+
+/**
+ * 处理单个 batch 的 LLM 调用和结果解析
+ */
+async function processBatch(
+  batchItems: LLMBatchItem[],
+  apiConfig: apiSettings
+): Promise<{ classifications: Map<number, { type: ParagraphType; confidence: number }>; tokens: number }> {
+  const userMessage = JSON.stringify(batchItems)
+
+  const { result, total_tokens } = await getModelResponse(
+    apiConfig.provider,
+    CLASSIFY_SYSTEM_PROMPT,
+    userMessage,
+    apiConfig.apiKey,
+    apiConfig.modelName,
+    apiConfig.apiURL
+  )
+
+  // 提取 JSON
+  const jsonStr = extractClassifyJSON(result)
+  if (!jsonStr) {
+    throw new Error('LLM 未返回有效的分类 JSON')
+  }
+
+  let parsed: LLMClassificationResponse
+  try {
+    parsed = JSON.parse(jsonStr)
+  } catch {
+    throw new Error('LLM 返回的分类 JSON 解析失败')
+  }
+
+  if (!parsed.classifications || !Array.isArray(parsed.classifications)) {
+    throw new Error('LLM 返回的 JSON 缺少 classifications 数组')
+  }
+
+  // 校验并构建结果
+  const classifications = new Map<number, { type: ParagraphType; confidence: number }>()
+  for (const item of parsed.classifications) {
+    const { index, type, confidence } = item
+
+    // 跳过无效类型
+    if (!type || !VALID_PARAGRAPH_TYPES.has(type)) continue
+
+    // 跳过无效索引
+    if (typeof index !== 'number' || index < 0) continue
+
+    const conf = typeof confidence === 'number' ? Math.max(0, Math.min(1, confidence)) : 0.5
+
+    classifications.set(index, {
+      type: type as ParagraphType,
+      confidence: conf,
+    })
+  }
+
+  return { classifications, tokens: total_tokens }
+}
+
+/**
+ * 合并 LLM 结果和启发式结果
+ */
+function mergeResults(
+  heuristicResult: Map<number, ParagraphType>,
+  llmResults: Map<number, { type: ParagraphType; confidence: number }>,
+  metadataCount: number
+): Map<number, ParagraphType> {
+  const merged = new Map<number, ParagraphType>()
+
+  for (let i = 0; i < metadataCount; i++) {
+    const llmEntry = llmResults.get(i)
+
+    if (llmEntry && llmEntry.confidence >= CONFIDENCE_THRESHOLD) {
+      // LLM 高置信度 → 使用 LLM 分类
+      merged.set(i, llmEntry.type)
+    } else if (heuristicResult.has(i)) {
+      // 启发式有分类 → 使用启发式
+      merged.set(i, heuristicResult.get(i)!)
+    } else {
+      // 兜底 → body
+      merged.set(i, 'body')
+    }
+  }
+
+  return merged
+}
+
+// ========== Main Function ==========
+
+/**
+ * 使用 LLM 增强段落分类精度。
+ *
+ * 将段落元数据分批（每批25个）发送给 LLM，LLM 为每个段落
+ * 返回分类类型和置信度。高置信度（>=0.7）使用 LLM 结果，
+ * 低置信度或无结果时回退到启发式分类。
+ *
+ * @param metadata - 段落元数据数组
+ * @param heuristicResult - 启发式分类结果
+ * @param apiConfig - API 配置
+ * @returns LLMClassificationResult，包含合并后的分类、回退标志和 token 用量
+ */
+export async function classifyParagraphsWithLLM(
+  metadata: ParagraphMetadata[],
+  heuristicResult: Map<number, ParagraphType>,
+  apiConfig: apiSettings
+): Promise<LLMClassificationResult> {
+  // 空元数据 → 空结果
+  if (!metadata || metadata.length === 0) {
+    return {
+      classifications: new Map(),
+      fallbackMode: false,
+      tokenUsage: 0,
+    }
+  }
+
+  // 分批次
+  const batches: number[][] = []
+  for (let i = 0; i < metadata.length; i += BATCH_SIZE) {
+    const batchIndices: number[] = []
+    for (let j = i; j < Math.min(i + BATCH_SIZE, metadata.length); j++) {
+      batchIndices.push(j)
+    }
+    batches.push(batchIndices)
+  }
+
+  let totalTokens = 0
+
+  // 并行处理所有 batch
+  const batchResults = await Promise.allSettled(
+    batches.map((batchIndices) =>
+      processBatch(
+        buildBatchItems(metadata, heuristicResult, batchIndices),
+        apiConfig
+      )
+    )
+  )
+
+  // 检查是否有失败的 batch
+  const hasFailure = batchResults.some((r) => r.status === 'rejected')
+
+  if (hasFailure) {
+    // 任意 batch 失败 → 完全回退到启发式
+    for (const r of batchResults) {
+      if (r.status === 'fulfilled') {
+        totalTokens += r.value.tokens
+      } else {
+        console.warn('LLM 段落分类失败，回退到启发式:', r.reason)
+      }
+    }
+
+    return {
+      classifications: heuristicResult,
+      fallbackMode: true,
+      tokenUsage: totalTokens,
+    }
+  }
+
+  // 所有 batch 成功 → 收集 LLM 结果
+  const llmResults = new Map<number, { type: ParagraphType; confidence: number }>()
+  for (const r of batchResults) {
+    if (r.status === 'fulfilled') {
+      totalTokens += r.value.tokens
+      for (const [idx, entry] of r.value.classifications) {
+        llmResults.set(idx, entry)
+      }
+    }
+  }
+
+  // 合并结果
+  const merged = mergeResults(heuristicResult, llmResults, metadata.length)
+
+  return {
+    classifications: merged,
+    fallbackMode: false,
+    tokenUsage: totalTokens,
+  }
+}
