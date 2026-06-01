@@ -21,6 +21,11 @@
           :class="{ active: inputMode === 'desc' }"
           @click="inputMode = 'desc'"
         >{{ t('proof.formatFromDesc.tabTitle') }}</button>
+        <button
+          class="mode-tab"
+          :class="{ active: inputMode === 'agent' }"
+          @click="inputMode = 'agent'"
+        >智能格式化</button>
       </div>
 
       <!-- 模式1: 选择参考文档 -->
@@ -65,7 +70,91 @@
         </div>
       </template>
 
-      <div v-if="formatItems.length > 0" class="format-list">
+      <!-- 模式3: 智能格式化 -->
+      <template v-if="inputMode === 'agent'">
+        <div class="agent-input-area">
+          <!-- 格式描述输入 -->
+          <textarea
+            class="desc-textarea"
+            v-model="agentDescText"
+            placeholder="输入格式描述，如：&#10;论文题目 黑体 二号&#10;各章标题 黑体小二号&#10;正文 宋体小四号&#10;摘要标题 黑体小二号&#10;摘要内容 宋体小四号&#10;..."
+            rows="8"
+          ></textarea>
+
+          <!-- 可选：参考文档选择 -->
+          <div class="ref-file-row" style="margin-top: 8px">
+            <el-button size="small" @click="selectAgentRefFile" :loading="selectingAgentRef">
+              选择参考文档（可选）
+            </el-button>
+            <el-tooltip v-if="agentRefFileName" :content="agentRefFileName" placement="bottom">
+              <span class="ref-file-name">{{ truncatedName(agentRefFileName) }}</span>
+            </el-tooltip>
+          </div>
+
+          <!-- 分析按钮 -->
+          <el-button
+            type="primary"
+            size="small"
+            class="generate-btn"
+            @click="runSmartAnalyze"
+            :loading="analyzing"
+            :disabled="!agentDescText.trim() && !agentRefFilePath"
+            style="margin-top: 12px"
+          >
+            {{ analyzing ? '分析中...' : '开始分析' }}
+          </el-button>
+        </div>
+
+        <!-- 分析结果 -->
+        <div v-if="agentResults.length > 0" class="format-list">
+          <div class="result-summary">
+            已识别 {{ agentResults.length }} 种段落类型 | Token: {{ agentTokenUsage }}
+          </div>
+          <el-collapse v-model="agentActiveNames">
+            <el-collapse-item
+              v-for="(item, index) in agentResults"
+              :key="index"
+              :name="index"
+              class="format-item"
+            >
+              <template #title>
+                <div class="format-item-header">
+                  <span class="format-name">{{ item.paragraphType }}</span>
+                  <span class="format-type-badge">段落</span>
+                </div>
+              </template>
+              <div class="format-detail" v-if="item.styleDef">
+                <div class="detail-row">字号: {{ item.styleDef.fontSize || '-' }}</div>
+                <div class="detail-row">字体: {{ item.styleDef.fontFamily || '-' }}</div>
+                <div class="detail-row">加粗: {{ item.styleDef.bold ? '是' : '否' }}</div>
+                <div class="detail-row">对齐: {{ item.styleDef.alignment || '-' }}</div>
+              </div>
+              <div class="format-detail" v-else>
+                <div class="detail-row">使用参考文档样式</div>
+              </div>
+            </el-collapse-item>
+          </el-collapse>
+
+          <!-- 输出选项 + 应用按钮 -->
+          <div class="output-options" style="margin: 12px 0">
+            <el-radio-group v-model="outputMode" size="small">
+              <el-radio value="new">导出为新文件</el-radio>
+              <el-radio value="overwrite">覆盖原文件</el-radio>
+            </el-radio-group>
+          </div>
+          <el-button
+            type="success"
+            size="small"
+            @click="runSmartApply"
+            :loading="applying"
+            :disabled="!agentSpec || !agentClassification"
+          >
+            {{ applying ? '应用中...' : '应用格式' }}
+          </el-button>
+        </div>
+      </template>
+
+      <div v-if="inputMode !== 'agent' && formatItems.length > 0" class="format-list">
         <el-collapse v-model="activeNames">
           <el-collapse-item
             v-for="(item, index) in formatItems"
@@ -363,7 +452,7 @@
 import { ref, inject } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
-import { ElButton, ElCollapse, ElCollapseItem, ElMessage, ElTooltip, ElIcon, ElPopover } from 'element-plus'
+import { ElButton, ElCollapse, ElCollapseItem, ElMessage, ElTooltip, ElIcon, ElPopover, ElRadio, ElRadioGroup } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { useApiStore } from '../stores/apiStore'
 
@@ -396,6 +485,20 @@ const descText = ref('')
 const descFileName = ref('')
 const selectingDescFile = ref(false)
 const generating = ref(false)
+
+// ---- SmartFormat Agent 状态 ----
+const agentDescText = ref('')
+const agentRefFilePath = ref('')
+const agentRefFileName = ref('')
+const selectingAgentRef = ref(false)
+const analyzing = ref(false)
+const applying = ref(false)
+const outputMode = ref('new')
+const agentResults = ref([])
+const agentActiveNames = ref([])
+const agentSpec = ref(null)
+const agentClassification = ref(null)
+const agentTokenUsage = ref(0)
 
 const truncatedName = name => (name.length > 20 ? name.slice(0, 20) + '...' : name)
 
@@ -585,6 +688,110 @@ const generateFromDesc = async () => {
     ElMessage.error(t('proof.formatFromDesc.generateFailed'))
   } finally {
     generating.value = false
+  }
+}
+
+// ---- SmartFormat Agent 方法 ----
+const selectAgentRefFile = async () => {
+  selectingAgentRef.value = true
+  try {
+    const filePath = await electronAPI.selectDocxFile()
+    if (!filePath) return
+    agentRefFilePath.value = filePath
+    agentRefFileName.value = filePath.split('\\').pop().split('/').pop()
+  } finally {
+    selectingAgentRef.value = false
+  }
+}
+
+const runSmartAnalyze = async () => {
+  if (!agentDescText.value.trim() && !agentRefFilePath.value) return
+  analyzing.value = true
+  try {
+    const currentApi = apiStore.selectedApi
+    const apiConfig = {
+      apiKey: currentApi.key,
+      modelName: currentApi.name,
+      apiURL: currentApi.URL,
+      provider: currentApi.provider
+    }
+    const result = await electronAPI.smartFormatAnalyze({
+      description: agentDescText.value.trim() || undefined,
+      refFilePath: agentRefFilePath.value || undefined,
+      targetFilePath: targetFilePath.value,
+      apiConfig
+    })
+    if (result.success) {
+      agentSpec.value = result.spec
+      agentClassification.value = result.classification
+      agentTokenUsage.value = result.tokenUsage || 0
+      agentResults.value = buildAgentResults(result.spec, result.classification)
+    } else {
+      ElMessage.error(result.error || '分析失败')
+    }
+  } catch (e) {
+    ElMessage.error('分析出错: ' + (e.message || String(e)))
+  } finally {
+    analyzing.value = false
+  }
+}
+
+const buildAgentResults = (spec, classification) => {
+  const typeCount = new Map()
+  if (classification instanceof Map) {
+    for (const [, type] of classification) {
+      typeCount.set(type, (typeCount.get(type) || 0) + 1)
+    }
+  } else if (Array.isArray(classification)) {
+    for (const [, type] of classification) {
+      typeCount.set(type, (typeCount.get(type) || 0) + 1)
+    }
+  } else if (classification && typeof classification === 'object') {
+    for (const type of Object.values(classification)) {
+      typeCount.set(type, (typeCount.get(type) || 0) + 1)
+    }
+  }
+  const results = []
+  for (const [type, count] of typeCount.entries()) {
+    const styleDef = spec?.styleProfile?.styles?.[type]
+    results.push({
+      paragraphType: type,
+      count,
+      styleDef: styleDef?.runStyle ? {
+        fontSize: styleDef.runStyle.fontSize || '-',
+        fontFamily: styleDef.runStyle.fontFamily?.eastAsia || '-',
+        bold: styleDef.runStyle.bold || false,
+        alignment: styleDef.paragraphStyle?.alignment || '-'
+      } : null
+    })
+  }
+  return results
+}
+
+const runSmartApply = async () => {
+  if (!agentSpec.value || !agentClassification.value) return
+  applying.value = true
+  try {
+    const outputPath = outputMode.value === 'new'
+      ? targetFilePath.value.replace(/\.docx$/i, '_formatted.docx')
+      : targetFilePath.value
+    const result = await electronAPI.smartFormatApply({
+      inputPath: targetFilePath.value,
+      outputPath,
+      spec: agentSpec.value,
+      classification: agentClassification.value
+    })
+    if (result.success) {
+      ElMessage.success(
+        `格式应用完成！${result.appliedParagraphs || 0} 个段落已调整，内容完整性: ${result.contentPreserved ? '✓' : '✗'}`
+      )
+    } else {
+      ElMessage.error(result.error || '应用失败')
+    }
+  } catch (e) {
+    ElMessage.error('应用出错: ' + (e.message || String(e)))
+  } finally {
+    applying.value = false
   }
 }
 
@@ -901,6 +1108,32 @@ const generateFromDesc = async () => {
   font-size: 12px;
   color: #5a6a7a;
   margin-right: 8px;
+}
+
+/* ---- 智能格式化代理 ---- */
+.agent-input-area {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.result-summary {
+  font-size: 12px;
+  color: #8a929e;
+  padding: 4px 0 8px;
+  flex-shrink: 0;
+}
+
+.detail-row {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #5a6a7a;
+  padding: 2px 0;
+}
+
+.output-options {
+  flex-shrink: 0;
 }
 
 </style>
