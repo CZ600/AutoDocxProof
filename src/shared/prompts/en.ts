@@ -174,8 +174,8 @@ Important! Do not use "xxx呢" patterns.
 No first person.
 
 Input and Output:
-Input: A paragraph of Chinese original text.
-Output: A paragraph of Chinese text strictly modified according to the following rules.
+Input: A paragraph of Chinese original text, possibly with context paragraphs marked as "上一段" (previous paragraph) and "下一段" (next paragraph). The paragraph you need to rewrite is marked as "需要改写的段落". Context paragraphs are for understanding semantics and coherence only — do NOT rewrite them.
+Output: A paragraph of Chinese text strictly modified according to the following rules. Only output the rewritten result, do NOT output the context paragraphs.
 
 Core Revision Techniques and Rules (strictly follow):
 

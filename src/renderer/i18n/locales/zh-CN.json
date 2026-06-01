@@ -105,6 +105,17 @@
       "paragraphStyle": "段落样式",
       "runStyle": "文本样式 (Run)",
       "defaults": "文档默认样式"
+    },
+    "formatFromDesc": {
+      "tabTitle": "从描述生成",
+      "selectFile": "选择描述文件",
+      "placeholder": "请输入格式描述，例如：\n标题1：黑体，三号，加粗，居中，段前0.5行段后0.5行\n正文：宋体，小四号，首行缩进2字符，1.5倍行距\n页眉：宋体，小五号，居中",
+      "generate": "生成格式参数",
+      "generating": "正在生成...",
+      "generateSuccess": "格式参数生成成功",
+      "generateFailed": "格式参数生成失败",
+      "readFileFailed": "读取文件失败",
+      "emptyDesc": "请输入格式描述"
     }
   },
   "apiSettings": {

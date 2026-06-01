@@ -151,7 +151,7 @@
               type="primary"
               size="default"
               :loading="formatCloneCloning"
-              :disabled="!formatCloneRefFilePath || !formatCloneTargetFilePath"
+              :disabled="!(formatCloneRefFilePath || formatCloneFormatItems.length > 0) || !formatCloneTargetFilePath"
               @click="formatCloneDoClone"
             >
               {{ t('proof.formatClone.start') }}
@@ -219,6 +219,7 @@ const formatCloneCloning = inject('formatCloneCloning', ref(false))
 const formatCloneRefFilePath = inject('formatCloneRefFilePath', ref(''))
 const formatCloneTargetFilePath = inject('formatCloneTargetFilePath', computed(() => ''))
 const formatCloneDoClone = inject('formatCloneDoClone', () => {})
+const formatCloneFormatItems = inject('formatCloneFormatItems', ref([]))
 const isLoading = ref(false)
 const error = ref('')
 const processing = ref(false)

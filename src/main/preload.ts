@@ -44,8 +44,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   testAPI: (url: string, key: string, modelName: string) => ipcRenderer.invoke('test-api', url, key, modelName),
   testAPIWithProvider: (provider: string, url: string, key: string, modelName: string) =>
     ipcRenderer.invoke('test-api-with-provider', provider, url, key, modelName),
-  selectAPISetting: (url: string, key: string, modelName: string, parallel?: number, TimeLimit?: number | null) =>
-    ipcRenderer.invoke('selectAPISetting', url, key, modelName, parallel, TimeLimit),
+  selectAPISetting: (url: string, key: string, modelName: string, parallel?: number, TimeLimit?: number | null, provider?: string) =>
+    ipcRenderer.invoke('selectAPISetting', url, key, modelName, parallel, TimeLimit, provider),
   getAPISettings: () => ipcRenderer.invoke('get-api-settings', {}),
   // 文档校对处理函数
   processDocx: (
@@ -158,5 +158,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('export-format-cloned', clonedFilePath, originalTargetPath),
   // 获取当前校对背景信息
   getCurrentBackgroundInstruction: () => ipcRenderer.invoke('getCurrentBackgroundInstruction'),
+  // 从格式描述生成格式参数
+  formatFromDescription: (description: string, apiConfig: any, targetFilePath?: string) =>
+    ipcRenderer.invoke('format-from-description', description, apiConfig, targetFilePath),
+  // 读取文本文件内容
+  readTextFile: (filePath: string) =>
+    ipcRenderer.invoke('read-text-file', filePath),
+  // 选择格式描述文件
+  selectFormatDescFile: () =>
+    ipcRenderer.invoke('select-format-desc-file'),
   sendLocale: (locale: string) => ipcRenderer.send('set-locale', locale)
 })

@@ -9,14 +9,61 @@
     </div>
 
     <div class="clone-body">
-      <div class="ref-file-row">
-        <el-button size="small" @click="selectRefFile" :loading="selectingRef">
-          {{ t('proof.formatClone.selectRef') }}
-        </el-button>
-        <el-tooltip v-if="refFileName" :content="refFileName" placement="bottom">
-          <span class="ref-file-name">{{ truncatedName(refFileName) }}</span>
-        </el-tooltip>
+      <!-- 模式切换 Tab -->
+      <div class="mode-tabs">
+        <button
+          class="mode-tab"
+          :class="{ active: inputMode === 'ref' }"
+          @click="inputMode = 'ref'"
+        >{{ t('proof.formatClone.selectRef') }}</button>
+        <button
+          class="mode-tab"
+          :class="{ active: inputMode === 'desc' }"
+          @click="inputMode = 'desc'"
+        >{{ t('proof.formatFromDesc.tabTitle') }}</button>
       </div>
+
+      <!-- 模式1: 选择参考文档 -->
+      <template v-if="inputMode === 'ref'">
+        <div class="ref-file-row">
+          <el-button size="small" @click="selectRefFile" :loading="selectingRef">
+            {{ t('proof.formatClone.selectRef') }}
+          </el-button>
+          <el-tooltip v-if="refFileName" :content="refFileName" placement="bottom">
+            <span class="ref-file-name">{{ truncatedName(refFileName) }}</span>
+          </el-tooltip>
+        </div>
+      </template>
+
+      <!-- 模式2: 从描述生成 -->
+      <template v-if="inputMode === 'desc'">
+        <div class="desc-input-area">
+          <div class="desc-file-row">
+            <el-button size="small" @click="selectDescFile" :loading="selectingDescFile">
+              {{ t('proof.formatFromDesc.selectFile') }}
+            </el-button>
+            <el-tooltip v-if="descFileName" :content="descFileName" placement="bottom">
+              <span class="ref-file-name">{{ truncatedName(descFileName) }}</span>
+            </el-tooltip>
+          </div>
+          <textarea
+            class="desc-textarea"
+            v-model="descText"
+            :placeholder="t('proof.formatFromDesc.placeholder')"
+            rows="6"
+          ></textarea>
+          <el-button
+            type="primary"
+            size="small"
+            class="generate-btn"
+            @click="generateFromDesc"
+            :loading="generating"
+            :disabled="!descText.trim()"
+          >
+            {{ generating ? t('proof.formatFromDesc.generating') : t('proof.formatFromDesc.generate') }}
+          </el-button>
+        </div>
+      </template>
 
       <div v-if="formatItems.length > 0" class="format-list">
         <el-collapse v-model="activeNames">
@@ -313,32 +360,42 @@
 </template>
 
 <script setup>
-import { ref, computed, provide } from 'vue'
+import { ref, inject } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ElButton, ElCollapse, ElCollapseItem, ElMessage, ElTooltip, ElIcon, ElPopover } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import { renderAsync } from 'docx-preview'
-import { fileInfoStore } from '../stores/store'
+import { useApiStore } from '../stores/apiStore'
 
 defineEmits(['back'])
 
 const electronAPI = window.electronAPI
-const fileStore = fileInfoStore()
+const apiStore = useApiStore()
 
-const targetFilePath = computed(() => fileStore.filePath)
+// 注入来自 App.vue 的共享状态（跨兄弟组件）
+const targetFilePath = inject('formatCloneTargetFilePath')
+const refFilePath = inject('formatCloneRefFilePath')
+const clonedFilePath = inject('formatCloneClonedFilePath')
+const cloning = inject('formatCloneCloning')
+const exporting = inject('formatCloneExporting')
+const formatItems = inject('formatCloneFormatItems')
+const defaults = inject('formatCloneDefaults')
+const doClone = inject('formatCloneDoClone')
+const doExport = inject('formatCloneDoExport')
+const buildProfile = inject('formatCloneBuildProfile')
 
-const refFilePath = ref('')
+// 仅在本组件内使用的本地状态
 const refFileName = ref('')
 const selectingRef = ref(false)
-const cloning = ref(false)
-const exporting = ref(false)
-const clonedFilePath = ref('')
-
-const formatItems = ref([])
-const defaults = ref(null)
 const activeNames = ref([])
 const defaultsActive = ref([])
+
+// ---- 从描述生成相关状态 ----
+const inputMode = ref('ref') // 'ref' | 'desc'
+const descText = ref('')
+const descFileName = ref('')
+const selectingDescFile = ref(false)
+const generating = ref(false)
 
 const truncatedName = name => (name.length > 20 ? name.slice(0, 20) + '...' : name)
 
@@ -411,19 +468,6 @@ const setDefaultsColor = (styleType, key, event) => {
   defaults.value[styleType][key] = fromHex(event.target.value)
 }
 
-const buildProfile = () => {
-  const styles = {}
-  for (const item of formatItems.value) {
-    styles[item.id] = {
-      name: item.name,
-      type: item.type,
-      paragraphStyle: item.paragraphStyle,
-      runStyle: item.runStyle
-    }
-  }
-  return { defaults: defaults.value, styles }
-}
-
 const selectRefFile = async () => {
   selectingRef.value = true
   try {
@@ -457,67 +501,94 @@ const selectRefFile = async () => {
   }
 }
 
-const doClone = async () => {
-  cloning.value = true
+// ---- 从描述文件读取内容 ----
+const selectDescFile = async () => {
+  selectingDescFile.value = true
   try {
-    const profile = JSON.parse(JSON.stringify(buildProfile()))
-    const result = await electronAPI.cloneFormatWithProfile(profile, targetFilePath.value)
-    if (result.success) {
-      clonedFilePath.value = result.filePath
-      const fileData = await electronAPI.readDocxFile(result.filePath)
-      const byteCharacters = atob(fileData.content)
-      const byteArrays = []
-      for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-        const slice = byteCharacters.slice(offset, offset + 512)
-        const byteNumbers = new Array(slice.length)
-        for (let i = 0; i < slice.length; i++) {
-          byteNumbers[i] = slice.charCodeAt(i)
+    const filePath = await electronAPI.selectFormatDescFile()
+    if (!filePath) return
+
+    descFileName.value = filePath.split('\\').pop().split('/').pop()
+
+    const ext = filePath.split('.').pop().toLowerCase()
+
+    if (ext === 'docx') {
+      const fileData = await electronAPI.readDocxFile(filePath)
+      if (fileData && fileData.content) {
+        const byteCharacters = atob(fileData.content)
+        const byteNumbers = new Array(byteCharacters.length)
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i)
         }
-        byteArrays.push(new Uint8Array(byteNumbers))
+        const byteArray = new Uint8Array(byteNumbers)
+        const mammoth = require('mammoth')
+        const result = await mammoth.extractRawText({ arrayBuffer: byteArray.buffer })
+        descText.value = result.value || ''
       }
-      const blob = new Blob(byteArrays, {
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      })
-      const file = new File([blob], fileStore.fileName, {
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      })
-      const container = document.querySelector('.preview-container')
-      if (container) {
-        container.innerHTML = ''
-        await renderAsync(file, container)
+    } else {
+      const result = await electronAPI.readTextFile(filePath)
+      if (result.success) {
+        descText.value = result.content
+      } else {
+        ElMessage.error(t('proof.formatFromDesc.readFileFailed'))
       }
-      ElMessage.success(t('proof.formatClone.cloneSuccess'))
     }
   } catch (e) {
-    ElMessage.error(t('proof.formatClone.failed'))
+    ElMessage.error(t('proof.formatFromDesc.readFileFailed'))
   } finally {
-    cloning.value = false
+    selectingDescFile.value = false
   }
 }
 
-const doExport = async () => {
-  if (!clonedFilePath.value) return
-  exporting.value = true
+// ---- 调用大模型生成格式参数 ----
+const generateFromDesc = async () => {
+  if (!descText.value.trim()) {
+    ElMessage.warning(t('proof.formatFromDesc.emptyDesc'))
+    return
+  }
+  generating.value = true
+  clonedFilePath.value = ''
   try {
-    const result = await electronAPI.exportFormatCloned(clonedFilePath.value, targetFilePath.value)
-    if (result?.canceled) return
-    if (result?.success) {
-      ElMessage.success(t('proof.messages.exportSuccess') + (result.filePath || ''))
+    // 从 Pinia store 取当前 API 配置传给主进程，不依赖全局 api_info
+    const currentApi = apiStore.selectedApi
+    const apiConfig = {
+      apiKey: currentApi.key,
+      modelName: currentApi.name,
+      apiURL: currentApi.URL,
+      provider: currentApi.provider
     }
+    const result = await electronAPI.formatFromDescription(descText.value.trim(), apiConfig, targetFilePath.value)
+    if (!result.success) {
+      ElMessage.error(result.error || t('proof.formatFromDesc.generateFailed'))
+      return
+    }
+
+    const profile = result.profile
+    defaults.value = profile.defaults || null
+
+    const items = []
+    for (const [id, style] of Object.entries(profile.styles || {})) {
+      items.push({
+        id,
+        name: style.name || id,
+        type: style.type || 'paragraph',
+        paragraphStyle: { ...(style.paragraphStyle || {}) },
+        runStyle: { ...(style.runStyle || {}) }
+      })
+    }
+    formatItems.value = items
+    if (items.length > 0) activeNames.value = [0]
+    if (defaults.value) defaultsActive.value = ['defaults']
+
+    ElMessage.success(t('proof.formatFromDesc.generateSuccess'))
   } catch (e) {
-    ElMessage.error(t('proof.messages.exportFailed') + e.message)
+    ElMessage.error(t('proof.formatFromDesc.generateFailed'))
   } finally {
-    exporting.value = false
+    generating.value = false
   }
 }
 
-provide('formatCloneClonedFilePath', clonedFilePath)
-provide('formatCloneExporting', exporting)
-provide('formatCloneDoExport', doExport)
-provide('formatCloneCloning', cloning)
-provide('formatCloneRefFilePath', refFilePath)
-provide('formatCloneTargetFilePath', targetFilePath)
-provide('formatCloneDoClone', doClone)
+
 </script>
 
 <style scoped>
@@ -554,6 +625,42 @@ provide('formatCloneDoClone', doClone)
   overflow: hidden;
 }
 
+/* ---- 模式切换 Tab ---- */
+.mode-tabs {
+  display: flex;
+  gap: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #d0d5dd;
+  flex-shrink: 0;
+}
+
+.mode-tab {
+  flex: 1;
+  padding: 7px 0;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  background: #f5f6f8;
+  color: #8a929e;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mode-tab:not(:last-child) {
+  border-right: 1px solid #d0d5dd;
+}
+
+.mode-tab.active {
+  background: #ffffff;
+  color: #4a6580;
+  font-weight: 600;
+}
+
+.mode-tab:hover:not(.active) {
+  background: #edf0f4;
+}
+
 .ref-file-row {
   display: flex;
   align-items: center;
@@ -568,6 +675,50 @@ provide('formatCloneDoClone', doClone)
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 120px;
+}
+
+/* ---- 描述输入区域 ---- */
+.desc-input-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.desc-file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.desc-textarea {
+  width: 100%;
+  min-height: 100px;
+  max-height: 200px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #4a6580;
+  background: #f8fafb;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  resize: vertical;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.desc-textarea:focus {
+  border-color: #7b9eb8;
+  background: #ffffff;
+}
+
+.desc-textarea::placeholder {
+  color: #b0b8c4;
+}
+
+.generate-btn {
+  align-self: flex-end;
 }
 
 .format-list {

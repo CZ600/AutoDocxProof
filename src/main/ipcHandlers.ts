@@ -3,7 +3,7 @@ import { dialog } from 'electron'
 import * as path from 'path'
 import { DB } from './database'
 import { testAPI, testAPIWithProvider } from './chat'
-import { ModelProvider } from '../shared/modelProviders'
+import { ModelProvider, getProviderBaseURL } from '../shared/modelProviders'
 import {
   proofreadDocument,
   reduceAIDetectionDocument,
@@ -22,6 +22,7 @@ import { Mode } from '@google/genai'
 import * as mammoth from 'mammoth'
 import { replaceTextInDocx } from './wordProcess'
 import { cloneFormat, extractFormatProfile, cloneFormatWithProfile } from './formatClone'
+import { formatDescriptionToProfile } from './formatFromDesc'
 import {
   deleteRepository,
   initLanceDB,
@@ -910,6 +911,88 @@ export const registerIpcHandlers = () => {
   // 获取当前校对背景信息
   ipcMain.handle('getCurrentBackgroundInstruction', async () => {
     return getCurrentBackgroundInstruction()
+  })
+
+  // 从格式描述生成格式参数（调用大模型）
+  ipcMain.handle('format-from-description', async (event, description: string, apiConfig?: any, targetFilePath?: string) => {
+    try {
+      // 优先使用前端传入的 apiConfig，兜底用全局 api_info
+      const apiKey = apiConfig?.apiKey || api_info.apiKey
+      const modelName = apiConfig?.modelName || api_info.modelName
+      const provider = apiConfig?.provider || api_info.provider || ModelProvider.OPENAI_COMPATIBLE
+      const apiURL = apiConfig?.apiURL || api_info.apiURL || getProviderBaseURL(provider) || ''
+
+      console.log('[format-from-desc] using apiKey:', !!apiKey, 'modelName:', modelName, 'provider:', provider, 'apiURL:', apiURL)
+
+      if (!apiKey || !modelName) {
+        return { success: false, error: '请先选择 API 设置' }
+      }
+      if (!description || !description.trim()) {
+        return { success: false, error: '请输入格式描述' }
+      }
+
+      // 提取目标文档的样式名列表，供 LLM 生成可匹配的 name
+      let targetStyleEntries: { name: string; type: string }[] | undefined
+      if (targetFilePath) {
+        try {
+          const { loadDocx } = require('docx-edit')
+          const targetDoc = await loadDocx(targetFilePath)
+          const dstProfile = targetDoc.getStyleProfile()
+          targetStyleEntries = Object.values(dstProfile.styles || {}).map((s: any) => ({
+            name: s.name,
+            type: s.type
+          })).filter((e: any) => e.name)
+          console.log('[format-from-desc] target style entries:', JSON.stringify(targetStyleEntries))
+        } catch (e) {
+          console.warn('[format-from-desc] failed to read target doc styles:', e)
+        }
+      }
+
+      const { profile, tokenUsage } = await formatDescriptionToProfile(
+        description,
+        apiKey,
+        modelName,
+        apiURL,
+        provider,
+        targetStyleEntries
+      )
+      return { success: true, profile: JSON.parse(JSON.stringify(profile)), tokenUsage }
+    } catch (error: any) {
+      console.error('格式描述转换失败:', error)
+      return { success: false, error: error.message || '格式描述转换失败' }
+    }
+  })
+
+  // 读取文本文件内容（txt/md）
+  ipcMain.handle('read-text-file', async (event, filePath: string) => {
+    try {
+      const fs = require('fs')
+      const content = await fs.promises.readFile(filePath, 'utf-8')
+      return { success: true, content }
+    } catch (error: any) {
+      console.error('读取文本文件失败:', error)
+      return { success: false, error: error.message || '读取文件失败' }
+    }
+  })
+
+  // 选择文本/文档文件（txt/md/docx）
+  ipcMain.handle('select-format-desc-file', async () => {
+    try {
+      const result = await dialog.showOpenDialog({
+        title: '选择格式描述文件',
+        filters: [
+          { name: '支持的文件', extensions: ['txt', 'md', 'docx'] }
+        ],
+        properties: ['openFile']
+      })
+      if (result.canceled || result.filePaths.length === 0) {
+        return null
+      }
+      return result.filePaths[0]
+    } catch (error) {
+      console.error('文件选择错误:', error)
+      throw error
+    }
   })
 
   ipcMain.on('set-locale', (_event, locale: 'zh-CN' | 'en') => {

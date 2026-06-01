@@ -78,11 +78,14 @@
 
 <script setup>
 import './assets/css/common.css'
-import { computed, ref, provide } from 'vue'
+import { computed, ref, provide, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { HomeFilled, InfoFilled, Setting, Clock, Collection, Sunny, Moon } from '@element-plus/icons-vue'
 import { useDark, useToggle } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
+import { renderAsync } from 'docx-preview'
+import { fileInfoStore } from './stores/store'
 import { useLocaleStore } from './stores/localeStore'
 import en from 'element-plus/es/locale/lang/en'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
@@ -105,8 +108,104 @@ const activeMode = ref('proof')
 provide('activeMode', activeMode)
 provide('setActiveMode', (mode) => { activeMode.value = mode })
 
+// 离开校对页面时自动退出格式克隆模式
+watch(() => route.path, (newPath) => {
+  if (newPath !== '/proof' && activeMode.value !== 'proof') {
+    activeMode.value = 'proof'
+  }
+})
+
 const currentPath = computed(() => route.path)
 const elementLocale = computed(() => (localeStore.locale === 'en' ? en : zhCn))
+
+// ---- 格式克隆共享状态（DocPreview 与 FormatClone 兄弟组件通信）----
+const fileStore = fileInfoStore()
+const refFilePath = ref('')
+const clonedFilePath = ref('')
+const cloning = ref(false)
+const exporting = ref(false)
+const formatItems = ref([])
+const defaults = ref(null)
+const targetFilePath = computed(() => fileStore.filePath)
+
+const buildProfile = () => {
+  const styles = {}
+  for (const item of formatItems.value) {
+    styles[item.id] = {
+      name: item.name,
+      type: item.type,
+      paragraphStyle: item.paragraphStyle,
+      runStyle: item.runStyle
+    }
+  }
+  return { defaults: defaults.value, styles }
+}
+
+const formatCloneDoClone = async () => {
+  cloning.value = true
+  try {
+    const profile = JSON.parse(JSON.stringify(buildProfile()))
+    const result = await electronAPI.cloneFormatWithProfile(profile, targetFilePath.value)
+    if (result.success) {
+      clonedFilePath.value = result.filePath
+      const fileData = await electronAPI.readDocxFile(result.filePath)
+      const byteCharacters = atob(fileData.content)
+      const byteArrays = []
+      for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+        const slice = byteCharacters.slice(offset, offset + 512)
+        const byteNumbers = new Array(slice.length)
+        for (let i = 0; i < slice.length; i++) {
+          byteNumbers[i] = slice.charCodeAt(i)
+        }
+        byteArrays.push(new Uint8Array(byteNumbers))
+      }
+      const blob = new Blob(byteArrays, {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      })
+      const file = new File([blob], fileStore.fileName, {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      })
+      const container = document.querySelector('.preview-container')
+      if (container) {
+        container.innerHTML = ''
+        await renderAsync(file, container)
+      }
+      ElMessage.success(t('proof.formatClone.cloneSuccess'))
+    }
+  } catch (e) {
+    ElMessage.error(t('proof.formatClone.failed'))
+  } finally {
+    cloning.value = false
+  }
+}
+
+const formatCloneDoExport = async () => {
+  if (!clonedFilePath.value) return
+  exporting.value = true
+  try {
+    const result = await electronAPI.exportFormatCloned(clonedFilePath.value, targetFilePath.value)
+    if (result?.canceled) return
+    if (result?.success) {
+      ElMessage.success(t('proof.messages.exportSuccess') + (result.filePath || ''))
+    }
+  } catch (e) {
+    ElMessage.error(t('proof.messages.exportFailed') + e.message)
+  } finally {
+    exporting.value = false
+  }
+}
+
+provide('formatCloneRefFilePath', refFilePath)
+provide('formatCloneTargetFilePath', targetFilePath)
+provide('formatCloneClonedFilePath', clonedFilePath)
+provide('formatCloneCloning', cloning)
+provide('formatCloneExporting', exporting)
+provide('formatCloneFormatItems', formatItems)
+provide('formatCloneDefaults', defaults)
+provide('formatCloneDoClone', formatCloneDoClone)
+provide('formatCloneDoExport', formatCloneDoExport)
+provide('formatCloneBuildProfile', buildProfile)
+// ----------------------------------------------------------------
 
 const getEnv = async () => {
   const envPath = await electronAPI.getEnvPath()

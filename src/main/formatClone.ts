@@ -1,4 +1,5 @@
 const { loadDocx } = require('docx-edit')
+import { STYLE_NAME_ALIASES, styleNameMatches } from '../shared/styleAliases'
 
 export async function extractFormatProfile(filePath: string): Promise<any> {
   const doc = await loadDocx(filePath)
@@ -50,9 +51,10 @@ async function applyClone(
     for (const [dstId, dstStyle] of Object.entries(dstProfile.styles)) {
       const src = srcStyle as any
       const dst = dstStyle as any
-      if (dst.name === src.name && dst.type === src.type) {
+      // 使用模糊名称匹配：支持精确/忽略大小写/去空格/别名表
+      if (styleNameMatches(src.name, dst.name) && dst.type === src.type) {
         mappedProfile.styles[dstId] = {
-          name: src.name,
+          name: dst.name,
           type: src.type,
           basedOn: dst.basedOn,
           paragraphStyle: src.paragraphStyle || {},

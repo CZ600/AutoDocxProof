@@ -185,7 +185,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 export async function runWithLimits<T, R>(
   items: T[],
   maxConcurrency: number,
-  processor: (item: T) => Promise<R>,
+  processor: (item: T, index: number) => Promise<R>,
   options?: {
     requestsPerMinute?: number
     onItemCompleted?: (completed: number, total: number) => void
@@ -226,7 +226,7 @@ export async function runWithLimits<T, R>(
 
     const execute = async () => {
       try {
-        results[i] = await processor(items[i])
+        results[i] = await processor(items[i], i)
         completedCount += 1
         onItemCompleted?.(completedCount, items.length)
       } catch (error) {
@@ -470,6 +470,20 @@ async function parseWordDocument(documentPath: string): Promise<DocumentStructur
     if (currentSection && sectionContent.length > 0) {
       currentSection.content = sectionContent.join('\n')
       sections.push(currentSection)
+    }
+
+    // 兜底：如果没有任何标题被检测到，按自然段划分文档
+    if (sections.length === 0 && lines.length > 0) {
+      documentTitle = lines[0].trim().slice(0, 50)
+      for (let i = 0; i < lines.length; i++) {
+        const content = lines[i].trim()
+        if (content.length === 0) continue
+        sections.push({
+          title: `${documentTitle} - 段落 ${i + 1}`,
+          content,
+          level: 1
+        })
+      }
     }
 
     return {
@@ -1188,12 +1202,22 @@ export async function reduceAIDetectionDocument(
       const results = await runWithLimits(
       validParagraphs,
       parallelSet,
-      async (para) => {
-        // 将 [[FOOTNOTE_REF:x]] 替换为 [脚注x]，让 LLM 保留
-        const contentForLLM = footnotePlaceholderToHuman(para.content)
+      async (para, index) => {
+        // 构建带上下文的用户消息
+        const prevPara = index > 0 ? validParagraphs[index - 1] : null
+        const nextPara = index < validParagraphs.length - 1 ? validParagraphs[index + 1] : null
+        let userMessage = ''
+        if (prevPara) {
+          userMessage += `[上一段]\n${footnotePlaceholderToHuman(prevPara.content)}\n\n`
+        }
+        userMessage += `[需要改写的段落]\n${footnotePlaceholderToHuman(para.content)}`
+        if (nextPara) {
+          userMessage += `\n\n[下一段]\n${footnotePlaceholderToHuman(nextPara.content)}`
+        }
+
         const { result, total_tokens: tokens } = await callModelAPI(
           reducePrompt,
-          contentForLLM,
+          userMessage,
           apiKey,
           modelName,
           apiURL,

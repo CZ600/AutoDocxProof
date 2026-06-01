@@ -105,6 +105,17 @@
       "paragraphStyle": "Paragraph Style",
       "runStyle": "Run Style",
       "defaults": "Document Defaults"
+    },
+    "formatFromDesc": {
+      "tabTitle": "From Description",
+      "selectFile": "Select Description File",
+      "placeholder": "Enter format description, e.g.:\nHeading 1: SimHei, size 3, bold, centered, 0.5 line spacing before and after\nBody text: SimSun, size 4, first-line indent 2 chars, 1.5x line spacing\nHeader: SimSun, size 5, centered",
+      "generate": "Generate Format",
+      "generating": "Generating...",
+      "generateSuccess": "Format parameters generated successfully",
+      "generateFailed": "Failed to generate format parameters",
+      "readFileFailed": "Failed to read file",
+      "emptyDesc": "Please enter a format description"
     }
   },
   "apiSettings": {
