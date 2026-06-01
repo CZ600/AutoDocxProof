@@ -167,5 +167,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 选择格式描述文件
   selectFormatDescFile: () =>
     ipcRenderer.invoke('select-format-desc-file'),
-  sendLocale: (locale: string) => ipcRenderer.send('set-locale', locale)
+  sendLocale: (locale: string) => ipcRenderer.send('set-locale', locale),
+  // SmartFormatAgent
+  smartFormatAnalyze: (params: any) => ipcRenderer.invoke('smart-format-analyze', params),
+  smartFormatApply: (params: any) => ipcRenderer.invoke('smart-format-apply', params)
 })

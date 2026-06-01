@@ -23,6 +23,8 @@ import * as mammoth from 'mammoth'
 import { replaceTextInDocx } from './wordProcess'
 import { cloneFormat, extractFormatProfile, cloneFormatWithProfile } from './formatClone'
 import { formatDescriptionToProfile } from './formatFromDesc'
+import { SmartFormatAgent } from './smartFormatAgent'
+import { ParagraphType } from './smartFormatApply'
 import {
   deleteRepository,
   initLanceDB,
@@ -992,6 +994,56 @@ export const registerIpcHandlers = () => {
     } catch (error) {
       console.error('文件选择错误:', error)
       throw error
+    }
+  })
+
+  // SmartFormatAgent: format analyze
+  const formatAgent = new SmartFormatAgent()
+
+  ipcMain.handle('smart-format-analyze', async (event, params: {
+    description?: string
+    refFilePath?: string
+    targetFilePath: string
+    apiConfig: any
+  }) => {
+    try {
+      const result = await formatAgent.analyze({
+        description: params.description,
+        refFilePath: params.refFilePath,
+        targetFilePath: params.targetFilePath,
+        apiConfig: params.apiConfig
+      })
+      // Convert Map to JSON-serializable array for IPC
+      const classificationArray = Array.from(result.classification.entries())
+      return {
+        success: true,
+        spec: result.spec,
+        classification: classificationArray,
+        tokenUsage: result.tokenUsage,
+        fallbackMode: result.fallbackMode
+      }
+    } catch (error: any) {
+      return { success: false, error: error.message || String(error) }
+    }
+  })
+
+  ipcMain.handle('smart-format-apply', async (event, params: {
+    inputPath: string
+    outputPath: string
+    spec: any
+    classification: Array<[number, string]>
+  }) => {
+    try {
+      const classificationMap = new Map(params.classification) as Map<number, ParagraphType>
+      const result = await formatAgent.apply(
+        params.inputPath,
+        params.outputPath,
+        params.spec,
+        classificationMap
+      )
+      return { ...result }
+    } catch (error: any) {
+      return { success: false, error: error.message || String(error) }
     }
   })
 
