@@ -41,6 +41,32 @@ export interface SmartFormatSpec {
   }
 }
 
+export type ParagraphType =
+  | 'paper-title'
+  | 'chapter-title'
+  | 'section-1-title'
+  | 'section-2-title'
+  | 'section-3-title'
+  | 'item-title'
+  | 'body'
+  | 'abstract-cn-title'
+  | 'abstract-cn-content'
+  | 'abstract-en-title'
+  | 'abstract-en-content'
+  | 'keywords-cn-title'
+  | 'keywords-cn-body'
+  | 'keywords-en-title'
+  | 'keywords-en-body'
+  | 'conclusion-title'
+  | 'conclusion-content'
+  | 'references-title'
+  | 'references-content'
+  | 'toc-title'
+  | 'toc-chapter'
+  | 'toc-other'
+  | 'acknowledgement-title'
+  | 'appendix-title'
+
 export interface ParagraphFormatRule {
   /** Matching criteria - at least one must be provided */
   match: {
@@ -52,6 +78,8 @@ export interface ParagraphFormatRule {
     styleName?: string
     /** Match by section type */
     sectionType?: 'abstract' | 'keywords' | 'toc' | 'conclusion' | 'references' | 'acknowledgement' | 'appendix'
+    /** Match by paragraph type classification (e.g. abstract-cn-title, body, etc.) */
+    paragraphType?: ParagraphType
   }
 
   /** Format to apply */
@@ -356,12 +384,13 @@ function applyPageSettings(doc: any, pageSettings: SmartFormatSpec['pageSettings
 /**
  * 检查一个段落是否匹配给定的规则。
  */
-function paragraphMatchesRule(
+export function paragraphMatchesRule(
   paragraph: any,
   rule: ParagraphFormatRule,
   styleProfile: any,
   sectionRanges: SectionRange[],
-  paraIndex: number
+  paraIndex: number,
+  paragraphTypeMap?: Map<number, string>
 ): boolean {
   const match = rule.match
   let hasCriteria = false
@@ -402,6 +431,15 @@ function paragraphMatchesRule(
     }
   }
 
+  // paragraphType 匹配（通过外部传入的分类映射表）
+  if (match.paragraphType) {
+    hasCriteria = true
+    const actualType = paragraphTypeMap?.get(paraIndex)
+    if (!actualType || actualType !== match.paragraphType) {
+      return false
+    }
+  }
+
   // 至少需要一个匹配条件
   return hasCriteria
 }
@@ -424,7 +462,8 @@ function paragraphMatchesRule(
 export async function applySmartFormat(
   inputPath: string,
   outputPath: string,
-  spec: SmartFormatSpec
+  spec: SmartFormatSpec,
+  paragraphTypeMap?: Map<number, string>
 ): Promise<SmartFormatResult> {
   let doc: any = null
   let appliedStyles = 0
@@ -460,7 +499,7 @@ export async function applySmartFormat(
 
           for (const rule of spec.paragraphRules!) {
             // 检查是否匹配
-            if (!paragraphMatchesRule(paragraph, rule, styleProfile, sectionRanges, i)) {
+            if (!paragraphMatchesRule(paragraph, rule, styleProfile, sectionRanges, i, paragraphTypeMap)) {
               continue
             }
 
