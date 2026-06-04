@@ -64,7 +64,7 @@
         <div class="top-toolbar"></div>
         <div class="content-row">
           <main class="function-panel">
-            <FormatClone v-if="activeMode === 'format-clone'" @back="activeMode = 'proof'" />
+            <FormatClone v-if="activeMode === 'format-clone'" ref="formatCloneRef" @back="activeMode = 'proof'" />
             <router-view v-else />
           </main>
           <section class="preview-panel">
@@ -80,11 +80,9 @@
 import './assets/css/common.css'
 import { computed, ref, provide, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import { HomeFilled, InfoFilled, Setting, Clock, Collection, Sunny, Moon } from '@element-plus/icons-vue'
 import { useDark, useToggle } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
-import { renderAsync } from 'docx-preview'
 import { fileInfoStore } from './stores/store'
 import { useLocaleStore } from './stores/localeStore'
 import en from 'element-plus/es/locale/lang/en'
@@ -118,93 +116,28 @@ watch(() => route.path, (newPath) => {
 const currentPath = computed(() => route.path)
 const elementLocale = computed(() => (localeStore.locale === 'en' ? en : zhCn))
 
-// ---- 格式克隆共享状态（DocPreview 与 FormatClone 兄弟组件通信）----
+// ---- 格式克隆：FormatClone 内部管理状态，App.vue 仅做 provide 桥接 ----
 const fileStore = fileInfoStore()
-const refFilePath = ref('')
-const clonedFilePath = ref('')
-const cloning = ref(false)
-const exporting = ref(false)
-const formatItems = ref([])
-const defaults = ref(null)
-const targetFilePath = computed(() => fileStore.filePath)
+const formatCloneRef = ref(null)
 
-const buildProfile = () => {
-  const styles = {}
-  for (const item of formatItems.value) {
-    styles[item.id] = {
-      name: item.name,
-      type: item.type,
-      paragraphStyle: item.paragraphStyle,
-      runStyle: item.runStyle
-    }
-  }
-  return { defaults: defaults.value, styles }
-}
+// 桥接 FormatClone defineExpose 的状态给 DocPreview
+const fcRefFilePath = computed(() => formatCloneRef.value?.refFilePath?.value ?? '')
+const fcTargetFilePath = computed(() => fileStore.filePath)
+const fcClonedFilePath = computed(() => formatCloneRef.value?.clonedFilePath?.value ?? '')
+const fcCloning = computed(() => formatCloneRef.value?.cloning?.value ?? false)
+const fcExporting = computed(() => formatCloneRef.value?.exporting?.value ?? false)
+const fcFormatItems = computed(() => formatCloneRef.value?.formatItems?.value ?? [])
+const fcDoClone = () => formatCloneRef.value?.doClone?.()
+const fcDoExport = () => formatCloneRef.value?.doExport?.()
 
-const formatCloneDoClone = async () => {
-  cloning.value = true
-  try {
-    const profile = JSON.parse(JSON.stringify(buildProfile()))
-    const result = await electronAPI.cloneFormatWithProfile(profile, targetFilePath.value)
-    if (result.success) {
-      clonedFilePath.value = result.filePath
-      const fileData = await electronAPI.readDocxFile(result.filePath)
-      const byteCharacters = atob(fileData.content)
-      const byteArrays = []
-      for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-        const slice = byteCharacters.slice(offset, offset + 512)
-        const byteNumbers = new Array(slice.length)
-        for (let i = 0; i < slice.length; i++) {
-          byteNumbers[i] = slice.charCodeAt(i)
-        }
-        byteArrays.push(new Uint8Array(byteNumbers))
-      }
-      const blob = new Blob(byteArrays, {
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      })
-      const file = new File([blob], fileStore.fileName, {
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      })
-      const container = document.querySelector('.preview-container')
-      if (container) {
-        container.innerHTML = ''
-        await renderAsync(file, container)
-      }
-      ElMessage.success(t('proof.formatClone.cloneSuccess'))
-    }
-  } catch (e) {
-    ElMessage.error(t('proof.formatClone.failed'))
-  } finally {
-    cloning.value = false
-  }
-}
-
-const formatCloneDoExport = async () => {
-  if (!clonedFilePath.value) return
-  exporting.value = true
-  try {
-    const result = await electronAPI.exportFormatCloned(clonedFilePath.value, targetFilePath.value)
-    if (result?.canceled) return
-    if (result?.success) {
-      ElMessage.success(t('proof.messages.exportSuccess') + (result.filePath || ''))
-    }
-  } catch (e) {
-    ElMessage.error(t('proof.messages.exportFailed') + e.message)
-  } finally {
-    exporting.value = false
-  }
-}
-
-provide('formatCloneRefFilePath', refFilePath)
-provide('formatCloneTargetFilePath', targetFilePath)
-provide('formatCloneClonedFilePath', clonedFilePath)
-provide('formatCloneCloning', cloning)
-provide('formatCloneExporting', exporting)
-provide('formatCloneFormatItems', formatItems)
-provide('formatCloneDefaults', defaults)
-provide('formatCloneDoClone', formatCloneDoClone)
-provide('formatCloneDoExport', formatCloneDoExport)
-provide('formatCloneBuildProfile', buildProfile)
+provide('formatCloneRefFilePath', fcRefFilePath)
+provide('formatCloneTargetFilePath', fcTargetFilePath)
+provide('formatCloneClonedFilePath', fcClonedFilePath)
+provide('formatCloneCloning', fcCloning)
+provide('formatCloneExporting', fcExporting)
+provide('formatCloneFormatItems', fcFormatItems)
+provide('formatCloneDoClone', fcDoClone)
+provide('formatCloneDoExport', fcDoExport)
 // ----------------------------------------------------------------
 
 const getEnv = async () => {

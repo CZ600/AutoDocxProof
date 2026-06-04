@@ -146,25 +146,8 @@
             {{ t('proof.exportResult') }}
           </el-button>
           </template>
+          <!-- Format clone 的开始/导出按钮已移至 FormatClone.vue 内部 -->
           <template v-else>
-            <el-button
-              type="primary"
-              size="default"
-              :loading="formatCloneCloning"
-              :disabled="!(formatCloneRefFilePath || formatCloneFormatItems.length > 0) || !formatCloneTargetFilePath"
-              @click="formatCloneDoClone"
-            >
-              {{ t('proof.formatClone.start') }}
-            </el-button>
-            <el-button
-              type="success"
-              size="default"
-              :disabled="!formatCloneClonedFilePath"
-              :loading="formatCloneExporting"
-              @click="formatCloneDoExport"
-            >
-              {{ t('proof.formatClone.export') }}
-            </el-button>
           </template>
         </div>
       </div>
@@ -212,14 +195,6 @@ const isDark = useDark()
 const previewContainer = inject('previewContainer')
 const activeMode = inject('activeMode')
 const setActiveMode = inject('setActiveMode')
-const formatCloneClonedFilePath = inject('formatCloneClonedFilePath', ref(''))
-const formatCloneExporting = inject('formatCloneExporting', ref(false))
-const formatCloneDoExport = inject('formatCloneDoExport', () => {})
-const formatCloneCloning = inject('formatCloneCloning', ref(false))
-const formatCloneRefFilePath = inject('formatCloneRefFilePath', ref(''))
-const formatCloneTargetFilePath = inject('formatCloneTargetFilePath', computed(() => ''))
-const formatCloneDoClone = inject('formatCloneDoClone', () => {})
-const formatCloneFormatItems = inject('formatCloneFormatItems', ref([]))
 const isLoading = ref(false)
 const error = ref('')
 const processing = ref(false)

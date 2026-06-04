@@ -140,11 +140,16 @@ function getParagraphStyleName(paragraph: any, styleProfile: any): string {
  */
 function findStyleIdByName(name: string, styleProfile: any): string | null {
   if (!styleProfile?.styles) return null
+  // 1) 按样式的 .name 属性模糊匹配
   for (const [styleId, style] of Object.entries(styleProfile.styles)) {
     const s = style as any
     if (s.name && styleNameMatches(s.name, name)) {
       return styleId
     }
+  }
+  // 2) 兜底：按 styleId（key）精确匹配（mapRefProfileToRules 用 paragraphType 作 key）
+  if (styleProfile.styles[name] !== undefined) {
+    return name
   }
   return null
 }

@@ -83,6 +83,11 @@ export default interface ElectronApi {
     path: string
     content: string
   }
+  extractDocxText: (filePath: string) => Promise<{
+    success: boolean
+    text?: string
+    error?: string
+  }>
   // api设置和管理（接入数据库）
   APISettings: (URL: string, Key: string, modelName: string, provider?: string) => Promise<string>
   updateAPISetting: (id: number, URL: string, Key: string, modelName: string, provider?: string) => Promise<boolean>

@@ -128,6 +128,18 @@ export const registerIpcHandlers = () => {
     }
   })
 
+  // 从 .docx 文件中提取纯文本（主进程执行 mammoth）
+  ipcMain.handle('extract-docx-text', async (event, filePath) => {
+    try {
+      const data = await fs.promises.readFile(filePath)
+      const result = await mammoth.extractRawText({ buffer: data })
+      return { success: true, text: result.value || '' }
+    } catch (error: any) {
+      console.error('extract-docx-text failed:', error)
+      return { success: false, error: error.message || String(error) }
+    }
+  })
+
   ipcMain.handle('set-api', async (event, URL, Key, modelName, provider = ModelProvider.OPENAI_COMPATIBLE) => {
     try {
       console.log('add a new api setting:', URL, Key, modelName, provider)

@@ -1107,10 +1107,12 @@ vi.mock('../src/main/formatClone', () => ({
 const mockExtractFormatProfile = extractFormatProfile as ReturnType<typeof vi.fn>
 
 // Mock applySmartFormat — preserve all other exports from smartFormatApply
-vi.mock('../src/main/smartFormatApply', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/main/smartFormatApply')>()
+// Note: bun test does not support importOriginal callback, so we import manually
+import * as smartFormatApplyActual from '../src/main/smartFormatApply'
+
+vi.mock('../src/main/smartFormatApply', () => {
   return {
-    ...actual,
+    ...smartFormatApplyActual,
     applySmartFormat: vi.fn(),
   }
 })

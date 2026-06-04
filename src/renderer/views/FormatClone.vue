@@ -9,28 +9,11 @@
     </div>
 
     <div class="clone-body">
-      <!-- 模式切换 Tab -->
-      <div class="mode-tabs">
-        <button
-          class="mode-tab"
-          :class="{ active: inputMode === 'ref' }"
-          @click="inputMode = 'ref'"
-        >{{ t('proof.formatClone.selectRef') }}</button>
-        <button
-          class="mode-tab"
-          :class="{ active: inputMode === 'desc' }"
-          @click="inputMode = 'desc'"
-        >{{ t('proof.formatFromDesc.tabTitle') }}</button>
-        <button
-          class="mode-tab"
-          :class="{ active: inputMode === 'agent' }"
-          @click="inputMode = 'agent'"
-        >智能格式化</button>
-      </div>
-
-      <!-- 模式1: 选择参考文档 -->
-      <template v-if="inputMode === 'ref'">
-        <div class="ref-file-row">
+      <!-- ====== Input Section (compact, top) ====== -->
+      <div class="input-section">
+        <!-- Reference doc selector -->
+        <div class="input-row">
+          <span class="input-label">📄 参考文档</span>
           <el-button size="small" @click="selectRefFile" :loading="selectingRef">
             {{ t('proof.formatClone.selectRef') }}
           </el-button>
@@ -38,467 +21,425 @@
             <span class="ref-file-name">{{ truncatedName(refFileName) }}</span>
           </el-tooltip>
         </div>
-      </template>
 
-      <!-- 模式2: 从描述生成 -->
-      <template v-if="inputMode === 'desc'">
-        <div class="desc-input-area">
-          <div class="desc-file-row">
-            <el-button size="small" @click="selectDescFile" :loading="selectingDescFile">
-              {{ t('proof.formatFromDesc.selectFile') }}
-            </el-button>
-            <el-tooltip v-if="descFileName" :content="descFileName" placement="bottom">
-              <span class="ref-file-name">{{ truncatedName(descFileName) }}</span>
-            </el-tooltip>
-          </div>
-          <textarea
-            class="desc-textarea"
-            v-model="descText"
-            :placeholder="t('proof.formatFromDesc.placeholder')"
-            rows="6"
-          ></textarea>
-          <el-button
-            type="primary"
-            size="small"
-            class="generate-btn"
-            @click="generateFromDesc"
-            :loading="generating"
-            :disabled="!descText.trim()"
-          >
-            {{ generating ? t('proof.formatFromDesc.generating') : t('proof.formatFromDesc.generate') }}
+        <!-- Description file selector -->
+        <div class="input-row">
+          <span class="input-label">📝 格式描述</span>
+          <el-button size="small" @click="selectDescFile" :loading="selectingDescFile">
+            {{ t('proof.formatFromDesc.selectFile') }}
           </el-button>
+          <el-tooltip v-if="descFileName" :content="descFileName" placement="bottom">
+            <span class="ref-file-name">{{ truncatedName(descFileName) }}</span>
+          </el-tooltip>
         </div>
-      </template>
 
-      <!-- 模式3: 智能格式化 -->
-      <template v-if="inputMode === 'agent'">
-        <div class="agent-input-area">
-          <!-- 格式描述输入 -->
-          <textarea
-            class="desc-textarea"
-            v-model="agentDescText"
-            placeholder="输入格式描述，如：&#10;论文题目 黑体 二号&#10;各章标题 黑体小二号&#10;正文 宋体小四号&#10;摘要标题 黑体小二号&#10;摘要内容 宋体小四号&#10;..."
-            rows="8"
-          ></textarea>
+        <!-- Description textarea -->
+        <textarea
+          class="desc-textarea"
+          v-model="descText"
+          :placeholder="t('proof.formatFromDesc.placeholder')"
+          rows="4"
+        ></textarea>
 
-          <!-- 可选：参考文档选择 -->
-          <div class="ref-file-row" style="margin-top: 8px">
-            <el-button size="small" @click="selectAgentRefFile" :loading="selectingAgentRef">
-              选择参考文档（可选）
-            </el-button>
-            <el-tooltip v-if="agentRefFileName" :content="agentRefFileName" placement="bottom">
-              <span class="ref-file-name">{{ truncatedName(agentRefFileName) }}</span>
-            </el-tooltip>
-          </div>
-
-          <!-- 分析按钮 -->
+        <!-- Start button -->
+        <div class="start-btn-row">
           <el-button
             type="primary"
             size="small"
-            class="generate-btn"
-            @click="runSmartAnalyze"
+            @click="startFormat"
             :loading="analyzing"
-            :disabled="!agentDescText.trim() && !agentRefFilePath"
-            style="margin-top: 12px"
+            :disabled="!targetFilePath || (!refFilePath && !descText.trim())"
           >
-            {{ analyzing ? '分析中...' : '开始分析' }}
+            {{ analyzing ? '分析中...' : '开始格式化' }}
           </el-button>
+          <span v-if="!targetFilePath" class="hint-text">请先在预览区打开一个目标文档</span>
+        </div>
+      </div>
+
+      <!-- ====== Results Section (below, scrollable) ====== -->
+      <template v-if="formatItems.length > 0 || defaults">
+        <!-- Agent flow summary -->
+        <div v-if="flowType === 'agent' && agentTokenUsage > 0" class="result-summary">
+          已识别 {{ formatItems.length }} 种段落类型 | Token: {{ agentTokenUsage }}
         </div>
 
-        <!-- 分析结果 -->
-        <div v-if="agentResults.length > 0" class="format-list">
-          <div class="result-summary">
-            已识别 {{ agentResults.length }} 种段落类型 | Token: {{ agentTokenUsage }}
-          </div>
-          <el-collapse v-model="agentActiveNames">
+        <!-- Editable formatItems list -->
+        <div v-if="formatItems.length > 0" class="format-list">
+          <el-collapse v-model="activeNames">
             <el-collapse-item
-              v-for="(item, index) in agentResults"
+              v-for="(item, index) in formatItems"
               :key="index"
               :name="index"
               class="format-item"
             >
               <template #title>
                 <div class="format-item-header">
-                  <span class="format-name">{{ item.paragraphType }}</span>
-                  <span class="format-type-badge">段落</span>
+                  <span class="format-name">{{ item.name }}</span>
+                  <span class="format-type-badge">{{ item.type }}</span>
                 </div>
               </template>
-              <div class="format-detail" v-if="item.styleDef">
-                <div class="detail-row">字号: {{ item.styleDef.fontSize || '-' }}</div>
-                <div class="detail-row">字体: {{ item.styleDef.fontFamily || '-' }}</div>
-                <div class="detail-row">加粗: {{ item.styleDef.bold ? '是' : '否' }}</div>
-                <div class="detail-row">对齐: {{ item.styleDef.alignment || '-' }}</div>
-              </div>
-              <div class="format-detail" v-else>
-                <div class="detail-row">使用参考文档样式</div>
+              <div class="format-detail">
+                <div v-if="item.paragraphStyle && Object.keys(item.paragraphStyle).length > 0" class="style-section">
+                  <strong>{{ t('proof.formatClone.paragraphStyle') }}</strong>
+                  <div class="style-props">
+                    <div v-for="(val, key) in item.paragraphStyle" :key="key" class="style-prop">
+                      <span class="prop-key">{{ key }}</span>
+                      <span class="prop-val">
+                        <template v-if="isBoolField(val)">
+                          <button class="toggle-btn" :class="{ on: val }" @click="toggleStyleProp(item, 'paragraphStyle', key)">
+                            {{ val }}
+                          </button>
+                        </template>
+                        <template v-else-if="isStepperField(key)">
+                          <span class="stepper">
+                            <button class="step-btn" @click="stepValue(item, 'paragraphStyle', key, -1)">−</button>
+                            <span class="stepper-val">{{ val }}</span>
+                            <button class="step-btn" @click="stepValue(item, 'paragraphStyle', key, 1)">+</button>
+                          </span>
+                        </template>
+                        <template v-else-if="isColorField(key)">
+                          <el-popover placement="bottom" :width="200" trigger="click">
+                            <template #reference>
+                              <span class="color-chip">
+                                <span class="color-swatch" :style="{ background: toHex(val) }"></span>
+                                {{ val }}
+                              </span>
+                            </template>
+                            <input type="color" :value="toHex(val)" @change="setColor(item, 'paragraphStyle', key, $event)" />
+                          </el-popover>
+                        </template>
+                        <template v-else-if="isSpacingField(key)">
+                          <span class="spacing-row">
+                            <template v-if="val.before !== undefined">
+                              <span class="spacing-label">before</span>
+                              <button class="step-btn" @click="stepSpacing(item, 'paragraphStyle', 'before', -1)">−</button>
+                              <span class="stepper-val">{{ val.before }}</span>
+                              <button class="step-btn" @click="stepSpacing(item, 'paragraphStyle', 'before', 1)">+</button>
+                            </template>
+                            <template v-if="val.after !== undefined">
+                              <span class="spacing-label">after</span>
+                              <button class="step-btn" @click="stepSpacing(item, 'paragraphStyle', 'after', -1)">−</button>
+                              <span class="stepper-val">{{ val.after }}</span>
+                              <button class="step-btn" @click="stepSpacing(item, 'paragraphStyle', 'after', 1)">+</button>
+                            </template>
+                            <template v-if="val.line !== undefined">
+                              <span class="spacing-label">line</span>
+                              <button class="step-btn" @click="stepSpacing(item, 'paragraphStyle', 'line', -1)">−</button>
+                              <span class="stepper-val">{{ val.line }}</span>
+                              <button class="step-btn" @click="stepSpacing(item, 'paragraphStyle', 'line', 1)">+</button>
+                            </template>
+                            <template v-for="(sv, sk) in val" :key="sk">
+                              <template v-if="sk !== 'before' && sk !== 'after' && sk !== 'line'">
+                                <span class="spacing-label">{{ sk }}</span>
+                                <span class="spacing-other">{{ sv }}</span>
+                              </template>
+                            </template>
+                          </span>
+                        </template>
+                        <template v-else>
+                          {{ formatPropVal(val) }}
+                        </template>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="item.runStyle && Object.keys(item.runStyle).length > 0" class="style-section">
+                  <strong>{{ t('proof.formatClone.runStyle') }}</strong>
+                  <div class="style-props">
+                    <div v-for="(val, key) in item.runStyle" :key="key" class="style-prop">
+                      <span class="prop-key">{{ key }}</span>
+                      <span class="prop-val">
+                        <template v-if="isBoolField(val)">
+                          <button class="toggle-btn" :class="{ on: val }" @click="toggleStyleProp(item, 'runStyle', key)">
+                            {{ val }}
+                          </button>
+                        </template>
+                        <template v-else-if="isStepperField(key)">
+                          <span class="stepper">
+                            <button class="step-btn" @click="stepValue(item, 'runStyle', key, -1)">−</button>
+                            <span class="stepper-val">{{ val }}</span>
+                            <button class="step-btn" @click="stepValue(item, 'runStyle', key, 1)">+</button>
+                          </span>
+                        </template>
+                        <template v-else-if="isColorField(key)">
+                          <el-popover placement="bottom" :width="200" trigger="click">
+                            <template #reference>
+                              <span class="color-chip">
+                                <span class="color-swatch" :style="{ background: toHex(val) }"></span>
+                                {{ val }}
+                              </span>
+                            </template>
+                            <input type="color" :value="toHex(val)" @change="setColor(item, 'runStyle', key, $event)" />
+                          </el-popover>
+                        </template>
+                        <template v-else-if="isSpacingField(key)">
+                          <span class="spacing-row">
+                            <template v-if="val.before !== undefined">
+                              <span class="spacing-label">before</span>
+                              <button class="step-btn" @click="stepSpacing(item, 'runStyle', 'before', -1)">−</button>
+                              <span class="stepper-val">{{ val.before }}</span>
+                              <button class="step-btn" @click="stepSpacing(item, 'runStyle', 'before', 1)">+</button>
+                            </template>
+                            <template v-if="val.after !== undefined">
+                              <span class="spacing-label">after</span>
+                              <button class="step-btn" @click="stepSpacing(item, 'runStyle', 'after', -1)">−</button>
+                              <span class="stepper-val">{{ val.after }}</span>
+                              <button class="step-btn" @click="stepSpacing(item, 'runStyle', 'after', 1)">+</button>
+                            </template>
+                            <template v-if="val.line !== undefined">
+                              <span class="spacing-label">line</span>
+                              <button class="step-btn" @click="stepSpacing(item, 'runStyle', 'line', -1)">−</button>
+                              <span class="stepper-val">{{ val.line }}</span>
+                              <button class="step-btn" @click="stepSpacing(item, 'runStyle', 'line', 1)">+</button>
+                            </template>
+                            <template v-for="(sv, sk) in val" :key="sk">
+                              <template v-if="sk !== 'before' && sk !== 'after' && sk !== 'line'">
+                                <span class="spacing-label">{{ sk }}</span>
+                                <span class="spacing-other">{{ sv }}</span>
+                              </template>
+                            </template>
+                          </span>
+                        </template>
+                        <template v-else>
+                          {{ formatPropVal(val) }}
+                        </template>
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </el-collapse-item>
           </el-collapse>
+        </div>
 
-          <!-- 输出选项 + 应用按钮 -->
-          <div class="output-options" style="margin: 12px 0">
-            <el-radio-group v-model="outputMode" size="small">
-              <el-radio value="new">导出为新文件</el-radio>
-              <el-radio value="overwrite">覆盖原文件</el-radio>
-            </el-radio-group>
+        <!-- Editable defaults section -->
+        <div v-if="defaults" class="defaults-section">
+          <el-collapse v-model="defaultsActive">
+            <el-collapse-item name="defaults">
+              <template #title>
+                <div class="format-item-header">
+                  <span class="format-name">{{ t('proof.formatClone.defaults') }}</span>
+                </div>
+              </template>
+              <div class="format-detail">
+                <div v-if="defaults.paragraphStyle && Object.keys(defaults.paragraphStyle).length > 0" class="style-section">
+                  <strong>{{ t('proof.formatClone.paragraphStyle') }}</strong>
+                  <div class="style-props">
+                    <div v-for="(val, key) in defaults.paragraphStyle" :key="key" class="style-prop">
+                      <span class="prop-key">{{ key }}</span>
+                      <span class="prop-val">
+                        <template v-if="isBoolField(val)">
+                          <button class="toggle-btn" :class="{ on: val }" @click="toggleDefaultsProp('paragraphStyle', key)">
+                            {{ val }}
+                          </button>
+                        </template>
+                        <template v-else-if="isStepperField(key)">
+                          <span class="stepper">
+                            <button class="step-btn" @click="stepDefaultsValue('paragraphStyle', -1)">−</button>
+                            <span class="stepper-val">{{ val }}</span>
+                            <button class="step-btn" @click="stepDefaultsValue('paragraphStyle', 1)">+</button>
+                          </span>
+                        </template>
+                        <template v-else-if="isColorField(key)">
+                          <el-popover placement="bottom" :width="200" trigger="click">
+                            <template #reference>
+                              <span class="color-chip">
+                                <span class="color-swatch" :style="{ background: toHex(val) }"></span>
+                                {{ val }}
+                              </span>
+                            </template>
+                            <input type="color" :value="toHex(val)" @change="setDefaultsColor('paragraphStyle', key, $event)" />
+                          </el-popover>
+                        </template>
+                        <template v-else-if="isSpacingField(key)">
+                          <span class="spacing-row">
+                            <template v-if="val.before !== undefined">
+                              <span class="spacing-label">before</span>
+                              <button class="step-btn" @click="stepDefaultsSpacing('paragraphStyle', 'before', -1)">−</button>
+                              <span class="stepper-val">{{ val.before }}</span>
+                              <button class="step-btn" @click="stepDefaultsSpacing('paragraphStyle', 'before', 1)">+</button>
+                            </template>
+                            <template v-if="val.after !== undefined">
+                              <span class="spacing-label">after</span>
+                              <button class="step-btn" @click="stepDefaultsSpacing('paragraphStyle', 'after', -1)">−</button>
+                              <span class="stepper-val">{{ val.after }}</span>
+                              <button class="step-btn" @click="stepDefaultsSpacing('paragraphStyle', 'after', 1)">+</button>
+                            </template>
+                            <template v-if="val.line !== undefined">
+                              <span class="spacing-label">line</span>
+                              <button class="step-btn" @click="stepDefaultsSpacing('paragraphStyle', 'line', -1)">−</button>
+                              <span class="stepper-val">{{ val.line }}</span>
+                              <button class="step-btn" @click="stepDefaultsSpacing('paragraphStyle', 'line', 1)">+</button>
+                            </template>
+                            <template v-for="(sv, sk) in val" :key="sk">
+                              <template v-if="sk !== 'before' && sk !== 'after' && sk !== 'line'">
+                                <span class="spacing-label">{{ sk }}</span>
+                                <span class="spacing-other">{{ sv }}</span>
+                              </template>
+                            </template>
+                          </span>
+                        </template>
+                        <template v-else>
+                          {{ formatPropVal(val) }}
+                        </template>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="defaults.runStyle && Object.keys(defaults.runStyle).length > 0" class="style-section">
+                  <strong>{{ t('proof.formatClone.runStyle') }}</strong>
+                  <div class="style-props">
+                    <div v-for="(val, key) in defaults.runStyle" :key="key" class="style-prop">
+                      <span class="prop-key">{{ key }}</span>
+                      <span class="prop-val">
+                        <template v-if="isBoolField(val)">
+                          <button class="toggle-btn" :class="{ on: val }" @click="toggleDefaultsProp('runStyle', key)">
+                            {{ val }}
+                          </button>
+                        </template>
+                        <template v-else-if="isStepperField(key)">
+                          <span class="stepper">
+                            <button class="step-btn" @click="stepDefaultsValue('runStyle', -1)">−</button>
+                            <span class="stepper-val">{{ val }}</span>
+                            <button class="step-btn" @click="stepDefaultsValue('runStyle', 1)">+</button>
+                          </span>
+                        </template>
+                        <template v-else-if="isColorField(key)">
+                          <el-popover placement="bottom" :width="200" trigger="click">
+                            <template #reference>
+                              <span class="color-chip">
+                                <span class="color-swatch" :style="{ background: toHex(val) }"></span>
+                                {{ val }}
+                              </span>
+                            </template>
+                            <input type="color" :value="toHex(val)" @change="setDefaultsColor('runStyle', key, $event)" />
+                          </el-popover>
+                        </template>
+                        <template v-else-if="isSpacingField(key)">
+                          <span class="spacing-row">
+                            <template v-if="val.before !== undefined">
+                              <span class="spacing-label">before</span>
+                              <button class="step-btn" @click="stepDefaultsSpacing('runStyle', 'before', -1)">−</button>
+                              <span class="stepper-val">{{ val.before }}</span>
+                              <button class="step-btn" @click="stepDefaultsSpacing('runStyle', 'before', 1)">+</button>
+                            </template>
+                            <template v-if="val.after !== undefined">
+                              <span class="spacing-label">after</span>
+                              <button class="step-btn" @click="stepDefaultsSpacing('runStyle', 'after', -1)">−</button>
+                              <span class="stepper-val">{{ val.after }}</span>
+                              <button class="step-btn" @click="stepDefaultsSpacing('runStyle', 'after', 1)">+</button>
+                            </template>
+                            <template v-if="val.line !== undefined">
+                              <span class="spacing-label">line</span>
+                              <button class="step-btn" @click="stepDefaultsSpacing('runStyle', 'line', -1)">−</button>
+                              <span class="stepper-val">{{ val.line }}</span>
+                              <button class="step-btn" @click="stepDefaultsSpacing('runStyle', 'line', 1)">+</button>
+                            </template>
+                            <template v-for="(sv, sk) in val" :key="sk">
+                              <template v-if="sk !== 'before' && sk !== 'after' && sk !== 'line'">
+                                <span class="spacing-label">{{ sk }}</span>
+                                <span class="spacing-other">{{ sv }}</span>
+                              </template>
+                            </template>
+                          </span>
+                        </template>
+                        <template v-else>
+                          {{ formatPropVal(val) }}
+                        </template>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </el-collapse-item>
+          </el-collapse>
+        </div>
+
+        <!-- Output mode (agent flow only) + Apply/Export buttons -->
+        <div v-if="formatItems.length > 0" class="action-bar-bottom">
+          <el-radio-group v-if="flowType === 'agent'" v-model="outputMode" size="small">
+            <el-radio value="new">导出为新文件</el-radio>
+            <el-radio value="overwrite">覆盖原文件</el-radio>
+          </el-radio-group>
+          <div class="action-buttons">
+            <el-button
+              type="primary"
+              size="small"
+              :loading="cloning"
+              :disabled="formatItems.length === 0 || !targetFilePath"
+              @click="doClone"
+            >
+              {{ t('proof.formatClone.start') }}
+            </el-button>
+            <el-button
+              type="success"
+              size="small"
+              :disabled="!clonedFilePath"
+              :loading="exporting"
+              @click="doExport"
+            >
+              {{ t('proof.formatClone.export') }}
+            </el-button>
           </div>
-          <el-button
-            type="success"
-            size="small"
-            @click="runSmartApply"
-            :loading="applying"
-            :disabled="!agentSpec || !agentClassification"
-          >
-            {{ applying ? '应用中...' : '应用格式' }}
-          </el-button>
         </div>
       </template>
-
-      <div v-if="inputMode !== 'agent' && formatItems.length > 0" class="format-list">
-        <el-collapse v-model="activeNames">
-          <el-collapse-item
-            v-for="(item, index) in formatItems"
-            :key="index"
-            :name="index"
-            class="format-item"
-          >
-            <template #title>
-              <div class="format-item-header">
-                <span class="format-name">{{ item.name }}</span>
-                <span class="format-type-badge">{{ item.type }}</span>
-              </div>
-            </template>
-            <div class="format-detail">
-              <div v-if="item.paragraphStyle && Object.keys(item.paragraphStyle).length > 0" class="style-section">
-                <strong>{{ t('proof.formatClone.paragraphStyle') }}</strong>
-                <div class="style-props">
-                  <div v-for="(val, key) in item.paragraphStyle" :key="key" class="style-prop">
-                    <span class="prop-key">{{ key }}</span>
-                    <span class="prop-val">
-                      <template v-if="isBoolField(val)">
-                        <button class="toggle-btn" :class="{ on: val }" @click="toggleStyleProp(item, 'paragraphStyle', key)">
-                          {{ val }}
-                        </button>
-                      </template>
-                      <template v-else-if="isStepperField(key)">
-                        <span class="stepper">
-                          <button class="step-btn" @click="stepValue(item, 'paragraphStyle', key, -1)">−</button>
-                          <span class="stepper-val">{{ val }}</span>
-                          <button class="step-btn" @click="stepValue(item, 'paragraphStyle', key, 1)">+</button>
-                        </span>
-                      </template>
-                      <template v-else-if="isColorField(key)">
-                        <el-popover placement="bottom" :width="200" trigger="click">
-                          <template #reference>
-                            <span class="color-chip">
-                              <span class="color-swatch" :style="{ background: toHex(val) }"></span>
-                              {{ val }}
-                            </span>
-                          </template>
-                          <input type="color" :value="toHex(val)" @change="setColor(item, 'paragraphStyle', key, $event)" />
-                        </el-popover>
-                      </template>
-                      <template v-else-if="isSpacingField(key)">
-                        <span class="spacing-row">
-                          <template v-if="val.before !== undefined">
-                            <span class="spacing-label">before</span>
-                            <button class="step-btn" @click="stepSpacing(item, 'paragraphStyle', 'before', -1)">−</button>
-                            <span class="stepper-val">{{ val.before }}</span>
-                            <button class="step-btn" @click="stepSpacing(item, 'paragraphStyle', 'before', 1)">+</button>
-                          </template>
-                          <template v-if="val.after !== undefined">
-                            <span class="spacing-label">after</span>
-                            <button class="step-btn" @click="stepSpacing(item, 'paragraphStyle', 'after', -1)">−</button>
-                            <span class="stepper-val">{{ val.after }}</span>
-                            <button class="step-btn" @click="stepSpacing(item, 'paragraphStyle', 'after', 1)">+</button>
-                          </template>
-                          <template v-if="val.line !== undefined">
-                            <span class="spacing-label">line</span>
-                            <button class="step-btn" @click="stepSpacing(item, 'paragraphStyle', 'line', -1)">−</button>
-                            <span class="stepper-val">{{ val.line }}</span>
-                            <button class="step-btn" @click="stepSpacing(item, 'paragraphStyle', 'line', 1)">+</button>
-                          </template>
-                          <template v-for="(sv, sk) in val" :key="sk">
-                            <template v-if="sk !== 'before' && sk !== 'after' && sk !== 'line'">
-                              <span class="spacing-label">{{ sk }}</span>
-                              <span class="spacing-other">{{ sv }}</span>
-                            </template>
-                          </template>
-                        </span>
-                      </template>
-                      <template v-else>
-                        {{ formatPropVal(val) }}
-                      </template>
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div v-if="item.runStyle && Object.keys(item.runStyle).length > 0" class="style-section">
-                <strong>{{ t('proof.formatClone.runStyle') }}</strong>
-                <div class="style-props">
-                  <div v-for="(val, key) in item.runStyle" :key="key" class="style-prop">
-                    <span class="prop-key">{{ key }}</span>
-                    <span class="prop-val">
-                      <template v-if="isBoolField(val)">
-                        <button class="toggle-btn" :class="{ on: val }" @click="toggleStyleProp(item, 'runStyle', key)">
-                          {{ val }}
-                        </button>
-                      </template>
-                      <template v-else-if="isStepperField(key)">
-                        <span class="stepper">
-                          <button class="step-btn" @click="stepValue(item, 'runStyle', key, -1)">−</button>
-                          <span class="stepper-val">{{ val }}</span>
-                          <button class="step-btn" @click="stepValue(item, 'runStyle', key, 1)">+</button>
-                        </span>
-                      </template>
-                      <template v-else-if="isColorField(key)">
-                        <el-popover placement="bottom" :width="200" trigger="click">
-                          <template #reference>
-                            <span class="color-chip">
-                              <span class="color-swatch" :style="{ background: toHex(val) }"></span>
-                              {{ val }}
-                            </span>
-                          </template>
-                          <input type="color" :value="toHex(val)" @change="setColor(item, 'runStyle', key, $event)" />
-                        </el-popover>
-                      </template>
-                      <template v-else-if="isSpacingField(key)">
-                        <span class="spacing-row">
-                          <template v-if="val.before !== undefined">
-                            <span class="spacing-label">before</span>
-                            <button class="step-btn" @click="stepSpacing(item, 'runStyle', 'before', -1)">−</button>
-                            <span class="stepper-val">{{ val.before }}</span>
-                            <button class="step-btn" @click="stepSpacing(item, 'runStyle', 'before', 1)">+</button>
-                          </template>
-                          <template v-if="val.after !== undefined">
-                            <span class="spacing-label">after</span>
-                            <button class="step-btn" @click="stepSpacing(item, 'runStyle', 'after', -1)">−</button>
-                            <span class="stepper-val">{{ val.after }}</span>
-                            <button class="step-btn" @click="stepSpacing(item, 'runStyle', 'after', 1)">+</button>
-                          </template>
-                          <template v-if="val.line !== undefined">
-                            <span class="spacing-label">line</span>
-                            <button class="step-btn" @click="stepSpacing(item, 'runStyle', 'line', -1)">−</button>
-                            <span class="stepper-val">{{ val.line }}</span>
-                            <button class="step-btn" @click="stepSpacing(item, 'runStyle', 'line', 1)">+</button>
-                          </template>
-                          <template v-for="(sv, sk) in val" :key="sk">
-                            <template v-if="sk !== 'before' && sk !== 'after' && sk !== 'line'">
-                              <span class="spacing-label">{{ sk }}</span>
-                              <span class="spacing-other">{{ sv }}</span>
-                            </template>
-                          </template>
-                        </span>
-                      </template>
-                      <template v-else>
-                        {{ formatPropVal(val) }}
-                      </template>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </el-collapse-item>
-        </el-collapse>
-      </div>
-
-      <div v-if="defaults" class="defaults-section">
-        <el-collapse v-model="defaultsActive">
-          <el-collapse-item name="defaults">
-            <template #title>
-              <div class="format-item-header">
-                <span class="format-name">{{ t('proof.formatClone.defaults') }}</span>
-              </div>
-            </template>
-            <div class="format-detail">
-              <div v-if="defaults.paragraphStyle && Object.keys(defaults.paragraphStyle).length > 0" class="style-section">
-                <strong>{{ t('proof.formatClone.paragraphStyle') }}</strong>
-                <div class="style-props">
-                  <div v-for="(val, key) in defaults.paragraphStyle" :key="key" class="style-prop">
-                    <span class="prop-key">{{ key }}</span>
-                    <span class="prop-val">
-                      <template v-if="isBoolField(val)">
-                        <button class="toggle-btn" :class="{ on: val }" @click="toggleDefaultsProp('paragraphStyle', key)">
-                          {{ val }}
-                        </button>
-                      </template>
-                      <template v-else-if="isStepperField(key)">
-                        <span class="stepper">
-                          <button class="step-btn" @click="stepDefaultsValue('paragraphStyle', -1)">−</button>
-                          <span class="stepper-val">{{ val }}</span>
-                          <button class="step-btn" @click="stepDefaultsValue('paragraphStyle', 1)">+</button>
-                        </span>
-                      </template>
-                      <template v-else-if="isColorField(key)">
-                        <el-popover placement="bottom" :width="200" trigger="click">
-                          <template #reference>
-                            <span class="color-chip">
-                              <span class="color-swatch" :style="{ background: toHex(val) }"></span>
-                              {{ val }}
-                            </span>
-                          </template>
-                          <input type="color" :value="toHex(val)" @change="setDefaultsColor('paragraphStyle', key, $event)" />
-                        </el-popover>
-                      </template>
-                      <template v-else-if="isSpacingField(key)">
-                        <span class="spacing-row">
-                          <template v-if="val.before !== undefined">
-                            <span class="spacing-label">before</span>
-                            <button class="step-btn" @click="stepDefaultsSpacing('paragraphStyle', 'before', -1)">−</button>
-                            <span class="stepper-val">{{ val.before }}</span>
-                            <button class="step-btn" @click="stepDefaultsSpacing('paragraphStyle', 'before', 1)">+</button>
-                          </template>
-                          <template v-if="val.after !== undefined">
-                            <span class="spacing-label">after</span>
-                            <button class="step-btn" @click="stepDefaultsSpacing('paragraphStyle', 'after', -1)">−</button>
-                            <span class="stepper-val">{{ val.after }}</span>
-                            <button class="step-btn" @click="stepDefaultsSpacing('paragraphStyle', 'after', 1)">+</button>
-                          </template>
-                          <template v-if="val.line !== undefined">
-                            <span class="spacing-label">line</span>
-                            <button class="step-btn" @click="stepDefaultsSpacing('paragraphStyle', 'line', -1)">−</button>
-                            <span class="stepper-val">{{ val.line }}</span>
-                            <button class="step-btn" @click="stepDefaultsSpacing('paragraphStyle', 'line', 1)">+</button>
-                          </template>
-                          <template v-for="(sv, sk) in val" :key="sk">
-                            <template v-if="sk !== 'before' && sk !== 'after' && sk !== 'line'">
-                              <span class="spacing-label">{{ sk }}</span>
-                              <span class="spacing-other">{{ sv }}</span>
-                            </template>
-                          </template>
-                        </span>
-                      </template>
-                      <template v-else>
-                        {{ formatPropVal(val) }}
-                      </template>
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div v-if="defaults.runStyle && Object.keys(defaults.runStyle).length > 0" class="style-section">
-                <strong>{{ t('proof.formatClone.runStyle') }}</strong>
-                <div class="style-props">
-                  <div v-for="(val, key) in defaults.runStyle" :key="key" class="style-prop">
-                    <span class="prop-key">{{ key }}</span>
-                    <span class="prop-val">
-                      <template v-if="isBoolField(val)">
-                        <button class="toggle-btn" :class="{ on: val }" @click="toggleDefaultsProp('runStyle', key)">
-                          {{ val }}
-                        </button>
-                      </template>
-                      <template v-else-if="isStepperField(key)">
-                        <span class="stepper">
-                          <button class="step-btn" @click="stepDefaultsValue('runStyle', -1)">−</button>
-                          <span class="stepper-val">{{ val }}</span>
-                          <button class="step-btn" @click="stepDefaultsValue('runStyle', 1)">+</button>
-                        </span>
-                      </template>
-                      <template v-else-if="isColorField(key)">
-                        <el-popover placement="bottom" :width="200" trigger="click">
-                          <template #reference>
-                            <span class="color-chip">
-                              <span class="color-swatch" :style="{ background: toHex(val) }"></span>
-                              {{ val }}
-                            </span>
-                          </template>
-                          <input type="color" :value="toHex(val)" @change="setDefaultsColor('runStyle', key, $event)" />
-                        </el-popover>
-                      </template>
-                      <template v-else-if="isSpacingField(key)">
-                        <span class="spacing-row">
-                          <template v-if="val.before !== undefined">
-                            <span class="spacing-label">before</span>
-                            <button class="step-btn" @click="stepDefaultsSpacing('runStyle', 'before', -1)">−</button>
-                            <span class="stepper-val">{{ val.before }}</span>
-                            <button class="step-btn" @click="stepDefaultsSpacing('runStyle', 'before', 1)">+</button>
-                          </template>
-                          <template v-if="val.after !== undefined">
-                            <span class="spacing-label">after</span>
-                            <button class="step-btn" @click="stepDefaultsSpacing('runStyle', 'after', -1)">−</button>
-                            <span class="stepper-val">{{ val.after }}</span>
-                            <button class="step-btn" @click="stepDefaultsSpacing('runStyle', 'after', 1)">+</button>
-                          </template>
-                          <template v-if="val.line !== undefined">
-                            <span class="spacing-label">line</span>
-                            <button class="step-btn" @click="stepDefaultsSpacing('runStyle', 'line', -1)">−</button>
-                            <span class="stepper-val">{{ val.line }}</span>
-                            <button class="step-btn" @click="stepDefaultsSpacing('runStyle', 'line', 1)">+</button>
-                          </template>
-                          <template v-for="(sv, sk) in val" :key="sk">
-                            <template v-if="sk !== 'before' && sk !== 'after' && sk !== 'line'">
-                              <span class="spacing-label">{{ sk }}</span>
-                              <span class="spacing-other">{{ sv }}</span>
-                            </template>
-                          </template>
-                        </span>
-                      </template>
-                      <template v-else>
-                        {{ formatPropVal(val) }}
-                      </template>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </el-collapse-item>
-        </el-collapse>
-      </div>
-
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, inject } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ElButton, ElCollapse, ElCollapseItem, ElMessage, ElTooltip, ElIcon, ElPopover, ElRadio, ElRadioGroup } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { useApiStore } from '../stores/apiStore'
+import { fileInfoStore } from '../stores/store'
+import { renderAsync } from 'docx-preview'
 
-defineEmits(['back'])
+const emit = defineEmits(['back'])
 
 const electronAPI = window.electronAPI
 const apiStore = useApiStore()
+const fileStore = fileInfoStore()
 
-// 注入来自 App.vue 的共享状态（跨兄弟组件）
-const targetFilePath = inject('formatCloneTargetFilePath')
-const refFilePath = inject('formatCloneRefFilePath')
-const clonedFilePath = inject('formatCloneClonedFilePath')
-const cloning = inject('formatCloneCloning')
-const exporting = inject('formatCloneExporting')
-const formatItems = inject('formatCloneFormatItems')
-const defaults = inject('formatCloneDefaults')
-const doClone = inject('formatCloneDoClone')
-const doExport = inject('formatCloneDoExport')
-const buildProfile = inject('formatCloneBuildProfile')
+// ---- ALL STATE IS INTERNAL (no inject) ----
 
-// 仅在本组件内使用的本地状态
+// Computed from store
+const targetFilePath = computed(() => fileStore.filePath)
+
+// Reference document state
+const refFilePath = ref('')
 const refFileName = ref('')
 const selectingRef = ref(false)
+
+// Format items & defaults (shared between simple clone and agent flows)
+const formatItems = ref([])
+const defaults = ref(null)
 const activeNames = ref([])
 const defaultsActive = ref([])
 
-// ---- 从描述生成相关状态 ----
-const inputMode = ref('ref') // 'ref' | 'desc'
+// Clone/export state
+const clonedFilePath = ref('')
+const cloning = ref(false)
+const exporting = ref(false)
+
+// Flow tracking: 'simple' | 'agent'
+const flowType = ref('simple')
+
+// Description input state
 const descText = ref('')
 const descFileName = ref('')
 const selectingDescFile = ref(false)
-const generating = ref(false)
 
-// ---- SmartFormat Agent 状态 ----
-const agentDescText = ref('')
-const agentRefFilePath = ref('')
-const agentRefFileName = ref('')
-const selectingAgentRef = ref(false)
+// Agent-specific state
 const analyzing = ref(false)
-const applying = ref(false)
 const outputMode = ref('new')
-const agentResults = ref([])
-const agentActiveNames = ref([])
 const agentSpec = ref(null)
 const agentClassification = ref(null)
 const agentTokenUsage = ref(0)
+
+// ---- Utility helpers (preserved exactly from original) ----
 
 const truncatedName = name => (name.length > 20 ? name.slice(0, 20) + '...' : name)
 
@@ -571,6 +512,128 @@ const setDefaultsColor = (styleType, key, event) => {
   defaults.value[styleType][key] = fromHex(event.target.value)
 }
 
+// ---- Profile building ----
+
+const buildProfile = () => {
+  const styles = {}
+  for (const item of formatItems.value) {
+    styles[item.id] = {
+      name: item.name,
+      type: item.type,
+      paragraphStyle: item.paragraphStyle,
+      runStyle: item.runStyle
+    }
+  }
+  return { defaults: defaults.value, styles }
+}
+
+// ---- Spec conversion for agent flow ----
+
+const specToFormatItems = (spec) => {
+  const items = []
+  // styleProfile.styles → items
+  if (spec.styleProfile?.styles) {
+    for (const [id, style] of Object.entries(spec.styleProfile.styles)) {
+      items.push({
+        id,
+        name: style.name || id,
+        type: style.type || 'paragraph',
+        basedOn: style.basedOn || undefined,
+        paragraphStyle: { ...(style.paragraphStyle || {}) },
+        runStyle: { ...(style.runStyle || {}) }
+      })
+    }
+  }
+  // paragraphRules → add items for types not yet in list
+  if (spec.paragraphRules) {
+    for (const rule of spec.paragraphRules) {
+      const pType = rule.match?.paragraphType
+      if (pType && !items.find(i => i.id === pType)) {
+        items.push({
+          id: pType,
+          name: pType,
+          type: 'paragraph',
+          basedOn: undefined,
+          paragraphStyle: { ...(rule.format?.paragraphStyle || {}) },
+          runStyle: { ...(rule.format?.runStyle || {}) }
+        })
+      }
+    }
+  }
+  return items
+}
+
+const specToDefaults = (spec) => {
+  return spec.styleProfile?.defaults || null
+}
+
+const buildSpecFromFormatItems = () => {
+  const styles = {}
+  // Rebuild paragraphRules from user-edited formatItems so edits actually take effect
+  const paragraphRules = []
+  for (const item of formatItems.value) {
+    const styleEntry = {
+      name: item.name,
+      type: item.type,
+      basedOn: item.basedOn || undefined,
+      paragraphStyle: item.paragraphStyle,
+      runStyle: item.runStyle
+    }
+    styles[item.id] = styleEntry
+
+    // Create a matching paragraphRule so inline formatting is applied to paragraphs
+    paragraphRules.push({
+      match: { paragraphType: item.id },
+      format: {
+        paragraphStyle: item.paragraphStyle,
+        runStyle: item.runStyle
+      },
+      exclusive: true
+    })
+  }
+
+  // Preserve pageSettings from original spec
+  const pageSettings = agentSpec.value?.pageSettings || undefined
+
+  return {
+    styleProfile: {
+      defaults: defaults.value ? { ...defaults.value } : undefined,
+      styles
+    },
+    paragraphRules,
+    ...(pageSettings ? { pageSettings } : {})
+  }
+}
+
+// ---- Preview rendering ----
+
+const renderPreview = async (filePath) => {
+  const fileData = await electronAPI.readDocxFile(filePath)
+  const byteCharacters = atob(fileData.content)
+  const byteArrays = []
+  for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+    const slice = byteCharacters.slice(offset, offset + 512)
+    const byteNumbers = new Array(slice.length)
+    for (let i = 0; i < slice.length; i++) {
+      byteNumbers[i] = slice.charCodeAt(i)
+    }
+    byteArrays.push(new Uint8Array(byteNumbers))
+  }
+  const blob = new Blob(byteArrays, {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  })
+  const file = new File([blob], fileStore.fileName, {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  })
+  const container = document.querySelector('.preview-container')
+  if (container) {
+    container.innerHTML = ''
+    await renderAsync(file, container)
+  }
+}
+
+// ---- Reference doc selection ----
+
 const selectRefFile = async () => {
   selectingRef.value = true
   try {
@@ -597,6 +660,7 @@ const selectRefFile = async () => {
     formatItems.value = items
     if (items.length > 0) activeNames.value = [0]
     if (defaults.value) defaultsActive.value = ['defaults']
+    flowType.value = 'simple'
   } catch (e) {
     ElMessage.error(t('proof.formatClone.extractFailed'))
   } finally {
@@ -604,7 +668,8 @@ const selectRefFile = async () => {
   }
 }
 
-// ---- 从描述文件读取内容 ----
+// ---- Description file selection ----
+
 const selectDescFile = async () => {
   selectingDescFile.value = true
   try {
@@ -616,17 +681,11 @@ const selectDescFile = async () => {
     const ext = filePath.split('.').pop().toLowerCase()
 
     if (ext === 'docx') {
-      const fileData = await electronAPI.readDocxFile(filePath)
-      if (fileData && fileData.content) {
-        const byteCharacters = atob(fileData.content)
-        const byteNumbers = new Array(byteCharacters.length)
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i)
-        }
-        const byteArray = new Uint8Array(byteNumbers)
-        const mammoth = require('mammoth')
-        const result = await mammoth.extractRawText({ arrayBuffer: byteArray.buffer })
-        descText.value = result.value || ''
+      const result = await electronAPI.extractDocxText(filePath)
+      if (result.success && result.text) {
+        descText.value = result.text
+      } else {
+        ElMessage.error(result.error || t('proof.formatFromDesc.readFileFailed'))
       }
     } else {
       const result = await electronAPI.readTextFile(filePath)
@@ -643,70 +702,36 @@ const selectDescFile = async () => {
   }
 }
 
-// ---- 调用大模型生成格式参数 ----
-const generateFromDesc = async () => {
-  if (!descText.value.trim()) {
-    ElMessage.warning(t('proof.formatFromDesc.emptyDesc'))
+// ---- Unified start function ----
+
+const startFormat = async () => {
+  const hasRef = refFilePath.value.trim() !== ''
+  const hasDesc = descText.value.trim() !== ''
+
+  if (!hasRef && !hasDesc) {
+    ElMessage.warning('请选择参考文档或输入格式描述')
     return
   }
-  generating.value = true
-  clonedFilePath.value = ''
-  try {
-    // 从 Pinia store 取当前 API 配置传给主进程，不依赖全局 api_info
-    const currentApi = apiStore.selectedApi
-    const apiConfig = {
-      apiKey: currentApi.key,
-      modelName: currentApi.name,
-      apiURL: currentApi.URL,
-      provider: currentApi.provider
-    }
-    const result = await electronAPI.formatFromDescription(descText.value.trim(), apiConfig, targetFilePath.value)
-    if (!result.success) {
-      ElMessage.error(result.error || t('proof.formatFromDesc.generateFailed'))
-      return
-    }
 
-    const profile = result.profile
-    defaults.value = profile.defaults || null
+  if (!targetFilePath.value) {
+    ElMessage.warning('请先在预览区打开一个目标文档')
+    return
+  }
 
-    const items = []
-    for (const [id, style] of Object.entries(profile.styles || {})) {
-      items.push({
-        id,
-        name: style.name || id,
-        type: style.type || 'paragraph',
-        paragraphStyle: { ...(style.paragraphStyle || {}) },
-        runStyle: { ...(style.runStyle || {}) }
-      })
-    }
-    formatItems.value = items
-    if (items.length > 0) activeNames.value = [0]
-    if (defaults.value) defaultsActive.value = ['defaults']
-
-    ElMessage.success(t('proof.formatFromDesc.generateSuccess'))
-  } catch (e) {
-    ElMessage.error(t('proof.formatFromDesc.generateFailed'))
-  } finally {
-    generating.value = false
+  if (hasRef && !hasDesc) {
+    // Simple clone flow: apply reference doc format directly
+    await doClone()
+  } else {
+    // Agent flow: has description (with or without ref doc)
+    await agentFlow()
   }
 }
 
-// ---- SmartFormat Agent 方法 ----
-const selectAgentRefFile = async () => {
-  selectingAgentRef.value = true
-  try {
-    const filePath = await electronAPI.selectDocxFile()
-    if (!filePath) return
-    agentRefFilePath.value = filePath
-    agentRefFileName.value = filePath.split('\\').pop().split('/').pop()
-  } finally {
-    selectingAgentRef.value = false
-  }
-}
+// ---- Agent flow (LLM) ----
 
-const runSmartAnalyze = async () => {
-  if (!agentDescText.value.trim() && !agentRefFilePath.value) return
+const agentFlow = async () => {
   analyzing.value = true
+  clonedFilePath.value = ''
   try {
     const currentApi = apiStore.selectedApi
     const apiConfig = {
@@ -716,8 +741,8 @@ const runSmartAnalyze = async () => {
       provider: currentApi.provider
     }
     const result = await electronAPI.smartFormatAnalyze({
-      description: agentDescText.value.trim() || undefined,
-      refFilePath: agentRefFilePath.value || undefined,
+      description: descText.value.trim() || undefined,
+      refFilePath: refFilePath.value || undefined,
       targetFilePath: targetFilePath.value,
       apiConfig
     })
@@ -725,7 +750,16 @@ const runSmartAnalyze = async () => {
       agentSpec.value = result.spec
       agentClassification.value = result.classification
       agentTokenUsage.value = result.tokenUsage || 0
-      agentResults.value = buildAgentResults(result.spec, result.classification)
+      flowType.value = 'agent'
+
+      // Convert spec to editable formatItems
+      formatItems.value = specToFormatItems(result.spec)
+      defaults.value = specToDefaults(result.spec)
+
+      if (formatItems.value.length > 0) activeNames.value = [0]
+      if (defaults.value) defaultsActive.value = ['defaults']
+
+      ElMessage.success(`分析完成，识别到 ${formatItems.value.length} 种段落类型`)
     } else {
       ElMessage.error(result.error || '分析失败')
     }
@@ -736,66 +770,85 @@ const runSmartAnalyze = async () => {
   }
 }
 
-const buildAgentResults = (spec, classification) => {
-  const typeCount = new Map()
-  if (classification instanceof Map) {
-    for (const [, type] of classification) {
-      typeCount.set(type, (typeCount.get(type) || 0) + 1)
-    }
-  } else if (Array.isArray(classification)) {
-    for (const [, type] of classification) {
-      typeCount.set(type, (typeCount.get(type) || 0) + 1)
-    }
-  } else if (classification && typeof classification === 'object') {
-    for (const type of Object.values(classification)) {
-      typeCount.set(type, (typeCount.get(type) || 0) + 1)
-    }
-  }
-  const results = []
-  for (const [type, count] of typeCount.entries()) {
-    const styleDef = spec?.styleProfile?.styles?.[type]
-    results.push({
-      paragraphType: type,
-      count,
-      styleDef: styleDef?.runStyle ? {
-        fontSize: styleDef.runStyle.fontSize || '-',
-        fontFamily: styleDef.runStyle.fontFamily?.eastAsia || '-',
-        bold: styleDef.runStyle.bold || false,
-        alignment: styleDef.paragraphStyle?.alignment || '-'
-      } : null
-    })
-  }
-  return results
-}
+// ---- Clone / Apply ----
 
-const runSmartApply = async () => {
-  if (!agentSpec.value || !agentClassification.value) return
-  applying.value = true
+const doClone = async () => {
+  cloning.value = true
   try {
-    const outputPath = outputMode.value === 'new'
-      ? targetFilePath.value.replace(/\.docx$/i, '_formatted.docx')
-      : targetFilePath.value
-    const result = await electronAPI.smartFormatApply({
-      inputPath: targetFilePath.value,
-      outputPath,
-      spec: agentSpec.value,
-      classification: agentClassification.value
-    })
-    if (result.success) {
-      ElMessage.success(
-        `格式应用完成！${result.appliedParagraphs || 0} 个段落已调整，内容完整性: ${result.contentPreserved ? '✓' : '✗'}`
-      )
+    if (flowType.value === 'agent' && agentSpec.value && agentClassification.value) {
+      // Agent flow: rebuild spec from edited formatItems and apply
+      // Deep-clone to strip Vue reactive Proxies — IPC structured clone cannot serialize Proxies
+      const spec = JSON.parse(JSON.stringify(buildSpecFromFormatItems()))
+      const outputPath = outputMode.value === 'new'
+        ? targetFilePath.value.replace(/\.docx$/i, '_formatted.docx')
+        : targetFilePath.value
+      const classification = JSON.parse(JSON.stringify(agentClassification.value))
+      const result = await electronAPI.smartFormatApply({
+        inputPath: targetFilePath.value,
+        outputPath,
+        spec,
+        classification
+      })
+      if (result.success) {
+        clonedFilePath.value = result.filePath || outputPath
+        await renderPreview(result.filePath || outputPath)
+        ElMessage.success(
+          `格式应用完成！${result.appliedParagraphs || 0} 个段落已调整，内容完整性: ${result.contentPreserved ? '是' : '否'}`
+        )
+      } else {
+        console.error('[FormatClone] smartFormatApply failed:', result.error)
+        ElMessage.error('格式克隆失败: ' + (result.error || '未知错误'))
+      }
     } else {
-      ElMessage.error(result.error || '应用失败')
+      // Simple clone flow
+      const profile = JSON.parse(JSON.stringify(buildProfile()))
+      const result = await electronAPI.cloneFormatWithProfile(profile, targetFilePath.value)
+      if (result.success) {
+        clonedFilePath.value = result.filePath
+        await renderPreview(result.filePath)
+        ElMessage.success(t('proof.formatClone.cloneSuccess'))
+      } else {
+        console.error('[FormatClone] cloneFormatWithProfile failed:', result)
+        ElMessage.error(t('proof.formatClone.failed'))
+      }
     }
   } catch (e) {
-    ElMessage.error('应用出错: ' + (e.message || String(e)))
+    console.error('[FormatClone] doClone exception:', e)
+    ElMessage.error(t('proof.formatClone.failed') + ': ' + (e.message || String(e)))
   } finally {
-    applying.value = false
+    cloning.value = false
   }
 }
 
+// ---- Export ----
 
+const doExport = async () => {
+  if (!clonedFilePath.value) return
+  exporting.value = true
+  try {
+    const result = await electronAPI.exportFormatCloned(clonedFilePath.value, targetFilePath.value)
+    if (result?.canceled) return
+    if (result?.success) {
+      ElMessage.success(t('proof.messages.exportSuccess') + (result.filePath || ''))
+    }
+  } catch (e) {
+    ElMessage.error(t('proof.messages.exportFailed') + e.message)
+  } finally {
+    exporting.value = false
+  }
+}
+
+// ---- Expose state for App.vue to provide to DocPreview ----
+defineExpose({
+  refFilePath,
+  targetFilePath,
+  clonedFilePath,
+  cloning,
+  exporting,
+  formatItems,
+  doClone,
+  doExport
+})
 </script>
 
 <style scoped>
@@ -832,40 +885,27 @@ const runSmartApply = async () => {
   overflow: hidden;
 }
 
-/* ---- 模式切换 Tab ---- */
-.mode-tabs {
+/* ---- Input Section ---- */
+.input-section {
   display: flex;
-  gap: 0;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid #d0d5dd;
+  flex-direction: column;
+  gap: 8px;
   flex-shrink: 0;
 }
 
-.mode-tab {
-  flex: 1;
-  padding: 7px 0;
-  font-size: 12px;
+.input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.input-label {
+  font-size: 13px;
   font-weight: 500;
-  border: none;
-  background: #f5f6f8;
-  color: #8a929e;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.mode-tab:not(:last-child) {
-  border-right: 1px solid #d0d5dd;
-}
-
-.mode-tab.active {
-  background: #ffffff;
   color: #4a6580;
-  font-weight: 600;
-}
-
-.mode-tab:hover:not(.active) {
-  background: #edf0f4;
+  white-space: nowrap;
+  min-width: 80px;
 }
 
 .ref-file-row {
@@ -884,24 +924,11 @@ const runSmartApply = async () => {
   max-width: 120px;
 }
 
-/* ---- 描述输入区域 ---- */
-.desc-input-area {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.desc-file-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
+/* ---- Description textarea ---- */
 .desc-textarea {
   width: 100%;
-  min-height: 100px;
-  max-height: 200px;
+  min-height: 80px;
+  max-height: 160px;
   padding: 8px 10px;
   font-size: 12px;
   line-height: 1.6;
@@ -924,10 +951,19 @@ const runSmartApply = async () => {
   color: #b0b8c4;
 }
 
-.generate-btn {
-  align-self: flex-end;
+.start-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
+.hint-text {
+  font-size: 11px;
+  color: #b0b8c4;
+}
+
+/* ---- Format list (scrollable results) ---- */
 .format-list {
   flex: 4;
   min-height: 0;
@@ -1110,19 +1146,28 @@ const runSmartApply = async () => {
   margin-right: 8px;
 }
 
-/* ---- 智能格式化代理 ---- */
-.agent-input-area {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  flex-shrink: 0;
-}
-
+/* ---- Results summary ---- */
 .result-summary {
   font-size: 12px;
   color: #8a929e;
   padding: 4px 0 8px;
   flex-shrink: 0;
+}
+
+/* ---- Action buttons at bottom ---- */
+.action-bar-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+  padding-top: 4px;
+  border-top: 1px solid #edf0f4;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .detail-row {
@@ -1132,8 +1177,113 @@ const runSmartApply = async () => {
   padding: 2px 0;
 }
 
-.output-options {
-  flex-shrink: 0;
+/* ---- Dark mode overrides ---- */
+.dark .format-clone-panel {
+  background-color: #1a1a2e;
 }
 
+.dark .clone-header {
+  border-bottom-color: #2c2e30;
+}
+
+.dark .header-title {
+  color: #c0c8d0;
+}
+
+.dark .input-label {
+  color: #c0c8d0;
+}
+
+.dark .ref-file-name {
+  color: #a0a8b4;
+}
+
+.dark .desc-textarea {
+  color: #c0c8d0;
+  background: #2a2a3a;
+  border-color: #3a3a4a;
+}
+
+.dark .desc-textarea:focus {
+  border-color: #7b9eb8;
+  background: #1f1f33;
+}
+
+.dark .desc-textarea::placeholder {
+  color: #6a7078;
+}
+
+.dark .hint-text {
+  color: #6a7078;
+}
+
+.dark .format-name {
+  color: #c0c8d0;
+}
+
+.dark .format-type-badge {
+  color: #8890a0;
+}
+
+.dark .style-section strong {
+  color: #a0bdd0;
+}
+
+.dark .prop-key {
+  color: #8890a0;
+}
+
+.dark .prop-val {
+  color: #a0a8b4;
+}
+
+.dark .toggle-btn {
+  border-color: #3a3a4a;
+  background: #2a2a3a;
+  color: #8890a0;
+}
+
+.dark .toggle-btn.on {
+  background: rgba(103, 194, 58, 0.15);
+  border-color: #67c23a;
+  color: #67c23a;
+}
+
+.dark .step-btn {
+  border-color: #3a3a4a;
+  background: #2a2a3a;
+  color: #a0a8b4;
+}
+
+.dark .step-btn:hover {
+  background: #3a3a4a;
+}
+
+.dark .color-chip {
+  border-color: #3a3a4a;
+}
+
+.dark .color-chip:hover {
+  border-color: #6a7078;
+}
+
+.dark .spacing-label {
+  color: #6a7078;
+}
+
+.dark .spacing-other {
+  color: #a0a8b4;
+}
+
+.dark .result-summary {
+  color: #8890a0;
+}
+
+.dark .action-bar-bottom {
+  border-top-color: #2c2e30;
+}
+
+.dark .detail-row {
+  color: #a0a8b4;
+}
 </style>
