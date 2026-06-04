@@ -94,7 +94,7 @@
     },
     "formatClone": {
       "title": "格式克隆",
-      "backToProof": "校对模式",
+      "backToProof": "返回校对",
       "selectRef": "选择参考文档",
       "back": "返回校对",
       "start": "开始克隆",

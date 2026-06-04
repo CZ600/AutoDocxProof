@@ -1,25 +1,23 @@
 <template>
   <div class="format-clone-panel">
-    <div class="clone-header">
-      <span class="header-title">{{ t('proof.formatClone.title') }}</span>
-      <el-button text size="small" @click="$emit('back')">
-        <el-icon><ArrowLeft /></el-icon>
-        {{ t('proof.formatClone.back') }}
-      </el-button>
-    </div>
 
     <div class="clone-body">
       <!-- ====== Input Section (compact, top) ====== -->
-      <div class="input-section">
+      <div class="input-section" :class="{ expand: formatItems.length === 0 && defaults === null }">
         <!-- Reference doc selector -->
         <div class="input-row">
           <span class="input-label">📄 参考文档</span>
           <el-button size="small" @click="selectRefFile" :loading="selectingRef">
             {{ t('proof.formatClone.selectRef') }}
           </el-button>
-          <el-tooltip v-if="refFileName" :content="refFileName" placement="bottom">
-            <span class="ref-file-name">{{ truncatedName(refFileName) }}</span>
-          </el-tooltip>
+          <template v-if="refFileName">
+            <el-tooltip :content="refFileName" placement="bottom">
+              <span class="ref-file-name">{{ truncatedName(refFileName) }}</span>
+            </el-tooltip>
+            <el-tooltip content="清除参考文档" placement="bottom">
+              <el-icon class="clear-icon" @click="clearRefFile"><CircleClose /></el-icon>
+            </el-tooltip>
+          </template>
         </div>
 
         <!-- Description file selector -->
@@ -28,32 +26,48 @@
           <el-button size="small" @click="selectDescFile" :loading="selectingDescFile">
             {{ t('proof.formatFromDesc.selectFile') }}
           </el-button>
-          <el-tooltip v-if="descFileName" :content="descFileName" placement="bottom">
-            <span class="ref-file-name">{{ truncatedName(descFileName) }}</span>
-          </el-tooltip>
+          <template v-if="descFileName">
+            <el-tooltip :content="descFileName" placement="bottom">
+              <span class="ref-file-name">{{ truncatedName(descFileName) }}</span>
+            </el-tooltip>
+            <el-tooltip content="清除格式描述文件" placement="bottom">
+              <el-icon class="clear-icon" @click="clearDescFile"><CircleClose /></el-icon>
+            </el-tooltip>
+          </template>
         </div>
 
-        <!-- Description textarea -->
+        <!-- Description textarea: always visible, expand when no results -->
         <textarea
           class="desc-textarea"
+          :class="{ expand: formatItems.length === 0 && defaults === null }"
           v-model="descText"
           :placeholder="t('proof.formatFromDesc.placeholder')"
           rows="4"
+          :readonly="formatItems.length > 0 || defaults !== null"
         ></textarea>
 
-        <!-- Start button -->
-        <div class="start-btn-row">
-          <el-button
-            type="primary"
-            size="small"
-            @click="startFormat"
-            :loading="analyzing"
-            :disabled="!targetFilePath || (!refFilePath && !descText.trim())"
-          >
-            {{ analyzing ? '分析中...' : '开始格式化' }}
-          </el-button>
-          <span v-if="!targetFilePath" class="hint-text">请先在预览区打开一个目标文档</span>
-        </div>
+        <!-- Start button: hidden when results are shown -->
+        <template v-if="formatItems.length === 0 && defaults === null">
+          <div class="start-btn-row">
+            <el-button
+              type="primary"
+              size="small"
+              @click="startFormat"
+              :loading="analyzing"
+              :disabled="!targetFilePath || (!refFilePath && !descText.trim())"
+            >
+              {{ analyzing ? '分析中...' : '开始分析格式' }}
+            </el-button>
+            <el-progress
+              v-if="analyzing"
+              :percentage="progressPercent"
+              :stroke-width="10"
+              :show-text="false"
+              class="inline-progress-bar"
+            />
+            <span v-if="!targetFilePath" class="hint-text">请先在预览区打开一个目标文档</span>
+          </div>
+        </template>
       </div>
 
       <!-- ====== Results Section (below, scrollable) ====== -->
@@ -361,6 +375,30 @@
             <el-radio value="new">导出为新文件</el-radio>
             <el-radio value="overwrite">覆盖原文件</el-radio>
           </el-radio-group>
+          <!-- 强制覆盖选项（仅简单克隆流程可用） -->
+          <div v-if="flowType === 'simple'" class="force-overwrite-row">
+            <el-tooltip
+              placement="top"
+              :width="280"
+            >
+              <template #content>
+                <div class="force-tooltip-content">
+                  <p><strong>⚠️ 强制覆盖行内格式</strong></p>
+                  <p>开启后，会将参考文档的格式强制应用到目标文档的每个段落，覆盖段落上已有的手动格式设置。</p>
+                  <p><strong>风险：</strong></p>
+                  <ul>
+                    <li>会覆盖您在段落上手动设置的特殊格式</li>
+                    <li>被覆盖的格式无法通过修改样式恢复</li>
+                  </ul>
+                  <p><strong>适用场景：</strong>目标文档的段落格式无法通过修改样式生效时使用。</p>
+                </div>
+              </template>
+              <el-checkbox v-model="forceOverwrite" size="small">
+                强制覆盖行内格式
+                <el-icon class="info-icon"><QuestionFilled /></el-icon>
+              </el-checkbox>
+            </el-tooltip>
+          </div>
           <div class="action-buttons">
             <el-button
               type="primary"
@@ -388,11 +426,12 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
-import { ElButton, ElCollapse, ElCollapseItem, ElMessage, ElTooltip, ElIcon, ElPopover, ElRadio, ElRadioGroup } from 'element-plus'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ElButton, ElCheckbox, ElCollapse, ElCollapseItem, ElMessage, ElTooltip, ElIcon, ElPopover, ElRadio, ElRadioGroup } from 'element-plus'
+import { QuestionFilled, CircleClose } from '@element-plus/icons-vue'
+
 import { useApiStore } from '../stores/apiStore'
 import { fileInfoStore } from '../stores/store'
 import { renderAsync } from 'docx-preview'
@@ -432,12 +471,17 @@ const descText = ref('')
 const descFileName = ref('')
 const selectingDescFile = ref(false)
 
+// 强制覆盖行内格式选项（仅简单克隆流程可用）
+const forceOverwrite = ref(false)
+
 // Agent-specific state
 const analyzing = ref(false)
 const outputMode = ref('new')
 const agentSpec = ref(null)
 const agentClassification = ref(null)
 const agentTokenUsage = ref(0)
+const progressPercent = ref(0)
+let progressInterval = null
 
 // ---- Utility helpers (preserved exactly from original) ----
 
@@ -676,6 +720,15 @@ const selectDescFile = async () => {
     const filePath = await electronAPI.selectFormatDescFile()
     if (!filePath) return
 
+    // Clear previous results so input area shows again
+    formatItems.value = []
+    defaults.value = null
+    clonedFilePath.value = ''
+    flowType.value = 'simple'
+    agentSpec.value = null
+    agentClassification.value = null
+    agentTokenUsage.value = 0
+
     descFileName.value = filePath.split('\\').pop().split('/').pop()
 
     const ext = filePath.split('.').pop().toLowerCase()
@@ -700,6 +753,40 @@ const selectDescFile = async () => {
   } finally {
     selectingDescFile.value = false
   }
+}
+
+// ---- Clear functions ----
+
+const clearRefFile = () => {
+  refFilePath.value = ''
+  refFileName.value = ''
+  // 如果没有格式描述，清除结果状态
+  if (!descText.value.trim()) {
+    formatItems.value = []
+    defaults.value = null
+    clonedFilePath.value = ''
+    flowType.value = 'simple'
+    agentSpec.value = null
+    agentClassification.value = null
+    agentTokenUsage.value = 0
+  }
+  ElMessage.success('已清除参考文档')
+}
+
+const clearDescFile = () => {
+  descFileName.value = ''
+  descText.value = ''
+  // 如果没有参考文档，清除结果状态
+  if (!refFilePath.value) {
+    formatItems.value = []
+    defaults.value = null
+    clonedFilePath.value = ''
+    flowType.value = 'simple'
+    agentSpec.value = null
+    agentClassification.value = null
+    agentTokenUsage.value = 0
+  }
+  ElMessage.success('已清除格式描述')
 }
 
 // ---- Unified start function ----
@@ -732,6 +819,18 @@ const startFormat = async () => {
 const agentFlow = async () => {
   analyzing.value = true
   clonedFilePath.value = ''
+  // Start fake progress: ~0→99% over ~120s
+  progressPercent.value = 0
+  const steps = 240
+  let current = 0
+  progressInterval = setInterval(() => {
+    current++
+    if (current < steps) {
+      progressPercent.value = Math.round((current / steps) * 99)
+    } else {
+      progressPercent.value = 99
+    }
+  }, 500)
   try {
     const currentApi = apiStore.selectedApi
     const apiConfig = {
@@ -766,9 +865,23 @@ const agentFlow = async () => {
   } catch (e) {
     ElMessage.error('分析出错: ' + (e.message || String(e)))
   } finally {
+    clearInterval(progressInterval)
+    progressPercent.value = 100
     analyzing.value = false
   }
 }
+
+// ---- Progress cleanup & textarea compress ----
+watch(formatItems, (items) => {
+  if (items.length > 0 && progressInterval) {
+    clearInterval(progressInterval)
+    progressPercent.value = 100
+  }
+})
+
+onUnmounted(() => {
+  if (progressInterval) clearInterval(progressInterval)
+})
 
 // ---- Clone / Apply ----
 
@@ -802,12 +915,31 @@ const doClone = async () => {
     } else {
       // Simple clone flow
       const profile = JSON.parse(JSON.stringify(buildProfile()))
-      const result = await electronAPI.cloneFormatWithProfile(profile, targetFilePath.value)
-      if (result.success) {
-        clonedFilePath.value = result.filePath
-        await renderPreview(result.filePath)
-        ElMessage.success(t('proof.formatClone.cloneSuccess'))
+      let result
+      if (forceOverwrite.value) {
+        // 强制覆盖行内格式
+        result = await electronAPI.cloneFormatWithProfileForce(profile, targetFilePath.value)
+        if (result.success) {
+          clonedFilePath.value = result.filePath
+          await renderPreview(result.filePath)
+          const matchedStyles = result.matchedStyles || 0
+          const appliedParagraphs = result.appliedParagraphs || 0
+          if (matchedStyles === 0) {
+            ElMessage.warning(`格式克隆完成！未匹配到参考样式，已使用默认格式覆盖 ${appliedParagraphs} 个段落`)
+          } else {
+            ElMessage.success(`格式克隆完成！匹配到 ${matchedStyles} 个样式，已强制覆盖 ${appliedParagraphs} 个段落`)
+          }
+        }
       } else {
+        // 普通克隆（只修改样式定义）
+        result = await electronAPI.cloneFormatWithProfile(profile, targetFilePath.value)
+        if (result.success) {
+          clonedFilePath.value = result.filePath
+          await renderPreview(result.filePath)
+          ElMessage.success(t('proof.formatClone.cloneSuccess'))
+        }
+      }
+      if (!result?.success) {
         console.error('[FormatClone] cloneFormatWithProfile failed:', result)
         ElMessage.error(t('proof.formatClone.failed'))
       }
@@ -891,6 +1023,13 @@ defineExpose({
   flex-direction: column;
   gap: 8px;
   flex-shrink: 0;
+  transition: flex 0.4s ease, min-height 0.4s ease;
+  overflow: hidden;
+}
+
+.input-section.expand {
+  flex: 1;
+  min-height: 0;
 }
 
 .input-row {
@@ -924,6 +1063,18 @@ defineExpose({
   max-width: 120px;
 }
 
+.clear-icon {
+  font-size: 16px;
+  color: #b0b8c4;
+  cursor: pointer;
+  transition: color 0.2s;
+  flex-shrink: 0;
+}
+
+.clear-icon:hover {
+  color: #f56c6c;
+}
+
 /* ---- Description textarea ---- */
 .desc-textarea {
   width: 100%;
@@ -940,6 +1091,21 @@ defineExpose({
   outline: none;
   font-family: inherit;
   box-sizing: border-box;
+  transition: max-height 0.4s ease, height 0.4s ease;
+}
+
+.desc-textarea.expand {
+  flex: 1;
+  height: 100%;
+  max-height: none;
+  resize: none;
+}
+
+.desc-textarea[readonly] {
+  max-height: 100px;
+  resize: none;
+  opacity: 0.7;
+  cursor: default;
 }
 
 .desc-textarea:focus {
@@ -961,6 +1127,20 @@ defineExpose({
 .hint-text {
   font-size: 11px;
   color: #b0b8c4;
+}
+
+.inline-progress-bar {
+  flex: 1;
+  min-width: 60px;
+}
+
+.inline-progress-bar :deep(.el-progress-bar__outer) {
+  background-color: #e0e3e8;
+}
+
+.inline-progress-bar :deep(.el-progress-bar__inner) {
+  background-color: #7b9eb8;
+  transition: width 0.5s ease;
 }
 
 /* ---- Format list (scrollable results) ---- */
@@ -1170,6 +1350,45 @@ defineExpose({
   align-items: center;
 }
 
+/* ---- Force overwrite option ---- */
+.force-overwrite-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.force-overwrite-row :deep(.el-checkbox__label) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #5a6a7a;
+}
+
+.info-icon {
+  font-size: 14px;
+  color: #b0b8c4;
+  cursor: help;
+}
+
+.force-tooltip-content {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.force-tooltip-content p {
+  margin: 4px 0;
+}
+
+.force-tooltip-content ul {
+  margin: 4px 0;
+  padding-left: 16px;
+}
+
+.force-tooltip-content li {
+  margin: 2px 0;
+}
+
 .detail-row {
   font-size: 12px;
   line-height: 1.8;
@@ -1198,6 +1417,14 @@ defineExpose({
   color: #a0a8b4;
 }
 
+.dark .clear-icon {
+  color: #6a7078;
+}
+
+.dark .clear-icon:hover {
+  color: #f56c6c;
+}
+
 .dark .desc-textarea {
   color: #c0c8d0;
   background: #2a2a3a;
@@ -1215,6 +1442,14 @@ defineExpose({
 
 .dark .hint-text {
   color: #6a7078;
+}
+
+.dark .inline-progress-bar :deep(.el-progress-bar__outer) {
+  background-color: #3a3a4a;
+}
+
+.dark .inline-progress-bar :deep(.el-progress-bar__inner) {
+  background-color: #7b9eb8;
 }
 
 .dark .format-name {
@@ -1285,5 +1520,13 @@ defineExpose({
 
 .dark .detail-row {
   color: #a0a8b4;
+}
+
+.dark .force-overwrite-row :deep(.el-checkbox__label) {
+  color: #a0a8b4;
+}
+
+.dark .info-icon {
+  color: #6a7078;
 }
 </style>

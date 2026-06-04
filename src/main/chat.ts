@@ -28,20 +28,18 @@ export async function getGeminiResponse(
   userPrompt: string,
   apiKey: string,
   modelName: string
-): Promise<string> {
+): Promise<{ result: string; total_tokens: number }> {
   if (!apiKey) {
     throw new Error('API key is missing. Please provide a valid API key.')
   }
 
   try {
-    // 初始化时传入 API Key
     const genAI = new GoogleGenerativeAI(apiKey)
 
-    // 获取模型，现在可以直接在 getGenerativeModel 中设置 system instruction
     const model = genAI.getGenerativeModel({
       model: modelName,
       systemInstruction: {
-        role: 'system', // 或者 'model'，但通常对于指令是 'user'
+        role: 'system',
         parts: [{ text: systemPrompt }]
       }
     })
@@ -72,7 +70,6 @@ export async function getGeminiResponse(
       }
     ]
 
-    // generateContent 现在只需要传入用户的 prompt 即可
     const result = await model.generateContent({
       contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
       generationConfig,
@@ -89,12 +86,15 @@ export async function getGeminiResponse(
       throw new Error('No response candidates found.')
     }
 
-    // 从 candidates 中获取文本
     const text = response.candidates[0].content.parts.map(part => part.text).join('')
-    return text
+    const usageMetadata = response.usageMetadata as any
+    const total_tokens = usageMetadata?.totalTokenCount
+      ?? ((usageMetadata?.promptTokenCount || 0) + (usageMetadata?.candidatesTokenCount || 0))
+      || 0
+
+    return { result: text, total_tokens }
   } catch (error) {
     console.error('An error occurred while calling the Gemini API:', error)
-    // 抛出更具体的错误信息
     if (error instanceof Error) {
       throw new Error(`Gemini API call failed: ${error.message}`)
     } else {
@@ -114,6 +114,11 @@ export async function OpenaiGen(
   if (!apiKey) {
     throw new Error('API key is missing. Please provide a valid API key.')
   }
+
+  // 规范化 baseURL，确保以 /v1 结尾（OpenAI SDK 会在其后拼接 /chat/completions）
+  const normalizedURL = apiURL.trim().replace(/\/+$/, '')
+  const targetURL = `${normalizedURL}/chat/completions`
+  console.log(`[OpenaiGen] calling: ${targetURL} | model: ${modelName}`)
 
   try {
     const openai = new OpenAI({
@@ -145,8 +150,36 @@ export async function OpenaiGen(
 
     return { result, total_tokens }
   } catch (error) {
+    console.error(`[OpenaiGen] API call failed → URL: ${targetURL}, model: ${modelName}`)
     console.error('An error occurred while calling the OpenAI-compatible API:', error)
+
     if (error instanceof Error) {
+      // 如果是 404，提供更具体的排查建议
+      const statusMatch = error.message.match(/(\d{3})/)
+      const statusCode = statusMatch ? parseInt(statusMatch[1]) : 0
+      if (statusCode === 404) {
+        // 检测可能的 provider 不匹配
+        const lowerURL = targetURL.toLowerCase()
+        let providerHint = ''
+        if (lowerURL.includes('/anthropic')) {
+          providerHint =
+            `    5. ⚠️ URL 中包含 "/anthropic"，但当前使用通用 OpenAI 接口\n` +
+            `       → 请检查 provider 设置，可能需要改为 "Anthropic (Claude)" 或 "模拟 Claude Code"\n` +
+            `       → 同时确认模型名称应为 Claude 系列（如 claude-sonnet-4-5-20250929）\n`
+        }
+        throw new Error(
+          `OpenAI API call failed: 404 Not Found\n` +
+            `  → 请求地址: ${targetURL}\n` +
+            `  → 模型名称: ${modelName}\n` +
+            `  → 可能原因:\n` +
+            `    1. API 地址错误，请检查 API 地址是否正确（需以 /v1 结尾）\n` +
+            `    2. 模型名称 "${modelName}" 在该 API 中不可用\n` +
+            `    3. API 密钥无效或已过期\n` +
+            `    4. API 代理/转发服务不可用\n` +
+            providerHint +
+            `  → 建议: 在设置页面点击"测试连接"验证配置`
+        )
+      }
       throw new Error(`OpenAI API call failed: ${error.message}`)
     } else {
       throw new Error('An unknown error occurred during the OpenAI API call.')
@@ -306,16 +339,33 @@ export async function getEmbedding(text: string | string[], modelName: string, a
 /**
  * 调用 Anthropic Claude API 进行单次对话（使用官方 SDK）。
  */
+/**
+ * 规范化 Anthropic SDK 的 baseURL，避免重复版本路径。
+ * Anthropic SDK 会在 baseURL 后自动追加 /v1/messages，
+ * 因此如果用户提供的 URL 已包含 /v1，需要去除以避免 /v1/v1/messages。
+ */
+function normalizeAnthropicBaseURL(apiURL: string): string {
+  const trimmed = apiURL.trim().replace(/\/+$/, '')
+  // 去除末尾的 /v1、/v2 等版本号，因为 SDK 会自动添加
+  return trimmed.replace(/\/v\d+$/, '')
+}
+
 export async function getAnthropicResponse(
   systemPrompt: string,
   userPrompt: string,
   apiKey: string,
-  modelName: string
+  modelName: string,
+  apiURL?: string
 ): Promise<{ result: string; total_tokens: number }> {
   if (!apiKey) throw new Error('API key is missing.')
 
   try {
-    const anthropic = new Anthropic({ apiKey })
+    const options: any = { apiKey }
+    if (apiURL) {
+      options.baseURL = normalizeAnthropicBaseURL(apiURL)
+      console.log(`[getAnthropicResponse] baseURL=${options.baseURL}, model=${modelName}`)
+    }
+    const anthropic = new Anthropic(options)
 
     const message = await anthropic.messages.create({
       model: modelName,
@@ -448,7 +498,10 @@ function createClaudeCodeClient(apiKey: string, apiURL?: string) {
       'anthropic-client-type': 'cli'
     }
   }
-  if (apiURL) options.baseURL = apiURL.trim().replace(/\/+$/, '')
+  if (apiURL) {
+    options.baseURL = normalizeAnthropicBaseURL(apiURL)
+    console.log(`[createClaudeCodeClient] baseURL=${options.baseURL}`)
+  }
   return { client: new Anthropic(options), sessionId }
 }
 
@@ -583,11 +636,10 @@ export async function getModelResponse(
 ): Promise<{ result: string; total_tokens: number }> {
   switch (provider) {
     case ModelProvider.ANTHROPIC:
-      return await getAnthropicResponse(systemPrompt, userPrompt, apiKey, modelName)
+      return await getAnthropicResponse(systemPrompt, userPrompt, apiKey, modelName, customBaseURL)
 
     case ModelProvider.GEMINI:
-      const geminiResult = await getGeminiResponse(systemPrompt, userPrompt, apiKey, modelName)
-      return { result: geminiResult, total_tokens: 0 }
+      return await getGeminiResponse(systemPrompt, userPrompt, apiKey, modelName)
 
     case ModelProvider.DOUBAO:
       return await getDoubaoResponse(systemPrompt, userPrompt, apiKey, modelName)
@@ -634,7 +686,9 @@ export async function testAPIWithProvider(
 ): Promise<boolean> {
   try {
     if (provider === ModelProvider.ANTHROPIC) {
-      const anthropic = new Anthropic({ apiKey })
+      const options: any = { apiKey }
+      if (apiURL) options.baseURL = normalizeAnthropicBaseURL(apiURL)
+      const anthropic = new Anthropic(options)
       const message = await anthropic.messages.create({
         model: modelName,
         max_tokens: 100,

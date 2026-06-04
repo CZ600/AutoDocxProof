@@ -37,10 +37,10 @@ export const MODEL_PROVIDERS: Record<ModelProvider, ModelProviderConfig> = {
     id: ModelProvider.ANTHROPIC,
     name: 'Anthropic (Claude)',
     nameEn: 'Anthropic (Claude)',
-    requiresBaseURL: false,
+    requiresBaseURL: true,
     defaultModel: 'claude-3-5-sonnet-20241022',
-    description: 'Anthropic Claude 系列模型',
-    descriptionEn: 'Anthropic Claude series models'
+    description: 'Anthropic Claude 系列模型（支持自定义 API 地址）',
+    descriptionEn: 'Anthropic Claude series models (custom API endpoint supported)'
   },
   [ModelProvider.GEMINI]: {
     id: ModelProvider.GEMINI,

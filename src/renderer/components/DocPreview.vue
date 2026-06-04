@@ -5,6 +5,7 @@
     <div class="action-bar">
       <div class="header-content">
         <div class="file-info-container">
+          <template v-if="activeMode !== 'format-clone'">
           <el-dropdown placement="bottom" trigger="click" :disabled="proofreadingResults.length === 0">
             <el-button type="primary" size="default" class="apply-changes-btn">
               <span>{{ t('proof.applyChanges') }}</span>
@@ -45,6 +46,7 @@
               </el-dropdown-menu>
             </template>
           </el-dropdown>
+          </template>
 
           <el-tooltip v-if="fileName" :content="fileName" placement="bottom">
             <span class="file-name-tag">
@@ -186,6 +188,7 @@ import { useEmbeddingStore } from '../stores/embeddingStore'
 import { useApiStore } from '../stores/apiStore'
 import { Collection, Document, ArrowDown, Select, RefreshLeft } from '@element-plus/icons-vue'
 import { useDark } from '@vueuse/core'
+import { requiresBaseURL } from '../../../shared/modelProviders'
 
 const electronAPI = window.electronAPI
 const router = useRouter()
@@ -926,7 +929,7 @@ const onSubmit = async () => {
       startFakeProgress()
     }
 
-    let apiURL, apiKey, modelName, parallel, timeLimit_
+    let apiURL, apiKey, modelName, provider, parallel, timeLimit_
     const currentApiSettings = apiSettingsStore.selectedApi
     if (currentApiSettings.id && (!currentApiSettings.URL || !currentApiSettings.key)) {
       const foundApi = apiSettingsStore.apiSettings.find(item => item.id === currentApiSettings.id)
@@ -934,16 +937,19 @@ const onSubmit = async () => {
         apiURL = foundApi.apiURL
         apiKey = foundApi.apiKey
         modelName = foundApi.modelName
+        provider = foundApi.provider
       }
     } else {
       apiURL = currentApiSettings.URL
       apiKey = currentApiSettings.key
       modelName = currentApiSettings.name
+      provider = currentApiSettings.provider
     }
     parallel = apiSettingsStore.selectedApi.parallel || 30
     timeLimit_ = apiSettingsStore.selectedApi.TimeLimit
 
-    if (!apiURL || !apiKey || !modelName) {
+    const needsUrl = requiresBaseURL(provider) || !provider
+    if ((needsUrl && !apiURL) || !apiKey || !modelName) {
       ElMessage({
         message: t('proof.errors.apiIncomplete'),
         type: 'error',
@@ -957,7 +963,7 @@ const onSubmit = async () => {
       return
     }
 
-    await electronAPI.selectAPISetting(apiURL, apiKey, modelName, parallel, timeLimit_)
+    await electronAPI.selectAPISetting(apiURL, apiKey, modelName, parallel, timeLimit_, provider)
 
     let results
     let token_usage = 0

@@ -303,7 +303,9 @@ export function useApiSettings() {
         currentSettings.name,
         currentSettings.parallel,
         currentSettings.TimeLimit,
-        currentSettings.provider
+        // 兼容旧版本 localStorage（可能没有 provider 字段），
+        // Electron IPC 不传 undefined，会导致主进程使用默认值 openai_compatible
+        currentSettings.provider || ModelProvider.OPENAI_COMPATIBLE
       )
     } catch (error) {
       console.error('同步 API 设置失败:', error)
@@ -313,8 +315,20 @@ export function useApiSettings() {
   const initialize = async () => {
     await fetchAllApiSettings()
 
-    if (apiStore.selectedApi.id && (!apiStore.selectedApi.URL || !apiStore.selectedApi.key)) {
-      await selectApi(apiStore.selectedApi.id)
+    if (apiStore.selectedApi.id) {
+      // 重载条件：URL/key 为空，或 provider 缺失（兼容旧版本 localStorage 数据）
+      const needsReload =
+        !apiStore.selectedApi.URL ||
+        !apiStore.selectedApi.key ||
+        !apiStore.selectedApi.provider
+
+      if (needsReload) {
+        // 从数据库重新加载完整数据（包括 provider）
+        await selectApi(apiStore.selectedApi.id)
+      } else {
+        // 数据完整，同步到主进程
+        await syncApiSettingsToBackend()
+      }
     }
   }
 
@@ -330,7 +344,8 @@ export function useApiSettings() {
       } else {
         console.warn('apiSettings 列表为空，忽略本次 API 选择')
       }
-    }
+    },
+    { immediate: true }
   )
 
   return {

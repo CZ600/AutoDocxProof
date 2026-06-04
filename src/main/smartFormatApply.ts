@@ -384,6 +384,28 @@ function applyPageSettings(doc: any, pageSettings: SmartFormatSpec['pageSettings
   doc.patch(tree)
 }
 
+// ========== Image Detection ==========
+
+/**
+ * 检测段落中是否包含图片。
+ * 通过遍历段落的 runs，检查每个 run 是否包含 image 子节点。
+ */
+function paragraphHasImage(paragraph: any): boolean {
+  try {
+    const runs = paragraph.getRuns()
+    if (!runs || runs.length === 0) return false
+    for (const run of runs) {
+      if (typeof run.getImages === 'function') {
+        const images = run.getImages()
+        if (images && images.length > 0) return true
+      }
+    }
+  } catch {
+    // getRuns() / getImages() may fail for some paragraph types
+  }
+  return false
+}
+
 // ========== Rule Matching ==========
 
 /**
@@ -501,6 +523,9 @@ export async function applySmartFormat(
 
         for (let i = 0; i < paragraphs.length; i++) {
           const paragraph = paragraphs[i]
+
+          // 含图片的段落不套用格式，保持原样
+          if (paragraphHasImage(paragraph)) continue
 
           for (const rule of spec.paragraphRules!) {
             // 检查是否匹配

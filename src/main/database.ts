@@ -150,7 +150,7 @@ export class DB {
       let query = `UPDATE api_settings SET apiURL = ?, apiKey = ?, modelName = ?`
       const params: any[] = [apiURL, apiKey, modelName]
 
-      if (provider) {
+      if (provider !== undefined && provider !== null) {
         query += `, provider = ?`
         params.push(provider)
       }
@@ -256,7 +256,7 @@ export class DB {
     // 返回apiSettings 数组
     const db = await DB.getInstance()
     const rows = await db.all<apiSettings[]>(
-      `SELECT id, apiURL, apiKey, modelName, created_at FROM api_settings ORDER BY created_at DESC`
+      `SELECT id, apiURL, apiKey, modelName, provider, created_at FROM api_settings ORDER BY created_at DESC`
     )
     return rows
   }

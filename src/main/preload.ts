@@ -155,6 +155,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('clone-format', sourcePath, targetPath),
   cloneFormatWithProfile: (profile: any, targetPath: string) =>
     ipcRenderer.invoke('clone-format-with-profile', profile, targetPath),
+  cloneFormatWithProfileForce: (profile: any, targetPath: string) =>
+    ipcRenderer.invoke('clone-format-with-profile-force', profile, targetPath),
   exportFormatCloned: (clonedFilePath: string, originalTargetPath: string) =>
     ipcRenderer.invoke('export-format-cloned', clonedFilePath, originalTargetPath),
   // 获取当前校对背景信息

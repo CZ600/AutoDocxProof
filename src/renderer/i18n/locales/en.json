@@ -94,7 +94,7 @@
     },
     "formatClone": {
       "title": "Format Clone",
-      "backToProof": "Proofread Mode",
+      "backToProof": "Back to Proofread",
       "selectRef": "Select Reference Document",
       "back": "Back to Proofread",
       "start": "Start Clone",

@@ -57,6 +57,37 @@ interface ApiSettings {
   provider?: ModelProvider
 }
 
+/**
+ * 检测 API URL 与 provider 是否匹配，输出警告。
+ * 常见误配置：URL 中有 /anthropic 但 provider 是 openai_compatible。
+ */
+function detectProviderURLMismatch(provider: ModelProvider, apiURL: string, modelName: string): void {
+  if (provider !== ModelProvider.OPENAI_COMPATIBLE) return
+
+  const lowerURL = apiURL.toLowerCase()
+
+  // URL 包含 /anthropic 但 provider 是 openai_compatible → 应用 Anthropic 驱动
+  if (lowerURL.includes('/anthropic')) {
+    console.warn(
+      `⚠️ [callModelAPI] 检测到 provider 与 URL 不匹配！\n` +
+        `  → 当前 provider: openai_compatible（通用 OpenAI 接口）\n` +
+        `  → 但 API 地址包含 "/anthropic"（可能是 Anthropic 专用端点）\n` +
+        `  → 建议: 将 provider 改为 "Anthropic (Claude)" 或 "模拟 Claude Code"\n` +
+        `  → 同时将模型名称改为 Claude 系列（如 claude-sonnet-4-5-20250929）`
+    )
+  }
+
+  // URL 包含 /claude 但 provider 是 openai_compatible
+  if (lowerURL.includes('/claude') && !lowerURL.includes('/chat/completions')) {
+    console.warn(
+      `⚠️ [callModelAPI] 检测到 provider 与 URL 不匹配！\n` +
+        `  → 当前 provider: openai_compatible（通用 OpenAI 接口）\n` +
+        `  → 但 API 地址包含 "/claude"（可能是 Claude 专用端点）\n` +
+        `  → 建议: 将 provider 改为 "Anthropic (Claude)" 或 "模拟 Claude Code"`
+    )
+  }
+}
+
 async function callModelAPI(
   systemPrompt: string,
   userPrompt: string,
@@ -66,6 +97,13 @@ async function callModelAPI(
   provider?: ModelProvider
 ): Promise<{ result: string; total_tokens: number }> {
   const actualProvider = provider || ModelProvider.OPENAI_COMPATIBLE
+
+  console.log(
+    `[callModelAPI] provider=${actualProvider}, model=${modelName}, apiURL=${apiURL}`
+  )
+
+  // 检测 URL 与 provider 是否匹配
+  detectProviderURLMismatch(actualProvider, apiURL, modelName)
 
   if (actualProvider === ModelProvider.OPENAI_COMPATIBLE) {
     return await OpenaiGen(systemPrompt, userPrompt, apiKey, modelName, apiURL)
@@ -1395,7 +1433,7 @@ export async function reviewCorrections(
   }
 
   const userPrompt = buildReviewUserPrompt(corrections)
-  const { result, total_tokens } = await OpenaiGen(reviewSystemPrompt, userPrompt, apiKey, modelName, apiURL)
+  const { result, total_tokens } = await callModelAPI(reviewSystemPrompt, userPrompt, apiKey, modelName, apiURL, provider)
   totalTokens = total_tokens
 
   const reviewed = parseCorrections(result)

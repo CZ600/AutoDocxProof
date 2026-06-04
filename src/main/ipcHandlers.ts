@@ -3,7 +3,7 @@ import { dialog } from 'electron'
 import * as path from 'path'
 import { DB } from './database'
 import { testAPI, testAPIWithProvider } from './chat'
-import { ModelProvider, getProviderBaseURL } from '../shared/modelProviders'
+import { ModelProvider, getProviderBaseURL, requiresBaseURL } from '../shared/modelProviders'
 import {
   proofreadDocument,
   reduceAIDetectionDocument,
@@ -21,7 +21,7 @@ import { deleteDocumentByName, listFilenamesInRepository } from './lancedb'
 import { Mode } from '@google/genai'
 import * as mammoth from 'mammoth'
 import { replaceTextInDocx } from './wordProcess'
-import { cloneFormat, extractFormatProfile, cloneFormatWithProfile } from './formatClone'
+import { cloneFormat, extractFormatProfile, cloneFormatWithProfile, cloneFormatWithProfileForce } from './formatClone'
 import { formatDescriptionToProfile } from './formatFromDesc'
 import { SmartFormatAgent } from './smartFormatAgent'
 import { ParagraphType } from './smartFormatApply'
@@ -146,6 +146,7 @@ export const registerIpcHandlers = () => {
       api_info.apiKey = Key
       api_info.apiURL = URL
       api_info.modelName = modelName
+      api_info.provider = provider
       const result = await DB.insertAPISetting(URL, Key, modelName, provider)
       console.log('the result of the new api setting adding:', result)
       if (result) {
@@ -161,6 +162,10 @@ export const registerIpcHandlers = () => {
   ipcMain.handle('update-api', async (event, id, URL, Key, modelName, provider) => {
     try {
       console.log('update api setting:', id, URL, Key, modelName, provider)
+      api_info.apiKey = Key
+      api_info.apiURL = URL
+      api_info.modelName = modelName
+      if (provider) api_info.provider = provider
       return await DB.updateAPISettingById(id, URL, Key, modelName, provider)
     } catch (error) {
       console.error('update api setting failed:', error)
@@ -226,6 +231,7 @@ export const registerIpcHandlers = () => {
       URL: api_info.apiURL,
       Key: api_info.apiKey,
       modelName: api_info.modelName,
+      provider: api_info.provider,
       parallel: api_info.parallel || 30,
       TimeLimit: api_info.TimeLimit
     }
@@ -265,10 +271,17 @@ export const registerIpcHandlers = () => {
           }
         }
 
-        if (!api_info.apiKey || !api_info.apiURL || !api_info.modelName) {
+        if (!api_info.apiKey || !api_info.modelName) {
           return {
             isSuccess: false,
             message: 'Please select an API setting!'
+          }
+        }
+
+        if (requiresBaseURL(api_info.provider) && !api_info.apiURL) {
+          return {
+            isSuccess: false,
+            message: 'Please provide an API URL for this provider!'
           }
         }
         if (Model === 'wordError') {
@@ -288,15 +301,15 @@ export const registerIpcHandlers = () => {
           )
 
           // 自动审核校对结果
-          let reviewApiInfo: { apiKey: string; apiURL: string; modelName: string } | null = null
+          let reviewApiInfo: { apiKey: string; apiURL: string; modelName: string; provider?: ModelProvider } | null = null
           if (reviewModelId) {
             const reviewApi = await DB.getAPISettingById(reviewModelId)
             if (reviewApi) {
-              reviewApiInfo = { apiKey: reviewApi.apiKey, apiURL: reviewApi.apiURL, modelName: reviewApi.modelName }
+              reviewApiInfo = { apiKey: reviewApi.apiKey, apiURL: reviewApi.apiURL, modelName: reviewApi.modelName, provider: reviewApi.provider }
             }
           }
           if (!reviewApiInfo && api_info) {
-            reviewApiInfo = { apiKey: api_info.apiKey, apiURL: api_info.apiURL, modelName: api_info.modelName }
+            reviewApiInfo = { apiKey: api_info.apiKey, apiURL: api_info.apiURL, modelName: api_info.modelName, provider: api_info.provider }
           }
           if (reviewApiInfo && proofResult && proofResult.length > 0) {
             sendProgress({
@@ -323,7 +336,8 @@ export const registerIpcHandlers = () => {
                   percent: total > 0 ? Math.min(100, 95 + Math.floor((completed / total) * 5)) : 95,
                   message: '正在审核校对结果'
                 })
-              }
+              },
+              reviewApiInfo.provider
             )
             proofResult = reviewedResult
             token_usage += reviewTokens
@@ -359,15 +373,15 @@ export const registerIpcHandlers = () => {
           )
 
           // 自动审核校对结果
-          let reviewApiInfo2: { apiKey: string; apiURL: string; modelName: string } | null = null
+          let reviewApiInfo2: { apiKey: string; apiURL: string; modelName: string; provider?: ModelProvider } | null = null
           if (reviewModelId) {
             const reviewApi = await DB.getAPISettingById(reviewModelId)
             if (reviewApi) {
-              reviewApiInfo2 = { apiKey: reviewApi.apiKey, apiURL: reviewApi.apiURL, modelName: reviewApi.modelName }
+              reviewApiInfo2 = { apiKey: reviewApi.apiKey, apiURL: reviewApi.apiURL, modelName: reviewApi.modelName, provider: reviewApi.provider }
             }
           }
           if (!reviewApiInfo2 && api_info) {
-            reviewApiInfo2 = { apiKey: api_info.apiKey, apiURL: api_info.apiURL, modelName: api_info.modelName }
+            reviewApiInfo2 = { apiKey: api_info.apiKey, apiURL: api_info.apiURL, modelName: api_info.modelName, provider: api_info.provider }
           }
           if (reviewApiInfo2 && proofResult && proofResult.length > 0) {
             sendProgress({
@@ -394,7 +408,8 @@ export const registerIpcHandlers = () => {
                   percent: total > 0 ? Math.min(100, 95 + Math.floor((completed / total) * 5)) : 95,
                   message: '正在审核校对结果'
                 })
-              }
+              },
+              reviewApiInfo2.provider
             )
             proofResult = reviewedResult
             token_usage += reviewTokens
@@ -430,15 +445,15 @@ export const registerIpcHandlers = () => {
           )
 
           // 自动审核校对结果
-          let reviewApiInfo3: { apiKey: string; apiURL: string; modelName: string } | null = null
+          let reviewApiInfo3: { apiKey: string; apiURL: string; modelName: string; provider?: ModelProvider } | null = null
           if (reviewModelId) {
             const reviewApi = await DB.getAPISettingById(reviewModelId)
             if (reviewApi) {
-              reviewApiInfo3 = { apiKey: reviewApi.apiKey, apiURL: reviewApi.apiURL, modelName: reviewApi.modelName }
+              reviewApiInfo3 = { apiKey: reviewApi.apiKey, apiURL: reviewApi.apiURL, modelName: reviewApi.modelName, provider: reviewApi.provider }
             }
           }
           if (!reviewApiInfo3 && api_info) {
-            reviewApiInfo3 = { apiKey: api_info.apiKey, apiURL: api_info.apiURL, modelName: api_info.modelName }
+            reviewApiInfo3 = { apiKey: api_info.apiKey, apiURL: api_info.apiURL, modelName: api_info.modelName, provider: api_info.provider }
           }
           if (reviewApiInfo3 && proofResult && proofResult.length > 0) {
             sendProgress({
@@ -465,7 +480,8 @@ export const registerIpcHandlers = () => {
                   percent: total > 0 ? Math.min(100, 95 + Math.floor((completed / total) * 5)) : 95,
                   message: '正在审核校对结果'
                 })
-              }
+              },
+              reviewApiInfo3.provider
             )
             proofResult = reviewedResult
             token_usage += reviewTokens
@@ -617,6 +633,21 @@ export const registerIpcHandlers = () => {
       return { success: true, filePath: tmpPath }
     } catch (error) {
       console.error('格式克隆失败:', error)
+      throw error
+    }
+  })
+
+  // 格式克隆 - 强制覆盖行内格式（使用自定义样式档案克隆，并强制应用到段落直接格式）
+  ipcMain.handle('clone-format-with-profile-force', async (event, profile: any, targetPath: string) => {
+    try {
+      const os = require('os')
+      const tmpDir = os.tmpdir()
+      const tmpName = `format_clone_force_${Date.now()}.docx`
+      const tmpPath = require('path').join(tmpDir, tmpName)
+      const result = await cloneFormatWithProfileForce(profile, targetPath, tmpPath)
+      return { success: true, filePath: tmpPath, appliedParagraphs: result.appliedParagraphs, matchedStyles: result.matchedStyles }
+    } catch (error) {
+      console.error('强制格式克隆失败:', error)
       throw error
     }
   })

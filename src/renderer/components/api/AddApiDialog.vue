@@ -184,7 +184,8 @@ const handleSubmit = async () => {
       id: formData.id,
       URL: formData.URL,
       key: formData.key,
-      name: formData.name
+      name: formData.name,
+      provider: formData.provider
     })
   } finally {
     submitting.value = false
