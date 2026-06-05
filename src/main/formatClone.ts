@@ -21,17 +21,7 @@ export async function cloneFormatWithProfile(
   targetPath: string,
   outputPath: string
 ): Promise<void> {
-  const sanitized = {
-    defaults: profile.defaults || {},
-    styles: profile.styles || {}
-  }
-  // 确保每个 style 有 paragraphStyle 和 runStyle
-  for (const [id, style] of Object.entries(sanitized.styles)) {
-    const s = style as any
-    if (!s.paragraphStyle) s.paragraphStyle = {}
-    if (!s.runStyle) s.runStyle = {}
-  }
-  await applyClone(sanitized, targetPath, outputPath)
+  await applyClone(profile, targetPath, outputPath)
 }
 
 async function applyClone(
@@ -51,15 +41,17 @@ async function applyClone(
     for (const [dstId, dstStyle] of Object.entries(dstProfile.styles)) {
       const src = srcStyle as any
       const dst = dstStyle as any
-      // 使用模糊名称匹配：支持精确/忽略大小写/去空格/别名表
       if (styleNameMatches(src.name, dst.name) && dst.type === src.type) {
-        mappedProfile.styles[dstId] = {
+        const srcParaStyle = src.paragraphStyle || {}
+        const srcRunStyle = src.runStyle || {}
+        const styleEntry: any = {
           name: dst.name,
           type: src.type,
           basedOn: dst.basedOn,
-          paragraphStyle: src.paragraphStyle || {},
-          runStyle: src.runStyle || {}
         }
+        if (Object.keys(srcParaStyle).length > 0) styleEntry.paragraphStyle = srcParaStyle
+        if (Object.keys(srcRunStyle).length > 0) styleEntry.runStyle = srcRunStyle
+        mappedProfile.styles[dstId] = styleEntry
         break
       }
     }
@@ -82,12 +74,6 @@ export async function cloneFormatWithProfileForce(
     defaults: profile.defaults || {},
     styles: profile.styles || {}
   }
-  // 确保每个 style 有 paragraphStyle 和 runStyle
-  for (const [id, style] of Object.entries(sanitized.styles)) {
-    const s = style as any
-    if (!s.paragraphStyle) s.paragraphStyle = {}
-    if (!s.runStyle) s.runStyle = {}
-  }
 
   const targetDoc = await loadDocx(targetPath)
   const dstProfile = targetDoc.getStyleProfile()
@@ -97,7 +83,7 @@ export async function cloneFormatWithProfileForce(
     styles: {}
   }
 
-  // 构建映射后的样式档案，同时记录 styleId -> paragraphStyle 的映射
+  // 构建映射后的样式档案，同时记录 styleId -> 格式的映射
   const styleMapByDstId = new Map<string, { paragraphStyle: Record<string, any>; runStyle: Record<string, any> }>()
 
   for (const [srcId, srcStyle] of Object.entries(sanitized.styles)) {
@@ -105,16 +91,23 @@ export async function cloneFormatWithProfileForce(
       const src = srcStyle as any
       const dst = dstStyle as any
       if (styleNameMatches(src.name, dst.name) && dst.type === src.type) {
-        mappedProfile.styles[dstId] = {
+        const srcParaStyle = src.paragraphStyle || {}
+        const srcRunStyle = src.runStyle || {}
+
+        // 只包含非空属性，避免空对象 {} 在 applyStyleProfile 中覆盖掉目标样式已有的属性
+        // （docx-edit 的 updateStyleDefinition 对空对象仍会执行 style.xxxStyle = {}，从而清空原有属性）
+        const styleEntry: any = {
           name: dst.name,
           type: src.type,
           basedOn: dst.basedOn,
-          paragraphStyle: src.paragraphStyle || {},
-          runStyle: src.runStyle || {}
         }
+        if (Object.keys(srcParaStyle).length > 0) styleEntry.paragraphStyle = srcParaStyle
+        if (Object.keys(srcRunStyle).length > 0) styleEntry.runStyle = srcRunStyle
+        mappedProfile.styles[dstId] = styleEntry
+
         styleMapByDstId.set(dstId, {
-          paragraphStyle: src.paragraphStyle || {},
-          runStyle: src.runStyle || {}
+          paragraphStyle: srcParaStyle,
+          runStyle: srcRunStyle
         })
         break
       }
@@ -124,17 +117,24 @@ export async function cloneFormatWithProfileForce(
   // 1. 应用样式定义（更新 styles.xml 中的命名样式）
   targetDoc.applyStyleProfile(mappedProfile)
 
-  // 2. 在 applyStyleProfile 之后，使用 resolveEffectiveStyle 解析每个样式的完整有效格式
-  // resolveEffectiveStyle 会合并 docDefaults → basedOn 继承链 → 样式自身属性
-  // 这确保了继承自父样式或 docDefaults 的属性（如首行缩进）也被包含在内
+  // 2. 在 applyStyleProfile 之后，获取文档默认 runStyle 作为兜底
+  const updatedDstProfile = targetDoc.getStyleProfile()
+  const docDefaultRunStyle = updatedDstProfile.defaults?.runStyle || {}
+
+  // 3. 使用 resolveEffectiveStyle 解析每个样式的完整有效格式
   const effectiveStyleByDstId = new Map<string, { paragraphStyle: Record<string, any>; runStyle: Record<string, any> }>()
   const matchedDstIds = Array.from(styleMapByDstId.keys())
   for (const dstId of matchedDstIds) {
     try {
       const effective = targetDoc.resolveEffectiveStyle(dstId)
+      let effectiveRunStyle = effective.runStyle || {}
+      // 兜底：如果有效样式的 runStyle 为空，使用文档默认 runStyle
+      if (Object.keys(effectiveRunStyle).length === 0 && Object.keys(docDefaultRunStyle).length > 0) {
+        effectiveRunStyle = docDefaultRunStyle
+      }
       effectiveStyleByDstId.set(dstId, {
         paragraphStyle: effective.paragraphStyle || {},
-        runStyle: effective.runStyle || {}
+        runStyle: effectiveRunStyle
       })
     } catch {
       // 解析失败时回退到 profile 中的原始属性
@@ -143,13 +143,19 @@ export async function cloneFormatWithProfileForce(
     }
   }
 
-  // 3. 获取 defaults 中的样式（用于未匹配到样式的段落）
+  // 4. 获取 defaults 中的样式（用于未匹配到样式的段落）
   const defaultsParagraphStyle = sanitized.defaults?.paragraphStyle || {}
   const defaultsRunStyle = sanitized.defaults?.runStyle || {}
-  const hasDefaultsStyle = Object.keys(defaultsParagraphStyle).length > 0 || Object.keys(defaultsRunStyle).length > 0
+  // 兜底：defaults 的 runStyle 为空时也用文档默认
+  const effectiveDefaultsRunStyle = Object.keys(defaultsRunStyle).length > 0
+    ? defaultsRunStyle
+    : docDefaultRunStyle
+  const hasDefaultsStyle = Object.keys(defaultsParagraphStyle).length > 0
 
-  // 4. 强制应用段落格式到每个段落的直接格式
-  let appliedParagraphs = 0
+  // 5. 收集每个段落需应用的格式，然后一次 patch 批量处理所有段落和 run
+  // 借鉴 agent 流程：使用 patchStyle 方式逐一应用到每个 run，避免使用 setStyle 可能产生的副作用
+  const paraFormatMap = new Map<string, { paragraphStyle: Record<string, any>; runStyle: Record<string, any> }>()
+
   const body = targetDoc.getBody()
   if (body) {
     const paragraphs = body.getParagraphs()
@@ -158,45 +164,99 @@ export async function cloneFormatWithProfileForce(
         let paragraphStyleToApply: Record<string, any> = {}
         let runStyleToApply: Record<string, any> = {}
 
-        // 尝试根据 styleId 匹配样式
         const paraStyle = para.getStyle()
         const styleId = paraStyle?.styleId
         if (styleId && effectiveStyleByDstId.has(styleId)) {
-          // 使用 resolveEffectiveStyle 解析后的完整有效格式（含继承属性）
           const matched = effectiveStyleByDstId.get(styleId)!
           paragraphStyleToApply = matched.paragraphStyle
           runStyleToApply = matched.runStyle
         } else if (hasDefaultsStyle) {
-          // 未找到匹配的样式，使用 defaults 中的格式
           paragraphStyleToApply = defaultsParagraphStyle
-          runStyleToApply = defaultsRunStyle
+          runStyleToApply = effectiveDefaultsRunStyle
         }
 
-        // 强制覆盖段落格式：完全替换直接格式，而非合并
         if (Object.keys(paragraphStyleToApply).length > 0) {
-          const currentStyle = para.getStyle()
-          // 保留段落的 styleId（样式引用），其余格式全部用有效样式替换
-          para.setStyle({
-            styleId: currentStyle?.styleId,
-            ...paragraphStyleToApply
+          paraFormatMap.set((para as any).nodeId, {
+            paragraphStyle: paragraphStyleToApply,
+            runStyle: runStyleToApply
           })
-          appliedParagraphs++
-        }
-
-        // 强制覆盖 run 格式：完全替换直接格式，而非合并
-        // 这能覆盖段内特殊字体、字号等行内格式
-        if (Object.keys(runStyleToApply).length > 0) {
-          const runs = para.getRuns()
-          if (runs && runs.length > 0) {
-            for (const run of runs) {
-              run.setStyle(runStyleToApply)
-            }
-          }
         }
       } catch {
         // 某些段落可能无法获取样式，跳过
       }
     }
+  }
+
+  // 批量应用格式到所有匹配段落：在一个 patch 中修改所有段落的直接格式和 run 的行内格式
+  let appliedParagraphs = 0
+
+  if (paraFormatMap.size > 0) {
+    // 手动 walk 树找到对应段落和 run 节点，避免逐个控制器调用触发多次 rebuildFromXml
+    const walk = (node: any, fn: (n: any) => void) => {
+      fn(node)
+      if (node.children) {
+        for (const child of node.children) {
+          walk(child, fn)
+        }
+      }
+    }
+
+    const collectRuns = (node: any, result: any[]) => {
+      if (node.type === 'run') {
+        result.push(node)
+      }
+      if (node.children) {
+        for (const child of node.children) {
+          collectRuns(child, result)
+        }
+      }
+    }
+
+    // 借鉴 agent 流程的 mergeStyleObjects，深合并两个 style 对象
+    const deepMerge = (base: Record<string, any>, overlay: Record<string, any>): Record<string, any> => {
+      const result = { ...base }
+      for (const [key, value] of Object.entries(overlay)) {
+        if (value == null) {
+          delete result[key]
+        } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+          result[key] = deepMerge(result[key] || {}, value)
+          if (Object.keys(result[key]).length === 0) delete result[key]
+        } else {
+          result[key] = value
+        }
+      }
+      return result
+    }
+
+    targetDoc.patchWithMutableTree((nextRoot: any) => {
+      walk(nextRoot, (node: any) => {
+        if (node.type === 'paragraph' && paraFormatMap.has(node.id)) {
+          const { paragraphStyle, runStyle } = paraFormatMap.get(node.id)!
+          // 合并且保留 styleId
+          const mergedParaStyle = deepMerge(node.props.style || {}, paragraphStyle)
+          if (!mergedParaStyle.styleId && node.props.style?.styleId) {
+            mergedParaStyle.styleId = node.props.style.styleId
+          }
+          node.props.style = mergedParaStyle
+          appliedParagraphs++
+
+          // 对段落内的所有 run 应用格式
+          const runNodes: any[] = []
+          collectRuns(node, runNodes)
+          if (runNodes.length > 0) {
+            if (runStyle && Object.keys(runStyle).length > 0) {
+              for (const runNode of runNodes) {
+                runNode.props.style = deepMerge(runNode.props.style || {}, runStyle)
+              }
+            } else {
+              for (const runNode of runNodes) {
+                runNode.props.style = {}
+              }
+            }
+          }
+        }
+      })
+    })
   }
 
   await targetDoc.saveAs(outputPath)

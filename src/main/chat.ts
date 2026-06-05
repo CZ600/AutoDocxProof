@@ -27,7 +27,8 @@ export async function getGeminiResponse(
   systemPrompt: string,
   userPrompt: string,
   apiKey: string,
-  modelName: string
+  modelName: string,
+  apiURL?: string
 ): Promise<{ result: string; total_tokens: number }> {
   if (!apiKey) {
     throw new Error('API key is missing. Please provide a valid API key.')
@@ -36,13 +37,16 @@ export async function getGeminiResponse(
   try {
     const genAI = new GoogleGenerativeAI(apiKey)
 
-    const model = genAI.getGenerativeModel({
-      model: modelName,
-      systemInstruction: {
-        role: 'system',
-        parts: [{ text: systemPrompt }]
-      }
-    })
+    const model = genAI.getGenerativeModel(
+      {
+        model: modelName,
+        systemInstruction: {
+          role: 'system',
+          parts: [{ text: systemPrompt }]
+        }
+      },
+      apiURL ? { baseUrl: apiURL.trim().replace(/\/+$/, '') } : undefined
+    )
 
     const generationConfig: GenerationConfig = {
       temperature: 0.9,
@@ -90,7 +94,6 @@ export async function getGeminiResponse(
     const usageMetadata = response.usageMetadata as any
     const total_tokens = usageMetadata?.totalTokenCount
       ?? ((usageMetadata?.promptTokenCount || 0) + (usageMetadata?.candidatesTokenCount || 0))
-      || 0
 
     return { result: text, total_tokens }
   } catch (error) {
@@ -639,7 +642,7 @@ export async function getModelResponse(
       return await getAnthropicResponse(systemPrompt, userPrompt, apiKey, modelName, customBaseURL)
 
     case ModelProvider.GEMINI:
-      return await getGeminiResponse(systemPrompt, userPrompt, apiKey, modelName)
+      return await getGeminiResponse(systemPrompt, userPrompt, apiKey, modelName, customBaseURL)
 
     case ModelProvider.DOUBAO:
       return await getDoubaoResponse(systemPrompt, userPrompt, apiKey, modelName)
@@ -721,7 +724,10 @@ export async function testAPIWithProvider(
 
     if (provider === ModelProvider.GEMINI) {
       const genAI = new GoogleGenerativeAI(apiKey)
-      const model = genAI.getGenerativeModel({ model: modelName })
+      const model = genAI.getGenerativeModel(
+        { model: modelName },
+        apiURL ? { baseUrl: apiURL.trim().replace(/\/+$/, '') } : undefined
+      )
       const result = await model.generateContent('Hello')
       return !!result.response
     }

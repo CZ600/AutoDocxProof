@@ -8,7 +8,8 @@
       "Bash(npx vitest *)",
       "Bash(npm start *)",
       "Bash(git checkout *)",
-      "Bash(grep -i -E \"readme|\\\\.md$\")"
+      "Bash(grep -i -E \"readme|\\\\.md$\")",
+      "Bash(npx tsc *)"
     ]
   }
 }

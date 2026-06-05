@@ -46,10 +46,11 @@ export const MODEL_PROVIDERS: Record<ModelProvider, ModelProviderConfig> = {
     id: ModelProvider.GEMINI,
     name: 'Google Gemini',
     nameEn: 'Google Gemini',
-    requiresBaseURL: false,
+    requiresBaseURL: true,
+    baseURL: 'https://generativelanguage.googleapis.com',
     defaultModel: 'gemini-1.5-flash',
-    description: 'Google Gemini 系列模型',
-    descriptionEn: 'Google Gemini series models'
+    description: 'Google Gemini 系列模型（支持自定义 API 地址）',
+    descriptionEn: 'Google Gemini series models (custom API endpoint supported)'
   },
   [ModelProvider.DOUBAO]: {
     id: ModelProvider.DOUBAO,

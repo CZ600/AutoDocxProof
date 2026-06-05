@@ -188,7 +188,7 @@ import { useEmbeddingStore } from '../stores/embeddingStore'
 import { useApiStore } from '../stores/apiStore'
 import { Collection, Document, ArrowDown, Select, RefreshLeft } from '@element-plus/icons-vue'
 import { useDark } from '@vueuse/core'
-import { requiresBaseURL } from '../../../shared/modelProviders'
+import { requiresBaseURL } from '../../shared/modelProviders'
 
 const electronAPI = window.electronAPI
 const router = useRouter()

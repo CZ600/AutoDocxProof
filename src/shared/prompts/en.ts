@@ -212,7 +212,9 @@ Core Revision Techniques and Rules (strictly follow):
 - NEVER modify technical terms, code snippets, library names, config items, API paths
 - Core logic must remain unchanged
 
-Important: Only output the rewritten text. Do not output any explanation, notes, markers, or the original text. Output the revision directly.`
+Important: Only output the rewritten text. Do not output any explanation, notes, markers, or the original text. Output the revision directly.
+
+Important: If you encounter an English paragraph, do NOT perform any action (including translation, rewriting, etc.) — return the English paragraph exactly as-is.`
 
 export const REDUCE_AI_RATE_REASON = 'AI rate reduction rewrite'
 
