@@ -2,6 +2,7 @@ import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { usePromptStore } from '../stores/promptStore'
+import { useLocaleStore } from '../stores/localeStore'
 import {
   buildPromptFromSettings,
   clonePromptSettings,
@@ -18,9 +19,11 @@ export function usePrompt() {
   const { t } = useI18n()
   const electronAPI = window.electronAPI
   const promptStore = usePromptStore()
+  const localeStore = useLocaleStore()
 
   const settings = computed(() => promptStore.settings)
-  const effectivePrompt = computed(() => buildPromptFromSettings(settings.value))
+  // 预览提示词随当前语言动态变化，与主进程实际发送给 LLM 的提示词保持一致。
+  const effectivePrompt = computed(() => buildPromptFromSettings(settings.value, localeStore.locale))
   const modeLabel = computed(() => getPromptModeLabel(settings.value))
 
   const initialize = async () => {
