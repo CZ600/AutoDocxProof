@@ -550,6 +550,72 @@ async function testFootnoteCrossBoundaryNoCrash() {
   console.log('  ✅ 测试11通过: 跨脚注替换不崩溃')
 }
 
+/**
+ * 测试12: 含公式占位符 [[MATH:...]] + 紧邻零宽字符 (U+200B) 的段落替换
+ *
+ * 这是用户报告的真实场景：docx-edit 抽取段落文本时，公式 OMML 边界的
+ * U+200B 被带进 props.text，紧贴 [[MATH:AS]] 后面。校正结果的 original
+ * 字段保留了同样的 "占位符+零宽" 组合。修复前，由于 JS 的 \s 不含 U+200B，
+ * 匹配会静默失败，导出时该替换被丢弃。修复后应能正确匹配并替换。
+ *
+ * 场景构造：段落文本 = "前缀相似性矩阵[[MATH:AS]]<U+200B>，利用图卷积后缀"
+ *              original = "相似性矩阵[[MATH:AS]]<U+200B>，利用图卷积"
+ *              suggested = "相似性矩阵[[MATH:AS]]，借助图卷积"
+ * 期望：替换成功，输出含"借助图卷积"且公式占位符保留
+ */
+async function testMathPlaceholderWithZeroWidth() {
+  console.log('\n=== 测试12: 公式占位符 + 零宽字符 (U+200B) 替换 ===')
+  const inputPath = path.join(TMP_DIR, 'test12_input.docx')
+  const outputPath = path.join(TMP_DIR, 'test12_output.docx')
+
+  const JSZip = require('jszip')
+  const zip = new JSZip()
+
+  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`)
+  zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`)
+
+  // 关键：段落 props.text 含 [[MATH:AS]] + U+200B（模拟 docx-edit 抽取结果）
+  // 这里直接写一个普通段落，文本里手动嵌入占位符和零宽字符
+  // U+200B 在 JS 字符串里用 \u200B 表示
+  const paraText = '前缀相似性矩阵[[MATH:AS]]\u200B，利用图卷积后缀'
+  zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>${paraText}</w:t></w:r></w:p>
+    <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1800" w:bottom="1440" w:left="1800"/></w:sectPr>
+  </w:body>
+</w:document>`)
+
+  fs.writeFileSync(inputPath, await zip.generateAsync({ type: 'nodebuffer' }))
+
+  // original 含与段落一致的 "占位符 + U+200B" 组合
+  const replacementOriginal = '相似性矩阵[[MATH:AS]]\u200B，利用图卷积'
+  const replacementSuggested = '相似性矩阵[[MATH:AS]]，借助图卷积'
+
+  await replaceTextInDocx(inputPath, outputPath, [
+    { original: replacementOriginal, suggested: replacementSuggested }
+  ])
+
+  const paragraphs = await readDocxTextAndStyles(outputPath)
+  const p = paragraphs[0]
+  console.log('  段落文本:', JSON.stringify(p.text))
+
+  // 修复前：匹配失败，文本不变（仍含"利用"和 U+200B）
+  // 修复后：替换成功，应含"借助图卷积"，且公式占位符保留
+  assertIncludes(p.text, '借助图卷积', '应成功替换为"借助图卷积"（修复前此处会失败）')
+  assertIncludes(p.text, '[[MATH:AS]]', '公式占位符应保留')
+
+  console.log('  ✅ 测试12通过: 公式占位符 + 零宽字符场景正确替换')
+}
+
 // ====== 断言辅助 ======
 
 function assertIncludes(text, substring, msg) {
@@ -570,7 +636,7 @@ async function main() {
   ensureTmpDir()
   let passed = 0
   let failed = 0
-  
+
   const tests = [
     testSubscriptPreserved,
     testSuperscriptPreserved,
@@ -582,7 +648,8 @@ async function main() {
     testFootnoteWithoutVertAlign,
     testLengthChangeNearSubscript,
     testFootnoteNoVertAlignReplaceAfter,
-    testFootnoteCrossBoundaryNoCrash
+    testFootnoteCrossBoundaryNoCrash,
+    testMathPlaceholderWithZeroWidth
   ]
   
   for (const test of tests) {

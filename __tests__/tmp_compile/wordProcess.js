@@ -5,19 +5,43 @@ const { loadDocx } = require('docx-edit');
 function escapeRegExp(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+// 脚注占位符匹配：docx-edit 的 getText() 会将脚注引用输出为 [[FOOTNOTE_REF:id]]
+// 在 run 级别的 collectTextSegments 中不会包含脚注引用节点，因此 fullText 不含这些占位符
+// 需要在匹配前从 searchText 中 strip 掉
+const FOOTNOTE_PLACEHOLDER_RE = /\[\[FOOTNOTE_REF:\d+\]\]/g;
+/**
+ * 零宽字符集：U+200B (零宽空格)、U+200C (零宽非连接符)、
+ * U+200D (零宽连接符)、U+FEFF (BOM/零宽不换行空格)。
+ *
+ * docx-edit 抽取段落文本时常把公式 OMML 边界、脚注引用边界上的零宽字符
+ * 带进 props.text / fullText。JS 的 \s 不包含这些字符，若不专门处理，
+ * 含零宽的文档文本与不含零宽的校正 original 之间会匹配失败，导致导出时
+ * 该替换静默丢失。统一在匹配前剥离零宽字符，使匹配对它们完全不敏感。
+ */
+const ZERO_WIDTH_CHARS_RE = /[\u200B-\u200D\uFEFF]/g;
+function stripZeroWidth(text) {
+    return (text || '').replace(ZERO_WIDTH_CHARS_RE, '');
+}
+function stripFootnotePlaceholders(text) {
+    return stripZeroWidth(text.replace(FOOTNOTE_PLACEHOLDER_RE, ''));
+}
 function replaceFirstWhitespaceInsensitive(text, searchValue, replacement) {
-    const normalizedSearch = searchValue.trim();
+    // 文档文本与 searchValue 都剥离零宽字符后再匹配，
+    // 避免 OMML 边界残留的 U+200B 等导致静默不匹配。
+    const haystack = stripZeroWidth(text);
+    const normalizedSearch = stripZeroWidth(searchValue.trim());
     if (!normalizedSearch) {
         return { count: 0, text };
     }
-    const pattern = escapeRegExp(normalizedSearch).replace(/\s+/g, '\\s+');
+    // 空白折叠为 \s+，同时吞掉残余的零宽字符（双重保险）
+    const pattern = escapeRegExp(normalizedSearch).replace(/[\s\u200B-\u200D\uFEFF]+/g, '\\s+');
     const regex = new RegExp(pattern);
-    if (!regex.test(text)) {
+    if (!regex.test(haystack)) {
         return { count: 0, text };
     }
     return {
         count: 1,
-        text: text.replace(regex, replacement)
+        text: haystack.replace(regex, replacement)
     };
 }
 // ====== Run 级别文本替换（保留上下角标格式） ======
@@ -28,7 +52,6 @@ function replaceFirstWhitespaceInsensitive(text, searchValue, replacement) {
  * 1. 包含上标/下标（vertAlign）的 run → setText() 会按字符数重分配，导致角标漂移
  * 2. 包含 footnoteReference / endnoteReference 子节点 → setText() 要求
  *    [[FOOTNOTE_REF:id]] 占位符完全保留，修改 props.text 时容易丢失
- * 3. 包含 math 子节点 → patch 引擎本身会跳过 setText()，但 run 级别更安全
  */
 function needsRunLevelReplacement(paraNode) {
     function visit(parent) {
@@ -52,9 +75,6 @@ function needsRunLevelReplacement(paraNode) {
             else if (child.type === 'hyperlink') {
                 if (visit(child))
                     return true;
-            }
-            else if (child.type === 'math') {
-                return true;
             }
         }
         return false;
@@ -107,17 +127,42 @@ function replaceInParagraphRuns(paraNode, searchText, replaceText) {
     const fullText = segments.map(s => s.text).join('');
     if (!fullText)
         return false;
-    // 空白不敏感匹配
-    const normalizedSearch = searchText.trim();
+    // 空白不敏感匹配，同时 strip 脚注占位符（run 级别的 fullText 不含脚注引用）
+    // stripFootnotePlaceholders 内部已剥离零宽字符
+    const normalizedSearch = stripFootnotePlaceholders(searchText.trim());
     if (!normalizedSearch)
         return false;
+    // replaceText 中也不能包含脚注占位符——脚注引用是独立的 XML 元素，
+    // 不在 w:t 文本节点中。写入时必须 strip，否则 doc.patch() 会产生乱码。
+    const cleanReplaceText = stripFootnotePlaceholders(replaceText);
+    // fullText（来自文档树）可能含 OMML 边界残留的零宽字符，而 normalizedSearch
+    // 已被剥离。直接剥离 fullText 会破坏偏移量与 segments 的对应关系。
+    // 解决：构建"剥离零宽后的 fullText"及其到原始 fullText 的索引映射，
+    // 在干净版本上匹配，再把匹配区间换算回原始坐标。
+    let cleanFullText = '';
+    const indexMap = []; // indexMap[i] = cleanFullText[i] 在原始 fullText 中的位置
+    for (let i = 0; i < fullText.length; i++) {
+        const ch = fullText[i];
+        if (/[\u200B-\u200D\uFEFF]/.test(ch))
+            continue;
+        indexMap[cleanFullText.length] = i;
+        cleanFullText += ch;
+    }
+    // 末尾哨兵：cleanFullText.length 位置映射到 fullText.length
+    indexMap[cleanFullText.length] = fullText.length;
     const pattern = escapeRegExp(normalizedSearch).replace(/\s+/g, '\\s+');
     const regex = new RegExp(pattern);
-    const match = fullText.match(regex);
+    const match = cleanFullText.match(regex);
     if (!match || match.index === undefined)
         return false;
-    const matchStart = match.index;
-    const matchEnd = match.index + match[0].length;
+    // 把 cleanFullText 坐标换算回原始 fullText 坐标
+    // matchStart 取匹配起点的原始位置；matchEnd 取匹配终点对应的原始位置
+    // （由于末尾哨兵，indexMap[matchEnd in clean] 会指向原始 fullText 中
+    //   匹配段最后一个字符的下一个位置，可能跨越若干被剥离的零宽字符——
+    //   这正是我们想要的，回写时连零宽脏字符一并清除）
+    const matchStart = indexMap[match.index];
+    const cleanEnd = match.index + match[0].length;
+    const matchEnd = indexMap[cleanEnd];
     // 找出被匹配覆盖的文本片段
     const affected = segments.filter(s => s.start < matchEnd && s.end > matchStart);
     if (affected.length === 0)
@@ -127,7 +172,7 @@ function replaceInParagraphRuns(paraNode, searchText, replaceText) {
         const seg = affected[0];
         const localStart = matchStart - seg.start;
         const localEnd = matchEnd - seg.start;
-        seg.node.props.text = seg.text.slice(0, localStart) + replaceText + seg.text.slice(localEnd);
+        seg.node.props.text = seg.text.slice(0, localStart) + cleanReplaceText + seg.text.slice(localEnd);
         return true;
     }
     // 匹配跨越多个文本节点：按各节点被消耗的字符数比例分配替换文本
@@ -146,12 +191,12 @@ function replaceInParagraphRuns(paraNode, searchText, replaceText) {
         let replacementPortion;
         if (isLast) {
             // 最后一个片段取剩余全部
-            replacementPortion = replaceText.slice(replaceCursor);
+            replacementPortion = cleanReplaceText.slice(replaceCursor);
         }
         else {
             // 按比例截取
-            const portionLength = Math.round((replaceText.length * consumedLengths[i]) / totalConsumed);
-            replacementPortion = replaceText.slice(replaceCursor, replaceCursor + portionLength);
+            const portionLength = Math.round((cleanReplaceText.length * consumedLengths[i]) / totalConsumed);
+            replacementPortion = cleanReplaceText.slice(replaceCursor, replaceCursor + portionLength);
             replaceCursor += portionLength;
         }
         seg.node.props.text =
@@ -192,10 +237,11 @@ function collectAllParagraphs(node, result = []) {
  * 使用 docx-edit 回写文档文本。
  *
  * 策略：
- * - 含上/下角标、脚注引用、尾注引用或数学公式的段落：通过虚拟树 API 在 run 级别
+ * - 含上/下角标、脚注引用、尾注引用的段落：通过虚拟树 API 在 run 级别
  *   修改 w:t 文本节点，不触发 ParagraphTextModel.setText() 的跨 run 字符数重分配，
  *   确保角标格式不会错位且脚注占位符不会丢失。
- * - 普通段落：使用 paragraph.props.text 的整段替换方式（兼容 tab / break）。
+ * - 含数学公式或普通段落：使用 paragraph.props.text 的整段替换方式，
+ *   ParagraphTextModel.setText() 会将 math/footnote 等作为 fixed token 保留。
  */
 async function replaceTextInDocx(inputPath, outputPath, replacements) {
     const sanitizedReplacements = replacements.filter(item => item && item.original && item.suggested !== undefined);
@@ -213,7 +259,7 @@ async function replaceTextInDocx(inputPath, outputPath, replacements) {
         let applied = false;
         for (const paraNode of allParagraphs) {
             if (needsRunLevelReplacement(paraNode)) {
-                // 含上下角标或脚注/尾注/math：run 级别替换，保留格式
+                // 含上下角标或脚注/尾注：run 级别替换，保留格式
                 applied = replaceInParagraphRuns(paraNode, replacement.original, replacement.suggested);
             }
             else {

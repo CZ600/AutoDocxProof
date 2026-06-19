@@ -18,7 +18,10 @@ export const fileInfoStore = defineStore('fileInfo', {
     fileName: '',
     proofModel: '',
     results: [] as CorrectionResult[],
-    rerenderVersion: 0
+    rerenderVersion: 0,
+    // 侧边栏聚焦信号：点击右侧预览高亮时，请求左侧校对列表滚动/展开到对应项
+    sidebarFocusIndex: -1,
+    sidebarFocusVersion: 0
   }),
 
   getters: {
@@ -47,6 +50,10 @@ export const fileInfoStore = defineStore('fileInfo', {
     },
     triggerRerender() {
       this.rerenderVersion++
+    },
+    requestSidebarFocus(index: number) {
+      this.sidebarFocusIndex = index
+      this.sidebarFocusVersion++
     },
     clearAll() {
       this.filePath = ''

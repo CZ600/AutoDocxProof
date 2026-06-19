@@ -257,25 +257,70 @@ const normalizeCorrectionType = type => {
 }
 
 const FOOTNOTE_PLACEHOLDER_RE = /\[\[FOOTNOTE_REF:\d+\]\]/g
+const MATH_PLACEHOLDER_RE = /\[\[MATH:.*?\]\]/g
 
 const stripFootnotePlaceholders = text => {
-  return text.replace(FOOTNOTE_PLACEHOLDER_RE, '')
+  return stripZeroWidth(text.replace(FOOTNOTE_PLACEHOLDER_RE, '').replace(MATH_PLACEHOLDER_RE, ''))
 }
 
 /**
- * 构建脚注感知的匹配正则。
- * 将 [[FOOTNOTE_REF:x]] 占位符替换为 \d* 通配符，
- * 使正则能容忍 DOM 中 docx-preview 渲染出的脚注编号（如 "1"）。
+ * 零宽字符集：U+200B (零宽空格)、U+200C (零宽非连接符)、
+ * U+200D (零宽连接符)、U+FEFF (BOM/零宽不换行空格)。
  *
- * 例：original = "文本[[FOOTNOTE_REF:0]]内容" → 正则 /文本\d*内容/
- *     DOM fullText = "文本1内容" → 匹配成功 ✓
+ * 这些字符肉眼不可见，但会干扰匹配：
+ * - docx-edit 抽取公式占位符 [[MATH:...]] 时常把 OMML 边界的零宽字符带进段落文本
+ * - JS 的 \s 不包含 U+200B-200D/FEFF，转义时不会被 \s+ 吸收，会被原样烧进正则
+ * - docx-preview 渲染 DOM 时通常不保留这些零宽字符
+ * 三者叠加会导致带公式的段落匹配静默失败。
+ */
+const ZERO_WIDTH_CHARS_RE = /[\u200B-\u200D\uFEFF]/g
+
+/** 剥离所有零宽字符 */
+const stripZeroWidth = text => (text || '').replace(ZERO_WIDTH_CHARS_RE, '')
+
+/**
+ * 构建脚注和公式感知的匹配正则。
+ * 将 [[FOOTNOTE_REF:x]] 占位符替换为 \d* 通配符，
+ * 将 [[MATH:...]] 占位符替换为 .*? 通配符，
+ * 使正则能容忍 DOM 中 docx-preview 渲染出的实际内容。
+ *
+ * 例：original = "文本[[FOOTNOTE_REF:0]]内容[[MATH:C]]结尾"
+ *     → 正则 /文本\d*内容.*?结尾/
+ *     DOM fullText = "文本1内容C结尾" → 匹配成功 ✓
  */
 const createFootnoteAwareMatcher = (searchText, flags = 'g') => {
-  const parts = searchText.split(/\[\[FOOTNOTE_REF:\d+\]\]/)
+  // 先剥离零宽字符，避免它们被当作字面字符烧进正则。
+  // 这些字符在 docx-preview 渲染的 DOM 中通常不存在，会直接导致匹配失败。
+  const cleanedSearch = stripZeroWidth(searchText)
+  // 先用统一分隔符拆分，同时处理 [[FOOTNOTE_REF:x]] 和 [[MATH:...]]
+  const parts = cleanedSearch.split(/\[\[FOOTNOTE_REF:\d+\]\]|\[\[MATH:.*?\]\]/)
   const escapedParts = parts.map(part =>
-    part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')
+    part
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      // 除常规空白外，也吞掉零宽字符，使正则对它们完全不敏感
+      .replace(/[\s\u200B-\u200D\uFEFF]+/g, '\\s*')
   )
-  const pattern = escapedParts.join('\\d*')
+
+  // 统计占位符出现顺序，确定每个间隙用什么通配符
+  const placeholderPattern = /\[\[FOOTNOTE_REF:\d+\]\]|\[\[MATH:.*?\]\]/g
+  const wildcards = []
+  let m
+  while ((m = placeholderPattern.exec(searchText)) !== null) {
+    if (m[0].startsWith('[[FOOTNOTE_REF:')) {
+      wildcards.push('\\d*')
+    } else {
+      wildcards.push('[^\\s]*?')
+    }
+  }
+
+  let pattern = ''
+  for (let i = 0; i < escapedParts.length; i++) {
+    pattern += escapedParts[i]
+    if (i < wildcards.length) {
+      pattern += wildcards[i]
+    }
+  }
+
   if (!pattern) return null
   return new RegExp(pattern, flags)
 }
@@ -401,6 +446,8 @@ const highlightCorrections = () => {
       const correctionTypeClass = `highlight-type-${normalizeCorrectionType(item.type)}`
       highlightEl.className = `highlight-correction ${correctionTypeClass}`
       highlightEl.dataset.correctionId = item.id || `correction-${index}`
+      // 点击预览高亮 → 请求左侧校对列表聚焦到对应项（反向跳转）
+      highlightEl.addEventListener('click', () => fileStore.requestSidebarFocus(index))
       highlightEl.appendChild(range.extractContents())
       range.insertNode(highlightEl)
     })

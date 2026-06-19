@@ -324,17 +324,74 @@ export async function resetPromptSettings(): Promise<boolean> {
 // docx-edit 的 getText() 会将脚注引用输出为 [[FOOTNOTE_REF:id]]
 // 发给 LLM 前替换为 [脚注id]，LLM 返回后还原回 [[FOOTNOTE_REF:id]]
 
-const FOOTNOTE_PLACEHOLDER_RE = /\[\[FOOTNOTE_REF:(\d+)\]\]/g
 const FOOTNOTE_HUMAN_RE = /\[脚注(\d+)\]/g
+const MATH_HUMAN_RE = /\[公式(.*?)\]/g
 
-/** 将 [[FOOTNOTE_REF:1]] 替换为 [脚注1]，发给 LLM 前调用 */
+/**
+ * 零宽字符集：U+200B (零宽空格)、U+200C (零宽非连接符)、
+ * U+200D (零宽连接符)、U+FEFF (BOM/零宽不换行空格)。
+ *
+ * docx-edit 在抽取段落文本时，常把公式 OMML 边界、脚注引用边界上的
+ * 零宽字符带进文本。这些字符肉眼不可见，但会带来两类问题：
+ * 1. 紧贴 [[MATH:...]] / [[FOOTNOTE_REF:...]] 占位符时，会被切分逻辑
+ *    误归入相邻的字面片段，最终烧进前端匹配正则，导致匹配静默失败
+ *    （docx-preview 渲染 DOM 时不保留这些零宽字符）。
+ * 2. 写入 docx 时若混入 suggested，可能产生肉眼不可见的脏字符。
+ *
+ * 因此在占位符转换、校正结果序列化等出口统一剥离。
+ */
+const ZERO_WIDTH_CHARS_RE = /[\u200B-\u200D\uFEFF]/g
+
+/** 剥离所有零宽字符 */
+function stripZeroWidth(text: string): string {
+  return (text || '').replace(ZERO_WIDTH_CHARS_RE, '')
+}
+
+/**
+ * 将 [[FOOTNOTE_REF:1]] 替换为 [脚注1]，发给 LLM 前调用。
+ * 同时吃掉占位符两侧的零宽字符，避免它们污染相邻文本片段。
+ */
 function footnotePlaceholderToHuman(text: string): string {
-  return text.replace(FOOTNOTE_PLACEHOLDER_RE, '[脚注$1]')
+  return text.replace(/[\u200B-\u200D\uFEFF]*\[\[FOOTNOTE_REF:(\d+)\]\][\u200B-\u200D\uFEFF]*/g, '[脚注$1]')
 }
 
 /** 将 [脚注1] 还原为 [[FOOTNOTE_REF:1]]，解析 LLM 返回结果后调用 */
 function footnoteHumanToPlaceholder(text: string): string {
   return text.replace(FOOTNOTE_HUMAN_RE, '[[FOOTNOTE_REF:$1]]')
+}
+
+/**
+ * 将 [[MATH:C]] 替换为 [公式C]，发给 LLM 前调用。
+ * 同时吃掉占位符两侧的零宽字符（OMML 边界常带 U+200B）。
+ *
+ * 注意：必须输出带"公式"前缀的 [公式C]，而非裸 [C]。
+ * 原因有二：
+ * 1. 与 MATH_HUMAN_RE = /\[公式(.*?)\]/g 保持一致，否则 mathHumanToPlaceholder
+ *    无法还原（这正是此前存在的死代码 bug）。
+ * 2. 公式内容常是短标识（如 C、AS、Xs），裸 [C] 极易与 LLM 输出中
+ *    普通的方括号文本冲突，加"公式"前缀可避免误还原。
+ */
+function mathPlaceholderToHuman(text: string): string {
+  return text.replace(/[\u200B-\u200D\uFEFF]*\[\[MATH:(.*?)\]\][\u200B-\u200D\uFEFF]*/g, '[公式$1]')
+}
+
+/** 将 [公式C] 还原为 [[MATH:C]]，解析 LLM 返回结果后调用 */
+function mathHumanToPlaceholder(text: string): string {
+  return text.replace(MATH_HUMAN_RE, '[[MATH:$1]]')
+}
+
+/** 发给 LLM 前统一转换所有占位符为人可读形式 */
+function placeholderToHuman(text: string): string {
+  return mathPlaceholderToHuman(footnotePlaceholderToHuman(text))
+}
+
+/**
+ * 从 LLM 返回结果中还原所有占位符。
+ * 同时剥离零宽字符：LLM 可能在 [脚注x]/[公式x] 标记旁残留 U+200B 等，
+ * 还原后会紧贴 [[FOOTNOTE_REF:x]]/[[MATH:...]]，污染前端匹配。
+ */
+function humanToPlaceholder(text: string): string {
+  return stripZeroWidth(footnoteHumanToPlaceholder(mathHumanToPlaceholder(text)))
 }
 
 // ====== 工具函数 ======
@@ -384,6 +441,48 @@ function extractStyledHeadings(html: string): Map<string, number> {
   return headings
 }
 
+/**
+ * 判断一个 paragraph controller 是否位于表格单元格内。
+ * 通过检查 vnode 的 parent 链中是否存在 table-cell 类型节点。
+ */
+function isParagraphInTableCell(para: any): boolean {
+  let node = para.vnode?.parent
+  while (node) {
+    if (node.type === 'table-cell') return true
+    node = node.parent
+  }
+  return false
+}
+
+// ====== 自动编号前缀清理 ======
+
+/**
+ * 清除段落文本开头的自动编号前缀。
+ * 某些 Word 文档（尤其是 WPS 创建的模板）会将标题编号以纯文本形式存储在段落 run 中，
+ * 导致 getText() 返回 "IIIIabstract" 或 "IIIIWith the advancement..." 等带编号的文本。
+ */
+function stripAutoNumbering(text: string): string {
+  if (!text || text.length < 3) return text
+
+  // 中文章节编号: 第一章, 第1节, 第十二章 etc.
+  let r = text.replace(/^第[一二三四五六七八九十百千\d]+[章节篇部]\s*/, '')
+  if (r !== text && r.length > 0) return r
+
+  // 罗马数字 (2+) 后跟分隔符: "III. ", "IV\t", "IIII "
+  r = text.replace(/^[IVXLCDM]{2,}[.\s\t、):，]+\s*/, '')
+  if (r !== text && r.length > 0) return r
+
+  // 罗马数字 (2+) 直接紧邻文本: "IIIIWith" → "With"
+  r = text.replace(/^[IVXLCDM]{2,}(?=[A-Z][a-z]|[一-鿿])/, '')
+  if (r !== text && r.length > 0) return r
+
+  // 阿拉伯数字多级编号: "1.1 ", "2.1.3\t"
+  r = text.replace(/^\d+(\.\d+)+[.\s\t、):，]+\s*/, '')
+  if (r !== text && r.length > 0) return r
+
+  return text
+}
+
 // ====== docx-edit 提取标题 ======
 async function extractDocxEditHeadings(documentPath: string): Promise<DocumentStructure | null> {
   try {
@@ -399,7 +498,10 @@ async function extractDocxEditHeadings(documentPath: string): Promise<DocumentSt
     let foundHeadings = false
 
     for (const para of paragraphs) {
-      const text = para.getText().trim()
+      if (isParagraphInTableCell(para)) continue
+
+      const rawText = para.getText().trim()
+      const text = stripAutoNumbering(rawText)
       const headingLevel = para.getHeadingLevel()
 
       if (headingLevel !== null && headingLevel !== undefined && text.length > 0) {
@@ -568,8 +670,8 @@ function parseCorrections(result: string, ragChunks?: string[]): ProofreadingCor
         // 还原脚注占位符：[脚注x] → [[FOOTNOTE_REF:x]]
         const restored = {
           ...item,
-          suggested: footnoteHumanToPlaceholder(item.suggested || ''),
-          original: footnoteHumanToPlaceholder(item.original || '')
+          suggested: humanToPlaceholder(item.suggested || ''),
+          original: humanToPlaceholder(item.original || '')
         }
         if (ragChunks) {
           return { ...restored, References: [...ragChunks] }
@@ -616,11 +718,11 @@ function extractCorrectionsFromText(text: string, ragChunks?: string[]): Proofre
           .map(item => {
             // 验证每个字段的存在性
             if (item.original && item.suggested && item.reason) {
-              // 还原脚注占位符：[脚注x] → [[FOOTNOTE_REF:x]]
+              // 还原占位符：[脚注x] → [[FOOTNOTE_REF:x]]，[公式...] → [[MATH:...]]
               const restored = {
                 ...item,
-                suggested: footnoteHumanToPlaceholder(item.suggested),
-                original: footnoteHumanToPlaceholder(item.original)
+                suggested: humanToPlaceholder(item.suggested),
+                original: humanToPlaceholder(item.original)
               }
               if (ragChunks) {
                 return { ...restored, References: [...ragChunks] }
@@ -644,11 +746,11 @@ function extractCorrectionsFromText(text: string, ragChunks?: string[]): Proofre
       if (singleObject && typeof singleObject === 'object' && !Array.isArray(singleObject)) {
         if (singleObject.original && singleObject.suggested && singleObject.reason) {
           console.log('解析到单个校对结果')
-          // 还原脚注占位符
+          // 还原占位符
           const restored = {
             ...singleObject,
-            suggested: footnoteHumanToPlaceholder(singleObject.suggested),
-            original: footnoteHumanToPlaceholder(singleObject.original)
+            suggested: humanToPlaceholder(singleObject.suggested),
+            original: humanToPlaceholder(singleObject.original)
           }
           return ragChunks ? [{ ...restored, References: [...ragChunks] }] : [restored]
         }
@@ -716,8 +818,8 @@ function parseCorrectionsFromPlainText(text: string, ragChunks?: string[]): Proo
       // 如果找到了所有必需字段，添加到结果中
       if (correction.original && correction.suggested && correction.reason) {
         // 还原脚注占位符
-        correction.original = footnoteHumanToPlaceholder(correction.original)
-        correction.suggested = footnoteHumanToPlaceholder(correction.suggested)
+        correction.original = humanToPlaceholder(correction.original)
+        correction.suggested = humanToPlaceholder(correction.suggested)
         if (ragChunks) {
           correction.References = [...ragChunks]
         }
@@ -839,7 +941,7 @@ async function proofreadTextWithRAG(
     let systemPrompt = systemContext
 
     // 将 [[FOOTNOTE_REF:x]] 替换为 [脚注x]，让 LLM 更容易理解和保留
-    const textForLLM = footnotePlaceholderToHuman(text)
+    const textForLLM = placeholderToHuman(text)
 
     // 如果没有提供 repositoryNameList 或者为空数组，使用正常校对
     if (!repositoryNameList || repositoryNameList.length === 0) {
@@ -1152,6 +1254,31 @@ function shouldExcludeFromReduceAI(paragraph: string): boolean {
   return false
 }
 
+/**
+ * 判断段落是否主要为英文（拉丁字母）文本。
+ *
+ * 降低AI率流程仅针对中文论文做改写。对于英文段落（如论文中的 Abstract），
+ * 改写目标风格、词汇替换规则都基于中文，强行处理会导致英文段落被翻译成中文
+ * 或被错误改写。因此一旦识别为英文段落，直接跳过，原样保留。
+ *
+ * 判定标准：去除数字、空白、标点、脚注/公式占位符后，
+ * 拉丁字母占比超过 60% 即视为英文段落。
+ */
+function isMostlyEnglishText(paragraph: string): boolean {
+  // 移除脚注/公式占位符，避免影响字符统计
+  const cleaned = paragraph
+    .replace(/\[\[FOOTNOTE_REF:\d+\]\]/g, '')
+    .replace(/\[\[MATH:.*?\]\]/g, '')
+
+  const latinChars = (cleaned.match(/[A-Za-z]/g) || []).length
+  // 中日韩统一表意文字（基本覆盖中文）
+  const cjkChars = (cleaned.match(/[\u4e00-\u9fff]/g) || []).length
+  const total = latinChars + cjkChars
+  // 没有任何字母文字，无法判定，保守视为非英文
+  if (total < 20) return false
+  return latinChars / total > 0.6
+}
+
 function isReferenceSection(title: string): boolean {
   const t = title.trim().toLowerCase()
   return /参考文献|references|引文|bibliography|引用文献/.test(t)
@@ -1220,6 +1347,12 @@ export async function reduceAIDetectionDocument(
       for (const para of paragraphs) {
         if (isLikelyTitle(para)) continue
         if (shouldExcludeFromReduceAI(para)) continue
+        // 英文段落（如 Abstract）不进行改写：中文改写规则不适用，
+        // 否则会被翻译成中文或被错误改写。直接跳过，原样保留。
+        if (isMostlyEnglishText(para)) {
+          console.log('[降低AI率] 跳过英文段落，不进行改写:', para.slice(0, 60))
+          continue
+        }
         validParagraphs.push({ title: section.title, content: para })
       }
     }
@@ -1246,11 +1379,11 @@ export async function reduceAIDetectionDocument(
         const nextPara = index < validParagraphs.length - 1 ? validParagraphs[index + 1] : null
         let userMessage = ''
         if (prevPara) {
-          userMessage += `[上一段]\n${footnotePlaceholderToHuman(prevPara.content)}\n\n`
+          userMessage += `[上一段]\n${placeholderToHuman(prevPara.content)}\n\n`
         }
-        userMessage += `[需要改写的段落]\n${footnotePlaceholderToHuman(para.content)}`
+        userMessage += `[需要改写的段落]\n${placeholderToHuman(para.content)}`
         if (nextPara) {
-          userMessage += `\n\n[下一段]\n${footnotePlaceholderToHuman(nextPara.content)}`
+          userMessage += `\n\n[下一段]\n${placeholderToHuman(nextPara.content)}`
         }
 
         const { result, total_tokens: tokens } = await callModelAPI(
@@ -1263,13 +1396,16 @@ export async function reduceAIDetectionDocument(
         )
         let rewritten = cleanAIResponse(result)
         // 还原脚注占位符
-        rewritten = footnoteHumanToPlaceholder(rewritten)
+        rewritten = humanToPlaceholder(rewritten)
         if (!rewritten || rewritten === para.content.trim()) {
           return { correction: null, tokens }
         }
         return {
           correction: {
-            original: para.content,
+            // original 直接来自 docx 抽取的段落文本，可能残留 OMML 边界的零宽字符
+            // （如 [[MATH:AS]] 紧后的 U+200B）。剥离它们，避免前端匹配正则把不可见
+            // 字符当作字面量烧进去导致匹配失败。
+            original: stripZeroWidth(para.content),
             suggested: rewritten,
             reason: reduceReason,
             type: 'reduceAI'

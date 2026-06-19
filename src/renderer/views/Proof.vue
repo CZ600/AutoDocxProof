@@ -214,7 +214,24 @@ const scrollToCorrectionItem = index => {
       easing: 'ease-in-out',
       force: true
     })
+    focusSidebarItem(index)
   })
+}
+
+const focusSidebarItem = index => {
+  const itemEl = document.querySelector(`#error-item-${index}`)
+  if (!itemEl) return
+  if (previewFocusTimer) {
+    clearTimeout(previewFocusTimer)
+    previewFocusTimer = null
+  }
+  itemEl.classList.remove('correction-item-focused')
+  void itemEl.offsetWidth
+  itemEl.classList.add('correction-item-focused')
+  previewFocusTimer = setTimeout(() => {
+    itemEl.classList.remove('correction-item-focused')
+    previewFocusTimer = null
+  }, 2800)
 }
 
 const findHighlightElement = correctionId => {
@@ -426,6 +443,15 @@ watch(
   }
 )
 
+// 响应右侧预览高亮的点击：聚焦到对应校对项（反向跳转）
+watch(
+  () => fileStore.sidebarFocusVersion,
+  () => {
+    if (fileStore.sidebarFocusIndex === -1) return
+    scrollToCorrectionItem(fileStore.sidebarFocusIndex)
+  }
+)
+
 onMounted(async () => {
   if (proofreadingResults.value.length > 0) {
     await nextTick()
@@ -544,6 +570,23 @@ onUnmounted(() => {
       0 0 0 0 var(--highlight-ring),
       0 1px 3px color-mix(in srgb, var(--highlight-border) 28%, transparent);
     transform: translateY(0);
+  }
+}
+
+.correction-item.correction-item-focused {
+  box-shadow: 0 0 0 2px rgba(142, 197, 255, 0.7) !important;
+  animation: correction-item-pulse 0.8s ease-in-out 3 !important;
+}
+
+@keyframes correction-item-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(142, 197, 255, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(142, 197, 255, 0.18), 0 0 14px rgba(142, 197, 255, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(142, 197, 255, 0.6);
   }
 }
 
