@@ -97,3 +97,9 @@ dist/
 # opencode
 .opencode/
 .claude/
+
+# Generated test fixtures (built at runtime by vitest)
+__tests__/reduceAiTocSkip_tmp/
+__tests__/__tests__/tmp/
+*.docx
+

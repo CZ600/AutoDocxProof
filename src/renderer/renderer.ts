@@ -23,6 +23,9 @@ app.use(i18n)
 
 const localeStore = useLocaleStore()
 i18n.global.locale.value = localeStore.locale
+// 启动时把持久化的 locale 同步给主进程，保证首次校对即使用正确语言的提示词。
+// （主进程 currentLocale 默认硬编码为 'zh-CN'，否则重启后会与界面语言不一致。）
+localeStore.syncLocale()
 
 const elementLocale = computed(() => {
   return localeStore.locale === 'en' ? en : zhCn

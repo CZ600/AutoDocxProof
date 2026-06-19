@@ -454,6 +454,99 @@ function isParagraphInTableCell(para: any): boolean {
   return false
 }
 
+// ====== 目录（Table of Contents）检测 ======
+//
+// Word 的目录有两种常见存储形态，降低AI率流程必须把它们整体跳过，
+// 否则目录条目（如 "摘  要\tI"、"第 1 章\t绪论\t1"）会被当作正文送进 LLM 改写，
+// 破坏目录的页码引用与文字对齐。
+//
+// 形态一：标准目录内容控件（SDT）。Word 自动生成的目录会被一个
+//   <w:sdt> 容器包裹，其 <w:sdtPr> 里的 docPartGallery 取值为 "Table of Contents"。
+//   docx-edit 解析时会把它写入 sdt 节点 props.docPartGallery，并暴露
+//   StructuredDocumentTagController.isTableOfContents()。
+//
+// 形态二：域代码目录。少数文档（尤其是手动插入或第三方工具生成）不使用 SDT，
+//   而是直接用 fldChar begin/separate/end 包裹一段 instrText，指令以 "TOC" 开头。
+//   此处用 paragraph.getFields() 兜底识别。
+
+/** 判断一个 sdt vnode 是否为目录容器（docPartGallery === "Table of Contents"）。 */
+function isTableOfContentsSdtNode(node: any): boolean {
+  return Boolean(node && node.type === 'sdt' && node.props?.docPartGallery === 'Table of Contents')
+}
+
+/**
+ * 判断一个 paragraph controller 是否位于目录内容控件（SDT）内。
+ * 沿用 parent 链遍历风格，与 isParagraphInTableCell 保持一致。
+ */
+function isParagraphInTableOfContentsSDT(para: any): boolean {
+  let node = para.vnode?.parent
+  while (node) {
+    if (isTableOfContentsSdtNode(node)) return true
+    node = node.parent
+  }
+  return false
+}
+
+/**
+ * 判断段落是否包含 TOC 域代码（fldChar 包裹的 instrText 以 "TOC" 开头）。
+ * 作为未使用 SDT 包裹的目录的兜底识别。
+ */
+function paragraphHasTOCField(para: any): boolean {
+  if (typeof para.getFields !== 'function') return false
+  let fields: any[] = []
+  try {
+    fields = para.getFields() || []
+  } catch {
+    return false
+  }
+  return fields.some(field => /^\s*TOC\b/i.test(field?.instruction || ''))
+}
+
+/**
+ * 综合判断段落是否属于目录（SDT 目录 或 域代码目录，任一命中即视为目录段落）。
+ * 降低AI率流程据此跳过该段落，不送往 LLM 改写。
+ */
+function isTableOfContentsParagraph(para: any): boolean {
+  return isParagraphInTableOfContentsSDT(para) || paragraphHasTOCField(para)
+}
+
+/**
+ * 收集文档中所有目录段落的文本，供降低AI率流程做整行精确跳过。
+ *
+ * 用整行文本集合（而非在 section.content 拆行后再判断）的原因：
+ * parseWordDocument → extractDocxEditHeadings 会把无 heading level 的目录段落
+ * 并入相邻 section 的 .content，丢失 SDT 归属信息。因此先在 docx-edit 的
+ * body 段落层面把目录文本抓出来，再在后续按行过滤时做精确匹配。
+ *
+ * 文本统一用 stripZeroWidth 处理，与后续 original 比对口径一致
+ * （避免 OMML 边界残留的 U+200B 导致匹配失败，与 test12 修复同源）。
+ */
+export async function collectTableOfContentsTexts(documentPath: string): Promise<Set<string>> {
+  const tocTexts = new Set<string>()
+  let doc: any
+  try {
+    doc = await loadDocx(documentPath)
+  } catch {
+    return tocTexts
+  }
+  const body = doc?.getBody?.()
+  if (!body) return tocTexts
+
+  let paragraphs: any[] = []
+  try {
+    paragraphs = body.getParagraphs() || []
+  } catch {
+    return tocTexts
+  }
+
+  for (const para of paragraphs) {
+    if (!isTableOfContentsParagraph(para)) continue
+    const text = stripZeroWidth((typeof para.getText === 'function' ? para.getText() : '') || '')
+    if (text.trim()) tocTexts.add(text)
+  }
+  return tocTexts
+}
+
 // ====== 自动编号前缀清理 ======
 
 /**
@@ -1325,6 +1418,13 @@ export async function reduceAIDetectionDocument(
 
     const docStructure = await parseWordDocument(documentPath)
 
+    // 收集目录段落文本：降低AI率流程整体跳过目录，避免目录条目（含页码、
+    // 制表符对齐）被当作正文送进 LLM 改写而破坏格式。详见 collectTableOfContentsTexts。
+    const tocTexts = await collectTableOfContentsTexts(documentPath)
+    if (tocTexts.size > 0) {
+      console.log(`[降低AI率] 识别到目录段落 ${tocTexts.size} 行，将整体跳过`)
+    }
+
     const nonEmptySections = getSectionsForProofreading(docStructure.sections)
 
     const validParagraphs: { title: string; content: string }[] = []
@@ -1347,9 +1447,17 @@ export async function reduceAIDetectionDocument(
       for (const para of paragraphs) {
         if (isLikelyTitle(para)) continue
         if (shouldExcludeFromReduceAI(para)) continue
-        // 英文段落（如 Abstract）不进行改写：中文改写规则不适用，
-        // 否则会被翻译成中文或被错误改写。直接跳过，原样保留。
-        if (isMostlyEnglishText(para)) {
+        // 跳过目录段落（SDT 目录或 TOC 域代码目录）。用整行文本精确匹配，
+        // 避免误伤正文里恰好含制表符+数字的句子。比对前统一剥离零宽字符，
+        // 与 collectTableOfContentsTexts 的收集口径保持一致。
+        if (tocTexts.size > 0 && tocTexts.has(stripZeroWidth(para))) {
+          console.log('[降低AI率] 跳过目录段落:', para.slice(0, 60))
+          continue
+        }
+        // 英文段落（如 Abstract）跳过改写：中文改写规则不适用，
+        // 否则会被翻译成中文或被错误改写。原样保留。
+        // 仅在程序语言环境为中文时启用——英文界面下用户可能本就是要改写英文段落。
+        if (currentLocale === 'zh-CN' && isMostlyEnglishText(para)) {
           console.log('[降低AI率] 跳过英文段落，不进行改写:', para.slice(0, 60))
           continue
         }

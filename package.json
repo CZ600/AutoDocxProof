@@ -1,7 +1,7 @@
 {
   "name": "AutoDocxProofreading",
   "productName": "AutoDocxProofreading",
-  "version": "1.1.9",
+  "version": "1.2.0",
   "description": "An intelligent long-document proofreading software powered by large language models. 基于大模型的简单的docx格式文档的校对",
   "main": ".vite/build/main.js",
   "scripts": {
@@ -68,7 +68,7 @@
     "bottleneck": "^2.19.5",
     "cli-progress": "^3.12.0",
     "docx": "^9.5.1",
-    "docx-edit": "^0.3.1",
+    "docx-edit": "^0.3.2",
     "docx-preview": "^0.3.6",
     "docxtemplater": "^3.66.3",
     "electron-squirrel-startup": "^1.0.0",
