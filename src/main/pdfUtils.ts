@@ -39,7 +39,10 @@ export async function extractTextFromPDF(filePath: string): Promise<string> {
   }
 
   try {
-    const pdfParse = require('pdf-parse/lib/pdf.js/v1.10.100/build/pdf.js')
+    // pdf-parse@2.x：主入口默认导出即解析函数，内联了 pdfjs，无需指定旧版 lib 子路径。
+    // （旧代码 require('pdf-parse/lib/pdf.js/v1.10.100/build/pdf.js') 是 1.x 的内置路径，
+    //  2.x 已无 lib/ 目录，该路径不存在导致 PDF 提取静默失败。）
+    const pdfParse = require('pdf-parse')
     const dataBuffer = await readFile(filePath)
     const data = await pdfParse(dataBuffer)
     return data.text
