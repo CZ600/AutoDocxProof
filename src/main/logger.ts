@@ -3,7 +3,9 @@ import path from 'path'
 import { app } from 'electron'
 
 // 创建日志目录和文件路径
-const logDir = path.join(app.getAppPath(), '..', '..', 'logs')
+// 用 app.getPath('userData') 替代原 app.getAppPath()/../../logs
+// —— userData 路径在 electron-builder / forge 下都稳定且可写，不受 asar 结构影响
+const logDir = path.join(app.getPath('userData'), 'logs')
 const logFile = path.join(logDir, 'main.log')
 
 // 确保日志目录存在

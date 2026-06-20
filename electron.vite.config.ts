@@ -1,0 +1,65 @@
+import { resolve } from 'path'
+import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import vue from '@vitejs/plugin-vue'
+import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
+
+// 统一的 Electron + Vue3 + Vite 构建配置（替代原 forge + 4 个独立 vite 配置）
+// 三入口：main / preload / renderer，由 electron-vite 编排，产物输出到 out/{main,preload,renderer}
+export default defineConfig({
+  main: {
+    build: {
+      // main 入口：src/main/main.ts（electron-vite 默认找 src/main/index.ts，需显式指定）
+      rollupOptions: {
+        input: resolve(__dirname, 'src/main/main.ts'),
+        external: [
+          // LanceDB 原生平台子包，必须保持从 node_modules 解析，不能打进 bundle
+          '@lancedb/lancedb',
+          '@lancedb/lancedb-win32-x64-msvc'
+        ]
+      }
+    },
+    resolve: {
+      // 优先加载 ESM 入口（与原 vite.main.config.ts 保持一致）
+      mainFields: ['module', 'jsnext:main', 'jsnext']
+    },
+    plugins: [externalizeDepsPlugin()]
+  },
+  preload: {
+    build: {
+      // preload 入口：src/main/preload.ts（项目放在 src/main/ 下而非默认的 src/preload/，需显式指定）
+      rollupOptions: {
+        input: resolve(__dirname, 'src/main/preload.ts'),
+        external: [
+          '@lancedb/lancedb',
+          '@lancedb/lancedb-win32-x64-msvc'
+        ]
+      }
+    },
+    plugins: [externalizeDepsPlugin()]
+  },
+  renderer: {
+    // 入口 HTML 在项目根目录 index.html，而非默认的 src/renderer/index.html，需把 root 指向项目根
+    root: resolve(__dirname),
+    base: './',
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve(__dirname, 'index.html')
+        }
+      }
+    },
+    resolve: {
+      preserveSymlinks: true,
+      alias: {
+        // 强制使用 runtime-only 版本，去掉 vue-i18n 的编译器，减小体积
+        'vue-i18n': resolve(__dirname, 'node_modules/vue-i18n/dist/vue-i18n.runtime.mjs')
+      }
+    },
+    plugins: [
+      vue(),
+      VueI18nPlugin({
+        include: resolve(__dirname, 'src/renderer/i18n/locales/**')
+      })
+    ]
+  }
+})

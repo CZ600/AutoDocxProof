@@ -88,9 +88,13 @@ typings/
 # Vite
 .vite/
 
-# Electron-Forge
+# electron-vite build output
 out/
 
+# electron-builder packaging output
+release/
+# 项目外输出目录（electron-builder.yml 中 output: ../release）
+../release/
 dist-electron-builder/
 dist/
 

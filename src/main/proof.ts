@@ -1338,7 +1338,9 @@ function shouldExcludeFromReduceAI(paragraph: string): boolean {
   if (/^Fig\.?\s*\d/i.test(trimmed)) return true
   if (/^Table\s*\d/i.test(trimmed)) return true
   if (/^关键词[：:]/.test(trimmed)) return true
-  if (/^Keywords?\s*[:：]/i.test(trimmed)) return true
+  // 英文关键词段：覆盖 "Keyword:" / "Keywords:" / "Key word:" / "Key words:" 等写法，
+  // 例如 "Key words: Dual Graph Neural Networks, Road Segmentation, ..." 整体跳过改写。
+  if (/^Key\s*words?\s*[:：]/i.test(trimmed)) return true
   if (/^\[\d+\]/.test(trimmed)) return true
   const tabCount = (trimmed.match(/\t/g) || []).length
   if (tabCount >= 3) return true

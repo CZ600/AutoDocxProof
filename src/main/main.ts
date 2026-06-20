@@ -35,9 +35,7 @@ if (typeof (global as any).Path2D === 'undefined') {
 }
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
-if (require('electron-squirrel-startup')) {
-  app.quit()
-}
+// (electron-builder 的 NSIS/portable 安装器自行处理快捷方式，无需 squirrel-startup)
 
 const createWindow = () => {
   // Create the browser window.
@@ -47,12 +45,18 @@ const createWindow = () => {
     show: false,
     title: 'AutoDocxProofreading',
     // autoHideMenuBar: true, // 禁用菜单栏
-    icon: path.join(process.resourcesPath, 'assets', 'logo.ico'),
+    // 开发态从源码 assets 读取；打包后从 resourcesPath/assets 读取
+    icon: app.isPackaged
+      ? path.join(process.resourcesPath, 'assets', 'logo.ico')
+      : path.join(__dirname, '../../assets/logo.ico'),
 
-    ...(process.platform === 'linux' ? { icon: path.join(process.resourcesPath, 'assets', 'logo.ico') } : {}),
+    ...(process.platform === 'linux'
+      ? { icon: path.join(app.isPackaged ? process.resourcesPath : __dirname, app.isPackaged ? 'assets' : '../../assets', 'logo.ico') }
+      : {}),
 
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      // electron-vite 产物：out/main/main.js 的相对路径 → out/preload/preload.js
+      preload: path.join(__dirname, '../preload/preload.js'),
       nodeIntegration: false,
       contextIsolation: true
     },
@@ -69,12 +73,13 @@ const createWindow = () => {
   })
 
   // load the index.html of the app.
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL)
+  // electron-vite dev 时注入 ELECTRON_RENDERER_URL；打包后从 out/renderer/index.html 加载
+  if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
+    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
     // Open the DevTools.
     mainWindow.webContents.openDevTools()
   } else {
-    mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`))
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
 
   mainWindow.maximize()
@@ -107,8 +112,8 @@ app.whenReady().then(async () => {
     }
   })
 
-  // 判断是否为开发环境
-  const isDev = MAIN_WINDOW_VITE_DEV_SERVER_URL !== undefined
+  // 判断是否为开发环境（electron-vite 下用 app.isPackaged 替代原 forge 注入常量）
+  const isDev = !app.isPackaged
 
   let nativeModulePath
   if (isDev) {
@@ -117,10 +122,9 @@ app.whenReady().then(async () => {
     // nativeModulePath = path.join(projectRoot, 'resources', 'lancedb-win32-x64-msvc');
     // 开发环境不设置
   } else {
-    // 生产环境：原生模块应位于 resources/ 目录下（且需 unpacked）
-    const installDir = path.dirname(app.getPath('exe'))
-    const resourcesPath = path.join(installDir, 'resources')
-    nativeModulePath = path.join(resourcesPath, 'lancedb-win32-x64-msvc')
+    // 生产环境：原生模块由 electron-builder 的 extraResources 放到 resources/lancedb-win32-x64-msvc
+    // 直接用 process.resourcesPath（比 app.getPath('exe')/resources 更可靠，跨工具链一致）
+    nativeModulePath = path.join(process.resourcesPath, 'lancedb-win32-x64-msvc')
   }
 
   process.env.LANCEDB_NATIVE_PATH = nativeModulePath

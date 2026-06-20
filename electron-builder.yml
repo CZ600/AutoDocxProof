@@ -1,0 +1,65 @@
+appId: com.cz600.autodocxproofreading
+productName: AutoDocxProofreading
+
+directories:
+  # electron-builder 产物输出目录（替代原 forge 的 out/）
+  # 放到项目外，避免 VS Code / 杀软监视工作区时锁定 win-unpacked\resources\app.asar
+  output: ../release
+  buildResources: build
+
+# 进 asar 的文件：electron-vite 构建产物 + package.json
+files:
+  - out/**/*
+  - package.json
+  - '!**/.vite/**'
+  # 排除 devDependencies 的传递依赖 / 不必要的二进制，减小体积并避免扫描读取问题
+  - '!**/node_modules/@napi-rs/**'
+  - '!**/node_modules/@intlify/bundle-utils/**'
+  - '!**/node_modules/{eslint,eslint-*,typescript,@typescript-eslint,@vitejs,electron-vite,electron-builder,vite,vitest,prettier,standard-version,husky,lint-staged,git-cz,@commitlint,@electron}/**'
+  # source map 在生产环境无用，且常被杀软锁定导致复制失败，一律排除
+  - '!**/*.map'
+  - '!**/node_modules/**/{esbuild.exe,*.md,*.markdown,*.ts,*.flow,LICENSE*,*.coffee,*.tar.gz}'
+
+asar: true
+
+# 原生模块必须解包出 asar（.node / .dll 无法在 asar 内加载）
+asarUnpack:
+  - '**/node_modules/@lancedb/**'
+  - '**/node_modules/sqlite3/**'
+  - '**/*.{node,dll}'
+
+# 放到 resources/ 下（asar 外），供主进程通过 process.resourcesPath 读取
+extraResources:
+  # LanceDB 原生库：main.ts 通过 LANCEDB_NATIVE_PATH 读取此目录
+  # 注意 to 不带 @lancedb/ 前缀，与 main.ts 中的路径拼接对齐
+  - from: node_modules/@lancedb/lancedb-win32-x64-msvc
+    to: lancedb-win32-x64-msvc
+    filter: ['**/*']
+  # 窗口图标：main.ts 读取 process.resourcesPath/assets/logo.ico
+  - from: assets
+    to: assets
+    filter: ['**/*.ico', '**/*.png', '**/*.icns']
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  icon: assets/logo.ico
+
+nsis:
+  # 显示完整安装向导（非 Squirrel 一键安装）
+  oneClick: false
+  # 按用户安装，无需管理员权限
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: AutoDocxProofreading
+
+# 在打包后、签名前 flip Electron Fuses（替代原 forge FusesPlugin）
+# 注: electron-builder 25.x 不支持声明式 electronFuses 配置项，需用 afterPack 脚本
+afterPack: ./scripts/afterPack.js
