@@ -99,16 +99,20 @@
 
 <script setup lang="ts">
 import { Collection, FolderAdd, Delete } from '@element-plus/icons-vue'
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useEmbeddingStore } from '../stores/embeddingStore'
+import { useRepositoryStore } from '../stores/repositoryStore'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const { t } = useI18n()
 
 const fileStore = useEmbeddingStore()
+// 知识库列表改为统一从 repositoryStore 读取（与校对页面 DocPreview 共享同一份状态），
+// 这样在本页增删知识库后调 store.refresh()，DocPreview 的下拉列表也会同步更新。
+const repositoryStore = useRepositoryStore()
+const repositoryList = computed(() => repositoryStore.list)
 const activeIndex = ref('')
-const repositoryList = ref<string[]>([])
 const electronAPI = window.electronAPI
 const dialogFormVisible = ref(false)
 const submitting = ref(false)
@@ -195,16 +199,8 @@ const initSelect = async () => {
 }
 
 const getRepositories = async () => {
-  try {
-    const result = await electronAPI.listRepositories()
-    if (Array.isArray(result)) {
-      repositoryList.value = [...result]
-    }
-    return result
-  } catch (error) {
-    console.error('获取知识库列表失败:', error)
-    return []
-  }
+  // 统一走 store.refresh()，确保 DocPreview 等共享方也同步拿到最新列表。
+  return await repositoryStore.refresh()
 }
 
 const addRepositoryWindow = async () => {

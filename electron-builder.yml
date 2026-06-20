@@ -19,14 +19,6 @@ files:
   - '!**/node_modules/@napi-rs/**'
   - '!**/node_modules/@intlify/bundle-utils/**'
   - '!**/node_modules/{eslint,eslint-*,typescript,@typescript-eslint,@vitejs,electron-vite,electron-builder,vite,vitest,prettier,standard-version,husky,lint-staged,git-cz,@commitlint,@electron}/**'
-  # 方案B：排除 @lancedb/lancedb 的 optionalDependencies 平台子包。
-  # electron-builder 会按 optionalDependencies 把平台包复制成嵌套副本
-  # （@lancedb/lancedb/node_modules/@lancedb/lancedb-win32-x64-msvc，含 109MB .node）。
-  # 运行时 native.js 优先读 LANCEDB_NATIVE_PATH 环境变量，从 extraResources 那份加载，
-  # 永不走到 require('@lancedb/lancedb-win32-x64-msvc') 的 fallback，故此副本冗余。
-  # 直接按平台包名排除（跨 mac/linux/win 所有平台子包），保留顶层 @lancedb/lancedb/dist
-  - '!**/node_modules/@lancedb/lancedb-*/**'
-  - '!**/node_modules/@lancedb/lancedb/node_modules/**'
   # source map 在生产环境无用，且常被杀软锁定导致复制失败，一律排除
   - '!**/*.map'
   - '!**/node_modules/**/{esbuild.exe,*.md,*.markdown,*.ts,*.flow,LICENSE*,*.coffee,*.tar.gz}'
@@ -44,21 +36,21 @@ files:
 
 asar: true
 
-# 原生模块必须解包出 asar（.node / .dll 无法在 asar 内加载）
-# 注意：不能用 '**/*.{node,dll}' 这种宽匹配——会把上面 files 已排除的 lancedb 嵌套 .node
-# 在 asar 打包阶段重新解包出来（asarUnpack 优先级高于 files 排除）。
-# lancedb 的 .node 由 extraResources 放到 resources/lancedb-win32-x64-msvc，native.js 通过
-# LANCEDB_NATIVE_PATH 直接加载，不需要走 asarUnpack。这里只解包 sqlite3。
+# 原生模块必须解包出 asar（.node / .dll 无法在 asar 内加载）。
+# 这里只解包 sqlite3（其原生绑定 node_sqlite3.node）。
+# sqlite-vec 的 vec0.dll 走 extraResources（asar 外），不走 asarUnpack。
 asarUnpack:
   - '**/node_modules/sqlite3/**'
 
 # 放到 resources/ 下（asar 外），供主进程通过 process.resourcesPath 读取
 extraResources:
-  # LanceDB 原生库：main.ts 通过 LANCEDB_NATIVE_PATH 读取此目录
-  # 注意 to 不带 @lancedb/ 前缀，与 main.ts 中的路径拼接对齐
-  - from: node_modules/@lancedb/lancedb-win32-x64-msvc
-    to: lancedb-win32-x64-msvc
-    filter: ['**/*']
+  # sqlite-vec 向量扩展：vec0.dll 仅 289KB，运行时由 src/main/sqliteVec.ts 经
+  # process.resourcesPath/sqlite-vec/vec0.dll 加载（绕开 require.resolve，asar 内 .dll 不可靠）。
+  # 用途：知识库 RAG 检索，替代原 @lancedb（已移除），复用项目已有的 sqlite3 原生引擎。
+  # 仅打 win 时只需带 windows-x64 子包；将来加 mac/linux 再补对应平台子包到同一 to 目录。
+  - from: node_modules/sqlite-vec-windows-x64
+    to: sqlite-vec
+    filter: ['**/*.dll']
   # 窗口图标：main.ts 读取 process.resourcesPath/assets/logo.ico
   - from: assets
     to: assets

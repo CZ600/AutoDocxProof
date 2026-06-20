@@ -185,6 +185,7 @@ import {
 import { renderAsync } from 'docx-preview'
 import { fileInfoStore } from '../stores/store'
 import { useEmbeddingStore } from '../stores/embeddingStore'
+import { useRepositoryStore } from '../stores/repositoryStore'
 import { useApiStore } from '../stores/apiStore'
 import { Collection, Document, ArrowDown, Select, RefreshLeft } from '@element-plus/icons-vue'
 import { useDark } from '@vueuse/core'
@@ -249,7 +250,10 @@ const progressStageText = computed(() => {
   return stageMap[progressStage.value] || t('proof.progress.default')
 })
 
-const repositoryList = ref([])
+// 知识库列表统一从 repositoryStore 读取（与 Dictionary 视图共享同一份状态）。
+// 这样在 Dictionary 页删除/新增知识库后，本下拉列表会通过 store 响应式自动更新。
+const repositoryStore = useRepositoryStore()
+const repositoryList = computed(() => repositoryStore.list)
 const selectRepository = ref([])
 
 const normalizeCorrectionType = type => {
@@ -691,16 +695,8 @@ const toggleFormatClone = () => {
 }
 
 const getRepositories = async () => {
-  try {
-    const result = await electronAPI.listRepositories()
-    if (Array.isArray(result)) {
-      repositoryList.value = [...result]
-    }
-    return result
-  } catch (error) {
-    console.error('获取知识库列表失败:', error)
-    return []
-  }
+  // 统一走 store.refresh()，与 Dictionary 视图共享同一份列表状态。
+  return await repositoryStore.refresh()
 }
 
 const pushToDB = async resultCorrect => {

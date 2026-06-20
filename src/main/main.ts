@@ -112,29 +112,14 @@ app.whenReady().then(async () => {
     }
   })
 
-  // 判断是否为开发环境（electron-vite 下用 app.isPackaged 替代原 forge 注入常量）
-  const isDev = !app.isPackaged
-
-  let nativeModulePath
-  if (isDev) {
-    // 开发环境：假设原生模块在项目根目录的 resources/ 下
-    // const projectRoot = app.getAppPath(); // 项目根目录
-    // nativeModulePath = path.join(projectRoot, 'resources', 'lancedb-win32-x64-msvc');
-    // 开发环境不设置
-  } else {
-    // 生产环境：原生模块由 electron-builder 的 extraResources 放到 resources/lancedb-win32-x64-msvc
-    // 直接用 process.resourcesPath（比 app.getPath('exe')/resources 更可靠，跨工具链一致）
-    nativeModulePath = path.join(process.resourcesPath, 'lancedb-win32-x64-msvc')
-  }
-
-  process.env.LANCEDB_NATIVE_PATH = nativeModulePath
-  process.env.PATH = `${nativeModulePath};${process.env.PATH}`
-
+  // 初始化知识库（基于 sqlite-vec，原 @lancedb 已移除）。
+  // vec0 扩展路径由 src/main/sqliteVec.ts 自行解析（开发用 require.resolve，生产用 resourcesPath），
+  // 不再需要 LANCEDB_NATIVE_PATH 环境变量。
   try {
     await initLanceDB()
-    console.log('LanceDB initialized successfully')
+    console.log('Knowledge DB (sqlite-vec) initialized successfully')
   } catch (error) {
-    console.error('Failed to initialize LanceDB:', error)
+    console.error('Failed to initialize knowledge DB:', error)
   }
 })
 

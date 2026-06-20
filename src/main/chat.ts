@@ -229,6 +229,31 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+/**
+ * 规范化 OpenAI 兼容接口的 baseURL，确保以 /v1 结尾（不含多余后缀）。
+ *
+ * 背景：OpenAI SDK 会在 baseURL 后自动拼接 /embeddings 或 /chat/completions，
+ * 因此 baseURL 必须是 "根 + /v1"。但用户在设置页常误填为：
+ *   - "http://127.0.0.1:1234"            （缺 /v1）→ LM Studio 返回
+ *       {"error":"Unexpected endpoint or method. (POST /embeddings)"}，
+ *       SDK 不抛异常，response.data 为 undefined，表现为"data字段缺失或为空"。
+ *   - "http://127.0.0.1:1234/v1/embeddings"（多 /embeddings）→ 404。
+ *   - "http://127.0.0.1:1234/v1/"         （末尾斜杠）→ 正常，但统一去除更干净。
+ *
+ * 这里做幂等的归一化：先剥离末尾 / 和任何 /embeddings|/chat/completions 后缀，
+ * 再补 /v1（若没有 /v[0-9] 段）。
+ */
+function normalizeOpenAIBaseURL(rawURL: string): string {
+  let url = (rawURL || '').trim().replace(/\/+$/, '')
+  // 去掉用户误带的具体接口后缀
+  url = url.replace(/\/embeddings$/i, '').replace(/\/chat\/completions$/i, '')
+  // 若不含版本段（如 /v1），则补上 /v1
+  if (!/\/v\d+(\/|$)/i.test(url)) {
+    url = `${url}/v1`
+  }
+  return url
+}
+
 function shouldRetryEmbedding(error: any): boolean {
   const status = error?.status ?? error?.response?.status
   if (status && [500, 502, 503, 504].includes(status)) return true
@@ -278,7 +303,7 @@ export async function getEmbedding(text: string | string[], modelName: string, a
 
   const openai = new OpenAI({
     apiKey: apiKey_input,
-    baseURL: apiURL
+    baseURL: normalizeOpenAIBaseURL(apiURL)
   })
 
   const maxAttempts = 5
@@ -287,14 +312,42 @@ export async function getEmbedding(text: string | string[], modelName: string, a
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const requestInput = Array.isArray(text) ? text : [text]
+      // 关键：显式指定 encoding_format='float'。
+      // OpenAI SDK v5 默认用 base64，但 LM Studio / Ollama 等本地服务对部分模型
+      // （如 nomic-embed-text-v1.5、embeddinggemma）的 base64 响应解码有 bug——
+      // 会返回错误维度（如 192 而非 768）且全零向量，导致入库/查询的向量全是 0，
+      // KNN 余弦距离恒为 null，RAG 检索 100% 失效。强制 float 绕开此问题。
+      // 官方 OpenAI / Azure 等云端服务对 float 同样完全支持，无副作用。
       const response = await openai.embeddings.create({
         model: modelName,
-        input: requestInput
+        input: requestInput,
+        encoding_format: 'float'
       })
+
+      // 部分 OpenAI 兼容服务（LM Studio / Ollama 等）在 baseURL 不带 /v1 时，
+      // 会返回 HTTP 200 但 body 是 {"error":"Unexpected endpoint..."}，SDK 不会抛异常。
+      // 这里显式识别这种非标准错误体，避免落入下方"data字段缺失"的误导分支。
+      const anyResp = response as any
+      if (anyResp && typeof anyResp.error === 'string' && anyResp.error) {
+        throw new Error(
+          `嵌入服务返回错误: ${anyResp.error}` +
+            `（请检查 API 地址是否以 /v1 结尾，当前地址: ${apiURL}）`
+        )
+      }
+      if (anyResp && anyResp.error && typeof anyResp.error === 'object') {
+        throw new Error(
+          `嵌入服务返回错误: ${anyResp.error.message || JSON.stringify(anyResp.error)}` +
+            `（请检查 API 地址是否以 /v1 结尾，当前地址: ${apiURL}）`
+        )
+      }
 
       // 检查响应有效性
       if (!response || !response.data || !Array.isArray(response.data) || response.data.length === 0) {
-        throw new Error('嵌入API返回了无效的响应格式，data字段缺失或为空')
+        throw new Error(
+          '嵌入API返回了无效的响应格式，data字段缺失或为空。' +
+            '请确认：1) API 地址以 /v1 结尾（如 http://127.0.0.1:1234/v1）；' +
+            '2) 模型是专门的 embedding 模型；3) 服务端已加载该模型。'
+        )
       }
 
       // 返回embedding结果
